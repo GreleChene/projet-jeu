@@ -48,8 +48,9 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - **Écus** 🪙 : trésor collectif de la partie en cours (éliminations, récoltes des paysans). L'équipe le dépense lors des votes.
 - **Glaçons 🧊 (coffres).**
   - On gagne 1 glaçon par manche passée, ou on l'achète 75 Grêlons.
-  - Chaque glaçon contient un objet utilisable par la classe actuelle : 60 % une pièce du set de sa famille, 40 % une pièce d'un set universel.
+  - Contenu : 60 % une pièce d'un set universel, 35 % une pièce du set de sa classe, 5 % une pièce du set d'une **autre** classe (à vendre, donner ou échanger).
   - À l'ouverture, une animation montre le glaçon qui tremble, se fissure et éclate. Sa lueur intérieure trahit la rareté.
+  - **Recyclage** : un objet recyclé rapporte des éclats de glace, d'autant plus qu'il est rare (1, 2, 4, 10, 25… éclats). 10 éclats font 1 glaçon. En moyenne, recycler rapporte 0,28 glaçon par glaçon ouvert : impossible de « farmer ».
 - **Raretés.**
 
   | Rareté | Probabilité | Bonus |
@@ -59,9 +60,10 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   | Rare | 14 % | ×1,55 |
   | Épique | 6 % | ×1,9 |
   | Légendaire | 1,9 % | ×2,4 |
-  | Mystique (secrète, affichée « ??? » dans les règles) | 0,1 % | ×3,2 |
+  | Mystique | 0,1 % | ×3,2 |
 
-  Plus la rareté est haute, plus l'objet est détaillé sur le personnage (dorures pour le légendaire, runes et aura cyan pour le mystique).
+  La rareté mystique est **entièrement cachée** (règles, inventaire, place marchande, journal du stream) tant que le joueur n'en a pas trouvé une. Plus la rareté est haute, plus l'objet est détaillé sur le personnage.
+- **Place marchande.** Les joueurs vendent leurs objets en Grêlons (éventuellement réservés à un joueur), les offrent, ou proposent des échanges objet contre objet (+ Grêlons). Un objet en vente ou en échange ne peut être ni porté ni recyclé.
 - **Sets.** Il y a 5 emplacements : casque, torse, pantalon, chaussures et arme.
   - Un set par famille de classes (5 pièces, arme comprise) : Rempart (soldat), Arcaniste (mage), Maître-bête (éleveur), Œil-de-faucon (archer), Lame-nuit (assassin), Moisson (paysan).
   - Trois sets universels (4 pièces), portables par toutes les classes : Voyageur, Givre éternel, Braise.

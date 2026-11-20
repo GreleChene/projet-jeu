@@ -22,13 +22,13 @@ function legacyPrice(id) {
   return 0;
 }
 
-let data = { users: {}, sessions: {}, settings: {} };
+let data = { users: {}, sessions: {}, settings: {}, market: [], trades: [] };
 let dirty = false;
 
 function load() {
   try {
     data = JSON.parse(fs.readFileSync(config.DATA_FILE, 'utf8'));
-    data.users ||= {}; data.sessions ||= {}; data.settings ||= {};
+    data.users ||= {}; data.sessions ||= {}; data.settings ||= {}; data.market ||= []; data.trades ||= [];
     for (const u of Object.values(data.users)) migrateUser(u);
     dirty = true; // enregistre les migrations éventuelles
   } catch (e) {
@@ -66,6 +66,8 @@ function migrateUser(u) {
   u.equip ||= {};
   for (const s of SLOTS) if (u.equip[s] && !u.inventory.some((it) => it.uid === u.equip[s])) delete u.equip[s];
   u.glacons ||= 0;
+  u.iceShards ||= 0;
+  if (u.inventory.some((it) => it.r >= 5)) u.mysticFound = true;
   u.stats ||= { kills: 0, runs: 0, bestWave: 0, deaths: 0, bossKills: 0 };
   u.cls ||= 'habitant';
   u.level ||= 1; u.xp ||= 0; u.gold ||= 0;
@@ -112,6 +114,8 @@ const db = {
   allUsers: () => Object.values(data.users),
   deleteUser(id) {
     delete data.users[id];
+    data.market = data.market.filter((l) => l.sellerId !== id && l.reservedFor !== id);
+    data.trades = data.trades.filter((t) => t.fromId !== id && t.toId !== id);
     for (const [t, s] of Object.entries(data.sessions)) if (s.userId === id) delete data.sessions[t];
     markDirty();
   },

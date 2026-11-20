@@ -89,7 +89,9 @@ function publicUser(u) {
   return {
     id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', cls: u.cls, level: u.level, xp: u.xp, xpNext: GD.PROGRESSION.xpForLevel(u.level),
     gold: u.gold, look: u.look, inventory: u.inventory, equip: u.equip, glacons: u.glacons, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id),
-    attrs: u.attrs, attrPoints: u.attrPoints
+    attrs: u.attrs, attrPoints: u.attrPoints, iceShards: u.iceShards || 0, mysticFound: !!u.mysticFound,
+    locked: Object.fromEntries(u.inventory.map((it) => [it.uid, lockOf(u, it.uid)]).filter(([, l]) => l)),
+    incomingTrades: db.data.trades.filter((t) => t.toId === u.id).length
   };
 }
 
@@ -205,15 +207,44 @@ app.post('/api/me/attrs/reset', auth, (req, res) => {
 });
 
 /* ============================== Équipement & glaçons ============================== */
+// Un objet en vente ou proposé dans un échange est « verrouillé » : ni équipable, ni recyclable
+function lockOf(u, uid) {
+  if (db.data.market.some((l) => l.sellerId === u.id && l.uid === uid)) return 'vente';
+  if (db.data.trades.some((t) => (t.fromId === u.id && t.give === uid) || (t.toId === u.id && t.want === uid))) return 'échange';
+  return null;
+}
+function findItem(u, uid) { return u.inventory.find((x) => x.uid === uid) || null; }
+function isWorn(u, uid) { return Object.values(u.equip).includes(uid); }
+// Retire un objet d'un inventaire (et le déséquipe)
+function takeItem(u, uid) {
+  const it = findItem(u, uid);
+  if (!it) return null;
+  u.inventory = u.inventory.filter((x) => x !== it);
+  for (const s of GD.SLOTS) if (u.equip[s] === uid) delete u.equip[s];
+  return it;
+}
+function giveItem(u, it) {
+  u.inventory.push({ ...it, at: Date.now() });
+  if (it.r >= 5) u.mysticFound = true; // la rareté secrète est découverte
+}
+function refreshUser(u) { const h = game.heroes.get(u.id); if (h) game.refreshHero(h); }
+// Annule ventes et échanges qui concernent un objet qui a changé de main
+function purgeItem(uid) {
+  db.data.market = db.data.market.filter((l) => l.uid !== uid);
+  db.data.trades = db.data.trades.filter((t) => t.give !== uid && t.want !== uid);
+}
+
 app.put('/api/me/equip', auth, (req, res) => {
   const u = req.user;
   const { uid, slot } = req.body || {};
   if (uid === null && GD.SLOTS.includes(slot)) {
     delete u.equip[slot];
   } else {
-    const it = u.inventory.find((x) => x.uid === uid);
+    const it = findItem(u, uid);
     if (!it) return res.status(400).json({ error: 'Objet introuvable' });
     if (!GD.canUse(it.t, u.cls)) return res.status(400).json({ error: 'Cet objet n’est pas fait pour ta classe.' });
+    const lock = lockOf(u, uid);
+    if (lock) return res.status(400).json({ error: `Cet objet est en ${lock}.` });
     u.equip[GD.TEMPLATES[it.t].slot] = it.uid;
   }
   afterProfileChange(u);
@@ -222,14 +253,20 @@ app.put('/api/me/equip', auth, (req, res) => {
 
 app.post('/api/inventory/recycle', auth, (req, res) => {
   const u = req.user;
-  const it = u.inventory.find((x) => x.uid === (req.body || {}).uid);
+  const it = findItem(u, (req.body || {}).uid);
   if (!it) return res.status(400).json({ error: 'Objet introuvable' });
-  if (Object.values(u.equip).includes(it.uid)) return res.status(400).json({ error: 'Retire d’abord cet objet.' });
-  const gain = GD.RARITIES[it.r].recycle;
-  u.inventory = u.inventory.filter((x) => x !== it);
-  u.gold += gain;
+  if (isWorn(u, it.uid)) return res.status(400).json({ error: 'Retire d’abord cet objet.' });
+  const lock = lockOf(u, it.uid);
+  if (lock) return res.status(400).json({ error: `Cet objet est en ${lock}.` });
+  const shards = GD.RARITIES[it.r].shards;
+  takeItem(u, it.uid);
+  u.iceShards = (u.iceShards || 0) + shards;
+  const per = GD.GLACONS.SHARDS_PER_GLACON;
+  const gained = Math.floor(u.iceShards / per);
+  u.glacons += gained;
+  u.iceShards -= gained * per;
   afterProfileChange(u);
-  res.json({ user: publicUser(u), gain });
+  res.json({ user: publicUser(u), shards, glacons: gained });
 });
 
 app.post('/api/glacons/buy', auth, (req, res) => {
@@ -249,19 +286,177 @@ app.post('/api/glacons/open', auth, (req, res) => {
   if (u.inventory.length >= 300) return res.status(400).json({ error: 'Inventaire plein (300 objets) : recycle des objets.' });
   u.glacons--;
   const item = rollItem(u.cls);
-  u.inventory.push(item);
+  giveItem(u, item);
   db.markDirty();
-  if (item.r >= 4) game.pushFeed(`${item.r === 5 ? '🌌' : '✨'} ${u.pseudo} obtient un objet ${GD.RARITIES[item.r].name.toLowerCase()} : ${GD.itemName(item, u.cls)} !`);
+  // la rareté secrète n'est jamais nommée publiquement
+  if (item.r === 5) game.pushFeed(`🌌 ${u.pseudo} a trouvé quelque chose d’inconnu dans un glaçon…`);
+  else if (item.r === 4) game.pushFeed(`✨ ${u.pseudo} obtient un objet légendaire : ${GD.itemName(item, u.cls)} !`);
   res.json({ user: publicUser(u), item });
 });
 
-// Contenu d'un glaçon : une pièce utilisable par la classe actuelle du joueur
+// Contenu d'un glaçon : 60% universel, 35% set de sa classe, 5% set d'une autre classe
 function rollItem(cls) {
-  const ids = Object.keys(GD.TEMPLATES).filter((t) => GD.canUse(t, cls));
-  const classIds = ids.filter((t) => GD.TEMPLATES[t].families);
-  const pool = classIds.length && Math.random() < GD.GLACONS.CLASS_SET_CHANCE ? classIds : ids.filter((t) => !GD.TEMPLATES[t].families);
+  const all = Object.keys(GD.TEMPLATES);
+  const fam = GD.familyOf(cls);
+  const universal = all.filter((t) => !GD.TEMPLATES[t].families);
+  const mine = all.filter((t) => GD.TEMPLATES[t].families && GD.TEMPLATES[t].families.includes(fam));
+  const others = all.filter((t) => GD.TEMPLATES[t].families && !GD.TEMPLATES[t].families.includes(fam));
+  const x = Math.random();
+  const G = GD.GLACONS;
+  let pool;
+  if (x < G.OTHER_CLASS_CHANCE) pool = others;
+  else if (x < G.OTHER_CLASS_CHANCE + G.UNIVERSAL_CHANCE || !mine.length) pool = universal;
+  else pool = mine;
   const t = pool[Math.floor(Math.random() * pool.length)];
   return { uid: crypto.randomUUID(), t, r: GD.rollRarity(), at: Date.now() };
+}
+
+/* ============================== Place marchande ============================== */
+const pubItem = (it) => (it ? { uid: it.uid, t: it.t, r: it.r } : null);
+const pseudoOf = (id) => (db.userById(id) || {}).pseudo || '?';
+
+app.get('/api/market', auth, (req, res) => {
+  const u = req.user;
+  const listings = [];
+  for (const l of db.data.market) {
+    if (l.reservedFor && l.reservedFor !== u.id && l.sellerId !== u.id) continue;
+    const s = db.userById(l.sellerId);
+    const it = s && !s.banned && findItem(s, l.uid);
+    if (!it) continue;
+    listings.push({ id: l.id, item: pubItem(it), price: l.price, seller: s.pseudo, mine: l.sellerId === u.id, reservedFor: l.reservedFor ? pseudoOf(l.reservedFor) : null, at: l.at });
+  }
+  const trades = db.data.trades.filter((t) => t.fromId === u.id || t.toId === u.id).map((t) => {
+    const from = db.userById(t.fromId), to = db.userById(t.toId);
+    return {
+      id: t.id, incoming: t.toId === u.id, from: pseudoOf(t.fromId), to: pseudoOf(t.toId), gold: t.gold,
+      give: pubItem(from && findItem(from, t.give)), want: t.want ? pubItem(to && findItem(to, t.want)) : null, at: t.at
+    };
+  });
+  res.json({ listings: listings.sort((a, b) => b.at - a.at), trades });
+});
+
+// Vitrine d'un joueur (pour lui proposer un échange)
+app.get('/api/players/:pseudo/items', auth, (req, res) => {
+  const o = db.userByPseudo(req.params.pseudo);
+  if (!o || o.banned) return res.status(404).json({ error: 'Joueur introuvable' });
+  res.json({ pseudo: o.pseudo, cls: o.cls, items: o.inventory.filter((it) => !isWorn(o, it.uid) && !lockOf(o, it.uid)).map(pubItem) });
+});
+
+app.post('/api/market/sell', auth, (req, res) => {
+  const u = req.user;
+  const { uid, reservedFor } = req.body || {};
+  const price = Math.floor(Number((req.body || {}).price));
+  const it = findItem(u, uid);
+  if (!it) return res.status(400).json({ error: 'Objet introuvable' });
+  if (!(price >= 1 && price <= 1_000_000)) return res.status(400).json({ error: 'Prix invalide (1 à 1 000 000 Grêlons).' });
+  if (lockOf(u, uid)) return res.status(400).json({ error: 'Objet déjà en vente ou en échange.' });
+  if (db.data.market.filter((l) => l.sellerId === u.id).length >= 20) return res.status(400).json({ error: '20 objets en vente maximum.' });
+  let reserved = null;
+  if (reservedFor) {
+    const o = db.userByPseudo(reservedFor);
+    if (!o || o.id === u.id) return res.status(400).json({ error: 'Joueur introuvable.' });
+    reserved = o.id;
+  }
+  for (const s of GD.SLOTS) if (u.equip[s] === uid) delete u.equip[s];
+  db.data.market.push({ id: crypto.randomUUID(), sellerId: u.id, uid, price, reservedFor: reserved, at: Date.now() });
+  afterProfileChange(u);
+  res.json({ user: publicUser(u) });
+});
+
+app.post('/api/market/cancel', auth, (req, res) => {
+  const u = req.user;
+  const id = (req.body || {}).id;
+  const n = db.data.market.length;
+  db.data.market = db.data.market.filter((l) => !(l.id === id && l.sellerId === u.id));
+  if (db.data.market.length === n) return res.status(404).json({ error: 'Annonce introuvable' });
+  db.markDirty();
+  res.json({ user: publicUser(u) });
+});
+
+app.post('/api/market/buy', auth, (req, res) => {
+  const u = req.user;
+  const l = db.data.market.find((x) => x.id === (req.body || {}).id);
+  if (!l) return res.status(404).json({ error: 'Cette annonce n’existe plus.' });
+  if (l.sellerId === u.id) return res.status(400).json({ error: 'C’est ta propre annonce.' });
+  if (l.reservedFor && l.reservedFor !== u.id) return res.status(403).json({ error: 'Annonce réservée à un autre joueur.' });
+  if (u.gold < l.price) return res.status(400).json({ error: 'Pas assez de Grêlons' });
+  if (u.inventory.length >= 300) return res.status(400).json({ error: 'Inventaire plein.' });
+  const seller = db.userById(l.sellerId);
+  const it = seller && takeItem(seller, l.uid);
+  if (!it) { purgeItem(l.uid); db.markDirty(); return res.status(410).json({ error: 'Objet plus disponible.' }); }
+  purgeItem(l.uid);
+  u.gold -= l.price;
+  seller.gold += l.price;
+  giveItem(u, it);
+  refreshUser(seller);
+  afterProfileChange(u);
+  notify(seller.id, `💰 ${u.pseudo} a acheté ${GD.itemName(it, seller.cls)} pour ${l.price} Grêlons.`);
+  res.json({ user: publicUser(u), item: pubItem(it) });
+});
+
+app.post('/api/market/gift', auth, (req, res) => {
+  const u = req.user;
+  const { uid, to } = req.body || {};
+  const o = db.userByPseudo(to || '');
+  if (!o || o.banned || o.id === u.id) return res.status(400).json({ error: 'Joueur introuvable.' });
+  if (!findItem(u, uid)) return res.status(400).json({ error: 'Objet introuvable' });
+  if (lockOf(u, uid)) return res.status(400).json({ error: 'Objet en vente ou en échange.' });
+  if (o.inventory.length >= 300) return res.status(400).json({ error: 'L’inventaire de ce joueur est plein.' });
+  const it = takeItem(u, uid);
+  purgeItem(uid);
+  giveItem(o, it);
+  afterProfileChange(u);
+  refreshUser(o);
+  notify(o.id, `🎁 ${u.pseudo} t’a offert ${GD.itemName(it, o.cls)} !`);
+  res.json({ user: publicUser(u) });
+});
+
+// Échange : mon objet (+ Grêlons éventuels) contre un objet d'un autre joueur
+app.post('/api/market/trade', auth, (req, res) => {
+  const u = req.user;
+  const { give, want, to } = req.body || {};
+  const gold = Math.max(0, Math.floor(Number((req.body || {}).gold) || 0));
+  const o = db.userByPseudo(to || '');
+  if (!o || o.banned || o.id === u.id) return res.status(400).json({ error: 'Joueur introuvable.' });
+  if (!findItem(u, give) || lockOf(u, give)) return res.status(400).json({ error: 'Ton objet est introuvable, en vente ou déjà proposé.' });
+  if (!findItem(o, want) || lockOf(o, want) || isWorn(o, want)) return res.status(400).json({ error: 'L’objet demandé n’est pas disponible.' });
+  if (gold > u.gold) return res.status(400).json({ error: 'Pas assez de Grêlons.' });
+  if (db.data.trades.filter((t) => t.fromId === u.id).length >= 10) return res.status(400).json({ error: '10 propositions en attente maximum.' });
+  for (const s of GD.SLOTS) if (u.equip[s] === give) delete u.equip[s];
+  db.data.trades.push({ id: crypto.randomUUID(), fromId: u.id, toId: o.id, give, want, gold, at: Date.now() });
+  afterProfileChange(u);
+  notify(o.id, `🔄 ${u.pseudo} te propose un échange (place marchande).`);
+  res.json({ user: publicUser(u) });
+});
+
+app.post('/api/market/trade/:id/:action', auth, (req, res) => {
+  const u = req.user;
+  const t = db.data.trades.find((x) => x.id === req.params.id);
+  if (!t || (t.fromId !== u.id && t.toId !== u.id)) return res.status(404).json({ error: 'Proposition introuvable' });
+  const action = req.params.action;
+  if (action === 'cancel' || action === 'refuse') {
+    db.data.trades = db.data.trades.filter((x) => x !== t);
+    db.markDirty();
+    if (action === 'refuse') notify(t.fromId, `❌ ${u.pseudo} a refusé ton échange.`);
+    return res.json({ user: publicUser(u) });
+  }
+  if (action !== 'accept' || t.toId !== u.id) return res.status(400).json({ error: 'Action impossible' });
+  const from = db.userById(t.fromId);
+  if (!from || !findItem(from, t.give) || !findItem(u, t.want)) { db.data.trades = db.data.trades.filter((x) => x !== t); db.markDirty(); return res.status(410).json({ error: 'Un des objets n’est plus disponible.' }); }
+  if (from.gold < t.gold) return res.status(400).json({ error: `${from.pseudo} n’a plus assez de Grêlons.` });
+  const a = takeItem(from, t.give), b = takeItem(u, t.want);
+  purgeItem(t.give); purgeItem(t.want);
+  giveItem(u, a); giveItem(from, b);
+  from.gold -= t.gold; u.gold += t.gold;
+  afterProfileChange(u);
+  refreshUser(from);
+  notify(from.id, `✅ ${u.pseudo} a accepté ton échange !`);
+  res.json({ user: publicUser(u) });
+});
+
+// Notification en direct au joueur connecté
+function notify(userId, text) {
+  for (const s of io.sockets.sockets.values()) if (s.data.userId === userId) s.emit('notify', text);
 }
 
 app.get('/api/leaderboard', (req, res) => {

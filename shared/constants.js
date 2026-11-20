@@ -137,12 +137,12 @@
 
   // Raretés. « shape » = niveau de détail du dessin (1 à 4). La rareté mystique est secrète.
   const RARITIES = [
-    { id: 'commun', name: 'Commun', color: '#b8b3c2', mult: 1, p: 0.5, shape: 1, recycle: 5 },
-    { id: 'peu_commun', name: 'Peu commun', color: '#6cc86a', mult: 1.25, p: 0.28, shape: 1, recycle: 12 },
-    { id: 'rare', name: 'Rare', color: '#4a9cff', mult: 1.55, p: 0.14, shape: 2, recycle: 30 },
-    { id: 'epique', name: 'Épique', color: '#b066ff', mult: 1.9, p: 0.06, shape: 3, recycle: 75 },
-    { id: 'legendaire', name: 'Légendaire', color: '#ff9f1a', mult: 2.4, p: 0.019, shape: 3, recycle: 200 },
-    { id: 'mystique', name: 'Mystique', color: '#2fd6e0', mult: 3.2, p: 0.001, shape: 4, recycle: 800, hidden: true }
+    { id: 'commun', name: 'Commun', color: '#b8b3c2', mult: 1, p: 0.5, shape: 1, shards: 1 },
+    { id: 'peu_commun', name: 'Peu commun', color: '#6cc86a', mult: 1.25, p: 0.28, shape: 1, shards: 2 },
+    { id: 'rare', name: 'Rare', color: '#4a9cff', mult: 1.55, p: 0.14, shape: 2, shards: 4 },
+    { id: 'epique', name: 'Épique', color: '#b066ff', mult: 1.9, p: 0.06, shape: 3, shards: 10 },
+    { id: 'legendaire', name: 'Légendaire', color: '#ff9f1a', mult: 2.4, p: 0.019, shape: 3, shards: 25 },
+    { id: 'mystique', name: 'Mystique', color: '#2fd6e0', mult: 3.2, p: 0.001, shape: 4, shards: 100, hidden: true }
   ];
   function rollRarity(rnd) {
     let x = (rnd || Math.random)();
@@ -151,7 +151,9 @@
   }
 
   // Glaçons (coffres)
-  const GLACONS = { PRICE: 75, PER_WAVE: 1, CLASS_SET_CHANCE: 0.6, START: 3 };
+  // Contenu : 60% set universel, 35% set de sa classe, 5% set d'une AUTRE classe (à échanger sur la place marchande)
+  // Recyclage : la rareté rapporte des éclats de glace ; SHARDS_PER_GLACON éclats = 1 glaçon
+  const GLACONS = { PRICE: 75, PER_WAVE: 1, START: 3, UNIVERSAL_CHANCE: 0.6, OTHER_CLASS_CHANCE: 0.05, SHARDS_PER_GLACON: 10 };
 
   /*
    * Styles de dessin (formes) : heavy (lourd), cloth (étoffe), leather (cuir), worker (travail).

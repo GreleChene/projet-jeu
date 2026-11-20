@@ -48,6 +48,7 @@
         <button data-tab="hero">🧬 Classe</button>
         <button data-tab="stats">📊 Statistiques <span class="badge hidden" id="ptsBadge"></span></button>
         <button data-tab="equip">🎒 Équipement <span class="badge hidden" id="iceBadge"></span></button>
+        <button data-tab="market">🏪 Place marchande <span class="badge hidden" id="tradeBadge"></span></button>
         <button data-tab="gear">🎨 Apparence</button>
         <button data-tab="ai">🧠 IA</button>
         <button data-tab="ladder">🏆 Classement</button>
@@ -129,10 +130,11 @@
         <div class="grid two">
           <div class="panel ice-panel">
             <div class="row"><h2 style="margin:0">Glaçons</h2><span class="spacer"></span><span class="chip gold" id="eqGold"></span></div>
-            <p class="small muted">Chaque glaçon renferme un objet (arme ou armure) adapté à ta classe. Tu gagnes 1 glaçon par manche passée, ou tu peux en acheter.</p>
+            <p class="small muted">Chaque glaçon renferme un objet (arme ou armure) : souvent universel, parfois de ta classe… et parfois d’une autre classe, à échanger sur la place marchande. Tu gagnes 1 glaçon par manche passée, ou tu peux en acheter.</p>
             <div class="ice-shelf">
               <div class="ice-mini" aria-hidden="true"></div>
               <div><b class="ice-count" id="iceCount">0</b><div class="small muted">glaçon(s)</div></div>
+              <div style="flex:1"><div class="small muted" id="shardInfo"></div><div class="bar" style="margin-top:4px"><span id="shardBar" style="background:#9fd3ff"></span></div></div>
             </div>
             <div class="row" style="margin-top:12px">
               <button class="primary" id="openIce">🧊 Briser un glaçon</button>
@@ -153,6 +155,41 @@
           <nav class="tabs" id="invTabs" style="margin-top:10px"></nav>
           <div class="inv" id="invList"></div>
           <div class="error" id="invError"></div>
+        </div>
+      </div>
+
+      <!-- Place marchande -->
+      <div data-view="market" class="hidden">
+        <div class="panel">
+          <div class="row"><h2 style="margin:0">Annonces</h2><span class="spacer"></span><span class="chip gold" id="mkGold"></span></div>
+          <p class="small muted">Achète aux autres joueurs les objets dont tu as besoin : les glaçons donnent parfois des pièces d’autres classes !</p>
+          <nav class="tabs" id="mkFilters" style="margin-top:8px"></nav>
+          <div class="inv" id="mkList"></div>
+          <div class="error" id="mkError"></div>
+        </div>
+        <div class="grid two">
+          <div class="panel">
+            <h2>Vendre, donner, échanger</h2>
+            <label for="mkItem">Objet de ton inventaire</label>
+            <select id="mkItem"></select>
+            <div id="mkPreview" style="margin-top:8px"></div>
+            <h3 style="margin-top:14px">💰 Vendre</h3>
+            <div class="row"><input id="mkPrice" type="number" min="1" placeholder="Prix en Grêlons" style="flex:1"><input id="mkReserved" placeholder="Réservé à (pseudo, facultatif)" style="flex:1"></div>
+            <button class="primary" id="mkSell" style="margin-top:8px">Mettre en vente</button>
+            <h3 style="margin-top:14px">🎁 Donner</h3>
+            <div class="row"><input id="mkGiftTo" placeholder="Pseudo du joueur" style="flex:1"><button id="mkGift">Donner</button></div>
+            <h3 style="margin-top:14px">🔄 Proposer un échange</h3>
+            <div class="row"><input id="mkTradeTo" placeholder="Pseudo du joueur" style="flex:1"><button id="mkLoadShowcase">Voir ses objets</button></div>
+            <div id="mkShowcase" class="inv" style="margin-top:8px"></div>
+            <div class="row" style="margin-top:8px"><input id="mkTradeGold" type="number" min="0" placeholder="+ Grêlons (facultatif)" style="flex:1"><button class="primary" id="mkTrade" disabled>Proposer l’échange</button></div>
+            <div class="error" id="mkFormError"></div>
+          </div>
+          <div class="panel">
+            <h2>Mes échanges</h2>
+            <div id="mkTrades"></div>
+            <h2 style="margin-top:16px">Mes annonces</h2>
+            <div id="mkMine" class="inv"></div>
+          </div>
         </div>
       </div>
 

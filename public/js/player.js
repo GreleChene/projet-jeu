@@ -84,6 +84,12 @@
   function connect() {
     socket = io({ transports: ['websocket', 'polling'] });
     socket.on('state', (s) => { live = s; renderLive(); });
+    // notifications (achat, don, échange…)
+    socket.on('notify', async (text) => {
+      toast(text);
+      try { setUser((await api('/api/me')).user); } catch (e) { /* */ }
+      if (!$('[data-view="market"]').classList.contains('hidden')) loadMarket();
+    });
     socket.on('connect_error', () => {});
   }
 
@@ -92,6 +98,7 @@
     $$('#tabs [data-tab]').forEach((x) => x.classList.toggle('active', x === b));
     $$('[data-view]').forEach((v) => v.classList.toggle('hidden', v.dataset.view !== b.dataset.tab));
     if (b.dataset.tab === 'ladder') loadLadder();
+    if (b.dataset.tab === 'market') loadMarket();
   }));
 
   function renderAll() {
@@ -105,6 +112,7 @@
     renderGear();
     renderEquip();
     renderRules();
+    renderMarket();
     renderAI();
     renderStats();
   }
@@ -314,6 +322,25 @@
   const SLOT_ICONS = { head: '⛑️', body: '🦺', legs: '👖', feet: '👢', weapon: '🗡️' };
   let invFilter = 'all';
   const R = (i) => GD.RARITIES[i] || GD.RARITIES[0];
+  // La rareté secrète reste « ??? » tant que le joueur ne l'a pas trouvée
+  const rarName = (r) => (GD.RARITIES[r] && GD.RARITIES[r].hidden && !me.mysticFound ? '???' : R(r).name);
+  const rarColor = (r) => (GD.RARITIES[r] && GD.RARITIES[r].hidden && !me.mysticFound ? '#a596b8' : R(r).color);
+  const shardsToIce = (n) => (n / GD.GLACONS.SHARDS_PER_GLACON).toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+  const LOCK_LABEL = { 'vente': '🏪 En vente', 'échange': '🔄 Proposé en échange' };
+
+  // Carte d'objet réutilisable (inventaire, place marchande)
+  function itemCard(it, opts = {}) {
+    const t = GD.TEMPLATES[it.t], usable = GD.canUse(it.t, me.cls);
+    return el('div', { class: 'inv-item' + (usable || opts.noLock ? '' : ' locked') + (opts.worn ? ' worn' : ''), style: `--rc:${rarColor(it.r)}` },
+      itemCanvas(it),
+      el('div', { class: 'meta' },
+        el('span', { class: 'rtag' }, rarName(it.r)),
+        el('b', {}, GD.itemName(it, me.cls)),
+        el('span', { class: 'muted' }, statsText(it)),
+        el('div', { class: 'muted' }, `Set ${GD.SETS[t.set].name}${t.families ? ' (' + t.families.map((f) => GD.CLASSES[f].name).join(', ') + ')' : ' (toutes classes)'}${usable ? '' : ' · pas pour ta classe'}`),
+        ...(opts.lines || []).map((l) => el('div', { class: 'small' }, l))),
+      opts.buttons ? el('div', { class: 'btns' }, ...opts.buttons) : '');
+  }
   const hail = () => el('span', { class: 'hail', 'aria-hidden': 'true' });
   const fmtPct = (x) => `${Math.round(x * 1000) / 10}%`;
 
@@ -351,14 +378,17 @@
     $('#buyIce5').replaceChildren('Acheter 5 · ', hail(), String(P1 * 5));
     $('#buyIce1').disabled = me.gold < P1;
     $('#buyIce5').disabled = me.gold < P1 * 5;
+    const per = GD.GLACONS.SHARDS_PER_GLACON;
+    $('#shardInfo').textContent = `Éclats de glace : ${me.iceShards || 0} / ${per} (recycle des objets pour en obtenir)`;
+    $('#shardBar').style.width = `${(100 * (me.iceShards || 0)) / per}%`;
 
     // objets portés
     const gear = myGear();
     $('#slots').replaceChildren(...GD.SLOTS.map((s) => {
       const it = gear[s];
       if (!it) return el('div', { class: 'slot empty' }, el('span', { class: 'ic' }, SLOT_ICONS[s]), GD.SLOT_NAMES[s], el('div', { class: 'muted' }, 'vide'));
-      return el('div', { class: 'slot', style: `--rc:${R(it.r).color}`, title: 'Cliquer pour retirer', onclick: () => equip(null, s) },
-        el('span', { class: 'ic' }, SLOT_ICONS[s]), el('div', { class: 'rtag' }, R(it.r).name), GD.itemName(it, me.cls));
+      return el('div', { class: 'slot', style: `--rc:${rarColor(it.r)}`, title: 'Cliquer pour retirer', onclick: () => equip(null, s) },
+        el('span', { class: 'ic' }, SLOT_ICONS[s]), el('div', { class: 'rtag' }, rarName(it.r)), GD.itemName(it, me.cls));
     }));
     // bonus de set
     const sb = GD.setBonuses(gear);
@@ -379,17 +409,17 @@
     const list = inv.filter((it) => invFilter === 'all' || GD.TEMPLATES[it.t].slot === invFilter);
     $('#invList').replaceChildren(...(list.length ? list.map((it) => {
       const t = GD.TEMPLATES[it.t], usable = GD.canUse(it.t, me.cls), isWorn = worn.has(it.uid);
-      return el('div', { class: 'inv-item' + (usable ? '' : ' locked') + (isWorn ? ' worn' : ''), style: `--rc:${R(it.r).color}` },
-        itemCanvas(it),
-        el('div', { class: 'meta' },
-          el('span', { class: 'rtag' }, R(it.r).name),
-          el('b', {}, GD.itemName(it, me.cls)),
-          el('span', { class: 'muted' }, statsText(it)),
-          el('div', { class: 'muted' }, `Set ${GD.SETS[t.set].name}${t.families ? '' : ' (toutes classes)'}${usable ? '' : ' · pas pour ta classe'}`)),
-        el('div', { class: 'btns' },
+      const lock = (me.locked || {})[it.uid];
+      const sh = R(it.r).shards;
+      return itemCard(it, {
+        worn: isWorn,
+        lines: lock ? [LOCK_LABEL[lock]] : [],
+        buttons: lock ? [el('button', { class: 'small', onclick: () => goMarket() }, 'Voir')] : [
           isWorn ? el('button', { class: 'small', onclick: () => equip(null, t.slot) }, 'Retirer')
             : el('button', { class: 'small primary', disabled: !usable, onclick: () => equip(it.uid) }, 'Équiper'),
-          isWorn ? '' : el('button', { class: 'small', title: `Recycler contre ${R(it.r).recycle} Grêlons`, onclick: () => recycle(it) }, '♻️ ', String(R(it.r).recycle))));
+          isWorn ? '' : el('button', { class: 'small', title: `Recycler : +${sh} éclat(s) de glace (${shardsToIce(sh)} glaçon)`, onclick: () => recycle(it) }, `♻️ +${shardsToIce(sh)} 🧊`),
+          isWorn ? '' : el('button', { class: 'small', onclick: () => goMarket(it.uid) }, '🏪')]
+      });
     }) : [el('p', { class: 'muted' }, 'Aucun objet. Brise un glaçon pour en obtenir !')]));
   }
 
@@ -399,8 +429,12 @@
     catch (e) { $('#invError').textContent = e.message; }
   }
   async function recycle(it) {
-    if (it.r >= 3 && !confirm(`Recycler cet objet ${R(it.r).name.toLowerCase()} contre ${R(it.r).recycle} Grêlons ?`)) return;
-    try { const d = await api('/api/inventory/recycle', { body: { uid: it.uid } }); setUser(d.user); toast(`♻️ +${d.gain} Grêlons`); }
+    if (it.r >= 3 && !confirm(`Recycler cet objet ${rarName(it.r).toLowerCase()} contre ${R(it.r).shards} éclats de glace (${shardsToIce(R(it.r).shards)} glaçon) ?`)) return;
+    try {
+      const d = await api('/api/inventory/recycle', { body: { uid: it.uid } });
+      setUser(d.user);
+      toast(d.glacons ? `♻️ +${d.shards} éclat(s) → +${d.glacons} glaçon${d.glacons > 1 ? 's' : ''} 🧊 !` : `♻️ +${d.shards} éclat(s) de glace`);
+    }
     catch (e) { $('#invError').textContent = e.message; }
   }
   async function buyIce(n) {
@@ -461,6 +495,7 @@
     reveal.style.setProperty('--rc', rar.color);
     reveal.replaceChildren(
       el('div', { class: 'rar' }, item.r >= 5 ? '✦ MYSTIQUE ✦' : rar.name.toUpperCase()),
+      item.r >= 5 ? el('div', { class: 'small', style: 'color:#ff7ad9' }, 'Tu as découvert une rareté secrète !') : '',
       itemCanvas(item, 120, 130, 2.3),
       el('h3', { style: 'margin:.2em 0' }, GD.itemName(item, me.cls)),
       el('div', { class: 'small muted' }, `${GD.SLOT_NAMES[t.slot]} · Set ${GD.SETS[t.set].name}`),
@@ -475,6 +510,115 @@
   $('#iceModal').addEventListener('click', (e) => { if (e.target.id === 'iceModal' && !opening) closeIce(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !opening) closeIce(); });
 
+  /* ============================== Place marchande ============================== */
+  let market = { listings: [], trades: [] };
+  let mkFilter = 'all';
+  let showcase = null; // objets d'un autre joueur (pour un échange)
+  let wantUid = null;
+
+  function goMarket(uid) {
+    $$('#tabs [data-tab]').forEach((x) => x.classList.toggle('active', x.dataset.tab === 'market'));
+    $$('[data-view]').forEach((v) => v.classList.toggle('hidden', v.dataset.view !== 'market'));
+    loadMarket().then(() => { if (uid) { $('#mkItem').value = uid; renderMkPreview(); } });
+  }
+
+  async function loadMarket() {
+    try { market = await api('/api/market'); } catch (e) { return; }
+    renderMarket();
+  }
+
+  function renderMarket() {
+    if (!me) return;
+    $('#mkGold').replaceChildren(hail(), `${me.gold} Grêlons`);
+    $('#tradeBadge').textContent = me.incomingTrades || '';
+    $('#tradeBadge').classList.toggle('hidden', !me.incomingTrades);
+    // filtres
+    const F = { all: 'Tout', mine: 'Pour ma classe', ...Object.fromEntries(GD.SLOTS.map((s) => [s, `${SLOT_ICONS[s]} ${GD.SLOT_NAMES[s]}`])) };
+    $('#mkFilters').replaceChildren(...Object.entries(F).map(([k, v]) => el('button', { class: 'small' + (k === mkFilter ? ' active' : ''), onclick: () => { mkFilter = k; renderMarket(); } }, v)));
+    const others = market.listings.filter((l) => !l.mine && l.item && (mkFilter === 'all' || (mkFilter === 'mine' ? GD.canUse(l.item.t, me.cls) : GD.TEMPLATES[l.item.t].slot === mkFilter)));
+    $('#mkList').replaceChildren(...(others.length ? others.map((l) => itemCard(l.item, {
+      noLock: true,
+      lines: [`Vendu par ${l.seller}${l.reservedFor ? ' · 🔒 réservé pour toi' : ''}`],
+      buttons: [el('button', { class: 'small primary', disabled: me.gold < l.price, onclick: () => buyListing(l) }, hail(), String(l.price))]
+    })) : [el('p', { class: 'muted' }, 'Aucune annonce pour le moment.')]));
+    // mes annonces
+    const mine = market.listings.filter((l) => l.mine && l.item);
+    $('#mkMine').replaceChildren(...(mine.length ? mine.map((l) => itemCard(l.item, {
+      noLock: true,
+      lines: [[hail(), `${l.price} Grêlons`, l.reservedFor ? ` · réservé à ${l.reservedFor}` : '']],
+      buttons: [el('button', { class: 'small', onclick: () => mkAction('/api/market/cancel', { id: l.id }, 'Annonce retirée') }, 'Retirer')]
+    })) : [el('p', { class: 'muted small' }, 'Aucun objet en vente.')]));
+    // échanges
+    const tr = market.trades;
+    $('#mkTrades').replaceChildren(...(tr.length ? tr.map((t) => el('div', { class: 'panel', style: 'padding:10px;margin-bottom:8px' },
+      el('div', { class: 'small' }, t.incoming ? `🔄 ${t.from} te propose :` : `🔄 Ta proposition à ${t.to} :`),
+      el('div', { class: 'inv' }, t.give ? itemCard(t.give, { noLock: true, lines: [t.incoming ? 'Tu reçois' : 'Tu donnes'] }) : '', t.want ? itemCard(t.want, { noLock: true, lines: [t.incoming ? 'Tu donnes' : 'Tu reçois'] }) : ''),
+      t.gold ? el('div', { class: 'small' }, '+ ', hail(), `${t.gold} Grêlons ${t.incoming ? 'pour toi' : 'de ta part'}`) : '',
+      el('div', { class: 'row', style: 'margin-top:6px' }, ...(t.incoming
+        ? [el('button', { class: 'small primary', onclick: () => mkAction(`/api/market/trade/${t.id}/accept`, {}, 'Échange réalisé ✅') }, 'Accepter'),
+          el('button', { class: 'small danger', onclick: () => mkAction(`/api/market/trade/${t.id}/refuse`, {}, 'Échange refusé') }, 'Refuser')]
+        : [el('button', { class: 'small', onclick: () => mkAction(`/api/market/trade/${t.id}/cancel`, {}, 'Proposition annulée') }, 'Annuler')]))
+    )) : [el('p', { class: 'muted small' }, 'Aucun échange en cours.')]));
+    // sélection de mes objets (hors objets portés, en vente ou en échange)
+    const cur = $('#mkItem').value;
+    const free = me.inventory.filter((it) => !wornUids().has(it.uid) && !(me.locked || {})[it.uid]).sort((a, b) => b.r - a.r);
+    $('#mkItem').replaceChildren(el('option', { value: '' }, free.length ? '— Choisir un objet —' : 'Aucun objet disponible (retire les objets portés)'),
+      ...free.map((it) => el('option', { value: it.uid }, `[${rarName(it.r)}] ${GD.itemName(it, me.cls)}${GD.canUse(it.t, me.cls) ? '' : ' (autre classe)'}`)));
+    if (free.some((it) => it.uid === cur)) $('#mkItem').value = cur;
+    renderMkPreview();
+    renderShowcase();
+  }
+
+  function selectedItem() { return me.inventory.find((it) => it.uid === $('#mkItem').value) || null; }
+  function renderMkPreview() {
+    const it = selectedItem();
+    $('#mkPreview').replaceChildren(it ? itemCard(it, { noLock: true }) : '');
+    $('#mkTrade').disabled = !it || !wantUid;
+  }
+  $('#mkItem').addEventListener('change', renderMkPreview);
+
+  function renderShowcase() {
+    if (!showcase) { $('#mkShowcase').replaceChildren(); return; }
+    $('#mkShowcase').replaceChildren(...(showcase.items.length ? showcase.items.map((it) => itemCard(it, {
+      noLock: true,
+      buttons: [el('button', { class: 'small' + (wantUid === it.uid ? ' primary' : ''), onclick: () => { wantUid = it.uid; renderShowcase(); renderMkPreview(); } }, wantUid === it.uid ? '✔ Choisi' : 'Choisir')]
+    })) : [el('p', { class: 'muted small' }, `${showcase.pseudo} n’a aucun objet disponible à l’échange.`)]));
+  }
+
+  async function mkAction(url, body, okMsg) {
+    $('#mkError').textContent = ''; $('#mkFormError').textContent = '';
+    try { const d = await api(url, { body }); if (d.user) setUser(d.user); toast(okMsg); await loadMarket(); return true; }
+    catch (e) { $('#mkError').textContent = e.message; $('#mkFormError').textContent = e.message; return false; }
+  }
+  async function buyListing(l) {
+    if (!confirm(`Acheter ${GD.itemName(l.item, me.cls)} pour ${l.price} Grêlons ?`)) return;
+    mkAction('/api/market/buy', { id: l.id }, 'Objet acheté ! Il est dans ton inventaire.');
+  }
+  $('#mkSell').addEventListener('click', () => {
+    const it = selectedItem();
+    if (!it) { $('#mkFormError').textContent = 'Choisis un objet.'; return; }
+    mkAction('/api/market/sell', { uid: it.uid, price: Number($('#mkPrice').value), reservedFor: $('#mkReserved').value.trim() || null }, 'Objet mis en vente 🏪');
+  });
+  $('#mkGift').addEventListener('click', () => {
+    const it = selectedItem(), to = $('#mkGiftTo').value.trim();
+    if (!it || !to) { $('#mkFormError').textContent = 'Choisis un objet et un joueur.'; return; }
+    if (!confirm(`Offrir ${GD.itemName(it, me.cls)} à ${to} ?`)) return;
+    mkAction('/api/market/gift', { uid: it.uid, to }, `🎁 Objet offert à ${to} !`);
+  });
+  $('#mkLoadShowcase').addEventListener('click', async () => {
+    $('#mkFormError').textContent = '';
+    wantUid = null;
+    try { showcase = await api('/api/players/' + encodeURIComponent($('#mkTradeTo').value.trim()) + '/items'); }
+    catch (e) { showcase = null; $('#mkFormError').textContent = e.message; }
+    renderShowcase(); renderMkPreview();
+  });
+  $('#mkTrade').addEventListener('click', async () => {
+    const it = selectedItem();
+    if (!it || !wantUid || !showcase) return;
+    const ok = await mkAction('/api/market/trade', { give: it.uid, want: wantUid, to: showcase.pseudo, gold: Number($('#mkTradeGold').value) || 0 }, `🔄 Proposition envoyée à ${showcase.pseudo}`);
+    if (ok) { showcase = null; wantUid = null; renderShowcase(); }
+  });
+
   /* ============================== Règles ============================== */
   function renderRules() {
     const PR = GD.PROGRESSION, G = GD.GLACONS;
@@ -483,7 +627,6 @@
     const ul = (items) => el('ul', {}, ...items.map((x) => el('li', {}, ...[].concat(x))));
     const table = (head, rows) => el('div', { class: 'table-wrap' }, el('table', {}, el('tr', {}, ...head.map((h) => el('th', {}, h))), ...rows.map((r) => el('tr', {}, ...r.map((c) => el('td', {}, c))))));
     const visible = GD.RARITIES.filter((r) => !r.hidden);
-    const hidden = GD.RARITIES.filter((r) => r.hidden);
     $('#rules').replaceChildren(
       sec('🏰 Le but du jeu', el('p', {}, 'Une tour se dresse au centre de l’écran. Des vagues de monstres arrivent de tous les bords : si la tour (200 PV au départ) tombe, la partie est perdue. Il y a 100 manches à survivre.'),
         el('p', {}, 'Ton héros se bat tout seul grâce à son IA. Toi, tu choisis sa classe, ses statistiques, son équipement et son comportement depuis ce site, et tu votes avec l’équipe.')),
@@ -497,13 +640,15 @@
       sec('🧊 Glaçons', ul([
         `Tu gagnes ${G.PER_WAVE} glaçon pour chaque manche passée avec ton héros en jeu.`,
         ['Un glaçon s’achète ', hail(), `${G.PRICE} Grêlons.`],
-        `Chaque glaçon contient 1 objet (arme ou armure) utilisable par ta classe actuelle : ${Math.round(G.CLASS_SET_CHANCE * 100)}% de chances d’obtenir une pièce du set de ta famille de classes, ${100 - Math.round(G.CLASS_SET_CHANCE * 100)}% une pièce d’un set universel. Un habitant ne reçoit que des pièces universelles.`,
-        'Les objets en double ou inutiles se recyclent contre des Grêlons.'])),
+        `Chaque glaçon contient 1 objet (arme ou armure) : ${Math.round(G.UNIVERSAL_CHANCE * 100)}% une pièce d’un set universel, ${Math.round((1 - G.UNIVERSAL_CHANCE - G.OTHER_CLASS_CHANCE) * 100)}% une pièce du set de ta famille de classes, ${Math.round(G.OTHER_CLASS_CHANCE * 100)}% une pièce du set d’une autre classe (à échanger ou vendre sur la place marchande). Un habitant n’a pas encore de set : ses ${Math.round((1 - G.UNIVERSAL_CHANCE - G.OTHER_CLASS_CHANCE) * 100)}% vont aux pièces universelles.`,
+        `Recycler un objet rapporte des éclats de glace : plus l’objet est rare, plus il en rapporte. ${G.SHARDS_PER_GLACON} éclats = 1 glaçon.`])),
+      sec('🏪 Place marchande', ul([
+        'Mets tes objets en vente au prix que tu veux en Grêlons, éventuellement réservés à un joueur précis.',
+        'Offre un objet à un autre joueur, ou propose-lui un échange : ton objet (+ des Grêlons si tu veux) contre un des siens.',
+        'Un objet en vente ou proposé en échange ne peut pas être porté ni recyclé. Tu peux annuler à tout moment.'])),
       sec('💎 Raretés', el('p', {}, 'La rareté multiplie les bonus de l’objet et change son apparence.'),
         table(['Rareté', 'Probabilité', 'Bonus', 'Recyclage'], [
-          ...visible.map((r) => [el('b', { style: `color:${r.color}` }, r.name), fmtPct(r.p), `×${r.mult}`, [hail(), String(r.recycle)]]),
-          ...hidden.map((r) => [el('b', { style: 'color:var(--muted)' }, '???'), fmtPct(r.p), '???', '???'])]),
-        el('p', { class: 'small muted' }, 'Une rareté secrète existe… À toi de la découvrir.')),
+          ...(me.mysticFound ? GD.RARITIES : visible).map((r) => [el('b', { style: `color:${r.color}` }, r.name), fmtPct(r.p), `×${r.mult}`, `${r.shards} éclat${r.shards > 1 ? 's' : ''} (${shardsToIce(r.shards)} 🧊)`])])),
       sec('🛡️ Sets d’équipement', el('p', {}, 'Il y a 5 emplacements : casque, torse, pantalon, chaussures et arme. Chaque famille de classes a son set (5 pièces, arme comprise), et 3 sets universels (4 pièces) sont portables par toutes les classes. Porter plusieurs pièces d’un même set donne des bonus, quelle que soit leur rareté.'),
         table(['Set', 'Classes', 'Bonus'], Object.values(GD.SETS).map((s) => [el('b', {}, s.name), s.families ? s.families.map((f) => GD.CLASSES[f].name).join(', ') : 'Toutes',
           el('div', {}, ...Object.entries(s.bonus).map(([n, b]) => el('div', {}, `${n} pièces : ${bonusLine(b)}`)))]))),
