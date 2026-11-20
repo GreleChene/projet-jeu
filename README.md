@@ -44,16 +44,28 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - Paysan (laisse de 500 px, récolte les écus de l'équipe) → Agriculteur (soigne les alliés) / Bûcheron (soigne la tour) / Mineur (augmente les PV max de la tour)
 - **IA personnalisable.** Le joueur règle la posture, la cible prioritaire, le seuil de retraite et l'usage de l'ultime. Les changements s'appliquent en direct.
 - **Deux monnaies.**
-  - **Grêlons** 🧊 : monnaie personnelle de chaque joueur, gagnée en combattant et conservée d'une partie à l'autre. Elle sert à acheter de l'équipement.
+  - **Grêlons** : monnaie personnelle, gagnée en combattant et conservée entre les parties. Elle sert à acheter des glaçons, et le recyclage d'objets en rapporte.
   - **Écus** 🪙 : trésor collectif de la partie en cours (éliminations, récoltes des paysans). L'équipe le dépense lors des votes.
-- **Équipement par classe.** Le héros a 5 emplacements : casque, torse, pantalon, chaussures et arme, avec 4 tiers chacun (le tier 4 est runique). Chaque famille de classes a son propre style, visible sur le personnage :
-  - Soldat : armure lourde (+ défense)
-  - Mage : étoffe (robe, chapeau pointu, + dégâts)
-  - Archer, Assassin et Éleveur : cuir (+ vitesse)
-  - Paysan : tenue de travail (+ PV)
-  - L'équipement commun est accessible à tous, y compris aux habitants.
+- **Glaçons 🧊 (coffres).**
+  - On gagne 1 glaçon par manche passée, ou on l'achète 75 Grêlons.
+  - Chaque glaçon contient un objet utilisable par la classe actuelle : 60 % une pièce du set de sa famille, 40 % une pièce d'un set universel.
+  - À l'ouverture, une animation montre le glaçon qui tremble, se fissure et éclate. Sa lueur intérieure trahit la rareté.
+- **Raretés.**
 
-  Les armes prennent la forme de l'arme de la classe (marteau du paladin, arbalète…).
+  | Rareté | Probabilité | Bonus |
+  |---|---|---|
+  | Commun | 50 % | ×1 |
+  | Peu commun | 28 % | ×1,25 |
+  | Rare | 14 % | ×1,55 |
+  | Épique | 6 % | ×1,9 |
+  | Légendaire | 1,9 % | ×2,4 |
+  | Mystique (secrète, affichée « ??? » dans les règles) | 0,1 % | ×3,2 |
+
+  Plus la rareté est haute, plus l'objet est détaillé sur le personnage (dorures pour le légendaire, runes et aura cyan pour le mystique).
+- **Sets.** Il y a 5 emplacements : casque, torse, pantalon, chaussures et arme.
+  - Un set par famille de classes (5 pièces, arme comprise) : Rempart (soldat), Arcaniste (mage), Maître-bête (éleveur), Œil-de-faucon (archer), Lame-nuit (assassin), Moisson (paysan).
+  - Trois sets universels (4 pièces), portables par toutes les classes : Voyageur, Givre éternel, Braise.
+  - Porter 2, 4 ou 5 pièces d'un même set donne des bonus. Tout le détail est dans l'onglet **📜 Règles** du site.
 - **Votes d'équipe.** Toutes les **2 manches** (réglable dans l'admin), pendant l'entracte, les joueurs votent pour dépenser les écus de l'équipe (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus d'écus. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
 
 ### Progression du terrain

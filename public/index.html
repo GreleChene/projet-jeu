@@ -47,9 +47,11 @@
         <button data-tab="battle" class="active">⚔️ Bataille</button>
         <button data-tab="hero">🧬 Classe</button>
         <button data-tab="stats">📊 Statistiques <span class="badge hidden" id="ptsBadge"></span></button>
-        <button data-tab="gear">🛡️ Apparence & armures</button>
+        <button data-tab="equip">🎒 Équipement <span class="badge hidden" id="iceBadge"></span></button>
+        <button data-tab="gear">🎨 Apparence</button>
         <button data-tab="ai">🧠 IA</button>
         <button data-tab="ladder">🏆 Classement</button>
+        <button data-tab="rules">📜 Règles</button>
         <button data-tab="account">👤 Compte</button>
       </nav>
 
@@ -122,25 +124,52 @@
         </div>
       </div>
 
-      <!-- Apparence & armures -->
-      <div data-view="gear" class="hidden">
+      <!-- Équipement : glaçons, objets portés, inventaire -->
+      <div data-view="equip" class="hidden">
         <div class="grid two">
-          <div class="panel">
-            <h2>Apparence</h2>
-            <canvas id="gearArt" class="preview" width="260" height="200"></canvas>
-            <label>Cape</label><div class="swatches" id="swCape"></div>
-            <label>Peau</label><div class="swatches" id="swSkin"></div>
-            <label>Cheveux</label><div class="swatches" id="swHair"></div>
+          <div class="panel ice-panel">
+            <div class="row"><h2 style="margin:0">Glaçons</h2><span class="spacer"></span><span class="chip gold" id="eqGold"></span></div>
+            <p class="small muted">Chaque glaçon renferme un objet (arme ou armure) adapté à ta classe. Tu gagnes 1 glaçon par manche passée, ou tu peux en acheter.</p>
+            <div class="ice-shelf">
+              <div class="ice-mini" aria-hidden="true"></div>
+              <div><b class="ice-count" id="iceCount">0</b><div class="small muted">glaçon(s)</div></div>
+            </div>
+            <div class="row" style="margin-top:12px">
+              <button class="primary" id="openIce">🧊 Briser un glaçon</button>
+              <button id="buyIce1"></button>
+              <button id="buyIce5"></button>
+            </div>
+            <div class="error" id="iceError"></div>
           </div>
           <div class="panel">
-            <div class="row"><h2 style="margin:0">Armurerie</h2><span class="spacer"></span><span class="chip gold" id="shopGold"></span></div>
-            <p class="small muted">Les <b>Grêlons</b> 🧊 se gagnent en combattant et restent d’une partie à l’autre. Chaque famille de classes a ses propres armures et armes.</p>
-            <nav class="tabs" id="slotTabs"></nav>
-            <p class="small muted" id="shopHint"></p>
-            <div class="shop" id="shopList"></div>
-            <div class="error" id="shopError"></div>
+            <h2>Équipement porté</h2>
+            <canvas id="equipArt" class="preview" width="260" height="200"></canvas>
+            <div class="slots" id="slots"></div>
+            <div id="setInfo" class="small" style="margin-top:10px"></div>
           </div>
         </div>
+        <div class="panel">
+          <div class="row"><h2 style="margin:0">Inventaire</h2><span class="spacer"></span><span class="chip" id="invCount"></span></div>
+          <nav class="tabs" id="invTabs" style="margin-top:10px"></nav>
+          <div class="inv" id="invList"></div>
+          <div class="error" id="invError"></div>
+        </div>
+      </div>
+
+      <!-- Apparence -->
+      <div data-view="gear" class="hidden">
+        <div class="panel" style="max-width:520px;margin:0 auto 16px">
+          <h2>Apparence</h2>
+          <canvas id="gearArt" class="preview" width="260" height="200"></canvas>
+          <label>Cape</label><div class="swatches" id="swCape"></div>
+          <label>Peau</label><div class="swatches" id="swSkin"></div>
+          <label>Cheveux</label><div class="swatches" id="swHair"></div>
+        </div>
+      </div>
+
+      <!-- Règles -->
+      <div data-view="rules" class="hidden">
+        <div id="rules" class="rules"></div>
       </div>
 
       <!-- IA -->
@@ -176,6 +205,17 @@
     </div>
   </section>
 
+  <div id="iceModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Ouverture d’un glaçon">
+    <div class="ice-stage" id="iceStage">
+      <div class="ice-glow" id="iceGlow"></div>
+      <div class="ice-block" id="iceBlock"></div>
+      <svg class="ice-cracks" id="iceCracks" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <path d="M50 48 L38 22 L30 4" /><path d="M50 48 L71 30 L96 18" /><path d="M50 48 L80 60 L98 82" />
+        <path d="M50 48 L46 74 L54 98" /><path d="M50 48 L22 62 L3 70" /><path d="M38 22 L18 28" /><path d="M80 60 L74 82" />
+      </svg>
+    </div>
+    <div class="reveal hidden" id="iceReveal"></div>
+  </div>
   <script src="/shared/constants.js"></script>
   <script src="/shared/terrain.js"></script>
   <script src="/socket.io/socket.io.js"></script>

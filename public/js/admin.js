@@ -68,7 +68,8 @@
         el('td', {}, h.alive ? 'en vie' : '☠️', h.bot ? '' : h.online ? ' · 🟢' : ' · ⚪'),
         el('td', { class: 'row', style: 'gap:4px' },
           h.bot ? '' : el('button', { class: 'small', onclick: () => giveXp({ id: h.id, pseudo: h.name }) }, '+ XP'),
-          h.bot ? '' : el('button', { class: 'small', onclick: () => giveGold({ id: h.id, pseudo: h.name }) }, '+ 🧊'),
+          h.bot ? '' : el('button', { class: 'small', onclick: () => giveGold({ id: h.id, pseudo: h.name }) }, '+ Grêlons'),
+          h.bot ? '' : el('button', { class: 'small', onclick: () => giveIce({ id: h.id, pseudo: h.name }) }, '+ 🧊'),
           el('button', { class: 'small danger', onclick: () => act('kick', { id: h.id }) }, 'Retirer'))))
     );
     if (!settingsLoaded) { settingsLoaded = true; renderSettings(d.settings); }
@@ -104,15 +105,16 @@
     const q = $('#userFilter').value.trim().toLowerCase();
     const list = users.filter((u) => !q || u.pseudo.toLowerCase().includes(q)).sort((a, b) => b.level - a.level);
     $('#users').replaceChildren(
-      el('tr', {}, el('th', {}, 'Pseudo'), el('th', {}, 'Rôle'), el('th', {}, 'Classe'), el('th', {}, 'Niv.'), el('th', {}, 'Grêlons'), el('th', {}, 'Record'), el('th', {}, 'Actions')),
+      el('tr', {}, el('th', {}, 'Pseudo'), el('th', {}, 'Rôle'), el('th', {}, 'Classe'), el('th', {}, 'Niv.'), el('th', {}, 'Grêlons'), el('th', {}, 'Glaçons'), el('th', {}, 'Record'), el('th', {}, 'Actions')),
       ...list.map((u) => el('tr', {},
         el('td', {}, u.pseudo, u.online ? ' 🟢' : '', u.banned ? ' 🚫' : ''),
         el('td', {}, u.role === 'admin' ? '⭐ admin' : 'joueur'),
         el('td', { style: `color:${GD.CLASSES[u.cls].color}` }, GD.CLASSES[u.cls].name),
-        el('td', {}, u.level), el('td', {}, u.gold), el('td', {}, u.stats.bestWave),
+        el('td', {}, u.level), el('td', {}, u.gold), el('td', {}, u.glacons || 0), el('td', {}, u.stats.bestWave),
         el('td', { class: 'row', style: 'gap:4px' },
           el('button', { class: 'small', onclick: () => giveXp(u) }, '+ XP'),
           el('button', { class: 'small', onclick: () => giveGold(u) }, '+ Grêlons'),
+          el('button', { class: 'small', onclick: () => giveIce(u) }, '+ Glaçons'),
           el('button', { class: 'small', onclick: () => { const g = prompt(`Fixer les Grêlons de ${u.pseudo} à :`, u.gold); if (g !== null) editUser(u, { gold: Number(g) }); } }, 'Fixer Grêlons'),
           el('button', { class: 'small', onclick: () => { const l = prompt('Niveau :', u.level); if (l !== null) editUser(u, { level: Number(l) }); } }, 'Niveau'),
           el('button', { class: 'small', onclick: () => confirm('Remettre la classe à « Habitant » ?') && editUser(u, { resetClass: true }) }, 'Reset classe'),
@@ -125,8 +127,12 @@
     const n = prompt(`Combien d’XP donner à ${u.pseudo} ?`, '500');
     if (n !== null && Number(n) > 0) editUser(u, { addXp: Number(n) });
   }
+  function giveIce(u) {
+    const n = prompt(`Combien de glaçons 🧊 donner à ${u.pseudo} ? (négatif pour retirer)`, '5');
+    if (n !== null && Number(n)) editUser(u, { addGlacons: Number(n) });
+  }
   function giveGold(u) {
-    const n = prompt(`Combien de Grêlons 🧊 donner à ${u.pseudo} ? (négatif pour retirer)`, '200');
+    const n = prompt(`Combien de Grêlons donner à ${u.pseudo} ? (négatif pour retirer)`, '200');
     if (n !== null && Number(n)) editUser(u, { addGold: Number(n) });
   }
   async function editUser(u, body) {

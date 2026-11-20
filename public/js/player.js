@@ -10,7 +10,9 @@
   let authMode = 'login';
 
   /* ============================== Authentification ============================== */
-  const demo = { cls: 'habitant', look: { cape: 0, skin: 1, hair: 0 }, equip: { head: 'head_none', body: 'body_tunic' } };
+  // Héros de démonstration (écran de connexion) : un set complet par classe, raretés variées
+  const DEMO_SETS = ['rempart', 'arcaniste', 'faucon', 'maitrebete', 'lamenuit', 'moisson'];
+  const DEMO_GEAR = DEMO_SETS.map((sid, i) => Object.fromEntries(GD.SLOTS.map((s) => [s, GD.TEMPLATES[`${sid}_${s}`] ? { t: `${sid}_${s}`, r: [3, 2, 1, 5, 2, 4][i] } : null])));
   (function authArt() {
     const cv = $('#authArt');
     const ctx = cv.getContext('2d');
@@ -21,7 +23,7 @@
       ctx.clearRect(0, 0, cv.width, cv.height);
       specs.forEach((cls, i) => {
         window.Art.drawHero(ctx, 25 + i * 38, 120 + (i % 2) * 14, {
-          cls, look: { cape: i * 2, skin: i % 5, hair: i }, equip: { head: ['head_great', 'head_hood', 'head_leather', 'head_rune', 'head_hood', 'head_iron'][i], body: ['body_plate', 'body_tunic', 'body_leather', 'body_rune', 'body_leather', 'body_mail'][i] },
+          cls, look: { cape: i * 2, skin: i % 5, hair: i }, gear: DEMO_GEAR[i],
           t: t + i, facing: 0, scale: 1.5
         });
       });
@@ -59,14 +61,25 @@
     $('#auth').classList.add('hidden');
     $('#app').classList.remove('hidden');
     if (me.role === 'admin') $('#hdrAdmin').classList.remove('hidden');
-    heroCanvas($('#battleArt'), () => (me ? { cls: me.cls, look: me.look, equip: me.equip, dead: live && live.hero && !live.hero.alive, zombie: live && live.hero && live.hero.zombie } : null));
-    heroCanvas($('#gearArt'), () => (me ? { cls: me.cls, look: me.look, equip: me.equip } : null));
+    heroCanvas($('#battleArt'), () => (me ? { cls: me.cls, look: me.look, gear: myGear(), dead: live && live.hero && !live.hero.alive, zombie: live && live.hero && live.hero.zombie } : null));
+    heroCanvas($('#gearArt'), () => (me ? { cls: me.cls, look: me.look, gear: myGear() } : null));
+    heroCanvas($('#equipArt'), () => (me ? { cls: me.cls, look: me.look, gear: myGear() } : null));
     connect();
     renderAll();
     renderXp({ level: me.level, xp: me.xp, xpNext: me.xpNext, attrPoints: me.attrPoints });
   }
 
   function setUser(u) { me = u; renderAll(); }
+
+  // Équipement porté { slot: {t, r} } à partir de l'inventaire
+  function myGear() {
+    const out = {};
+    for (const s of GD.SLOTS) {
+      const it = me.equip && me.equip[s] && me.inventory.find((x) => x.uid === me.equip[s]);
+      out[s] = it ? { t: it.t, r: it.r } : null;
+    }
+    return out;
+  }
 
   function connect() {
     socket = io({ transports: ['websocket', 'polling'] });
@@ -85,12 +98,13 @@
     const c = GD.CLASSES[me.cls];
     $('#hdrPseudo').textContent = me.pseudo;
     $('#hdrLevel').textContent = `Niv. ${me.level}`;
-    $('#hdrGold').textContent = `🧊 ${me.gold} Grêlons`;
     $('#heroCls').textContent = c.name;
     $('#heroCls').style.color = c.color;
     renderClasses();
     renderAttrs();
     renderGear();
+    renderEquip();
+    renderRules();
     renderAI();
     renderStats();
   }
@@ -168,6 +182,11 @@
 
   // Barre d'XP de l'onglet Bataille (mise à jour en direct)
   function renderXp(p) {
+    if (me && p.glacons !== undefined && p.glacons !== me.glacons && !opening) {
+      if (p.glacons > me.glacons) toast(`🧊 +${p.glacons - me.glacons} glaçon (manche passée) !`);
+      me.glacons = p.glacons;
+      renderEquip();
+    }
     const pct = Math.min(100, (100 * p.xp) / p.xpNext);
     $('#bXpBar').style.width = `${pct}%`;
     $('#bXpLabel').textContent = `${p.xp} / ${p.xpNext} XP`;
@@ -185,7 +204,7 @@
   /* ============================== Classes ============================== */
   function miniHero(cls, size) {
     const cv = el('canvas', { width: size || 56, height: size || 56 });
-    heroCanvas(cv, () => ({ cls, look: me.look, equip: me.equip }), { scale: (size || 56) / 52, static: true, y: 0.92 });
+    heroCanvas(cv, () => ({ cls, look: me.look, gear: myGear() }), { scale: (size || 56) / 52, static: true, y: 0.92 });
     return cv;
   }
 
@@ -253,7 +272,7 @@
         el('button', { class: 'primary', disabled: !pts, title: '+1', onclick: () => spend(id, 1) }, '+1'),
         pts >= 5 ? el('button', { class: 'small', onclick: () => spend(id, 5) }, '+5') : '');
     }));
-    const st = GD.computeStats({ cls: me.cls, level: me.level, equip: me.equip, attrs: me.attrs });
+    const st = GD.computeStats({ cls: me.cls, level: me.level, gear: myGear(), attrs: me.attrs });
     const rows = [
       ['❤️', 'PV max', st.maxHp],
       ['⚔️', 'Dégâts', Math.round(st.dmg * 10) / 10],
@@ -285,62 +304,217 @@
     })));
   }
 
-  let shopSlot = 'head';
-  const SLOT_ICONS = { head: '⛑️', body: '🦺', legs: '👖', feet: '👢', weapon: '🗡️' };
-
-  function itemCanvas(id) {
-    const a = GD.ITEMS[id];
-    const cv = el('canvas', { width: 52, height: 60 });
-    const equip = { ...me.equip, [a.slot]: id };
-    heroCanvas(cv, () => ({ cls: me.cls, look: me.look, equip, moving: false }), { scale: 1.05, static: true, y: 0.93 });
-    return cv;
-  }
-
-  function bonusText(a) {
-    const b = [];
-    if (a.hp) b.push(`+${Math.round(a.hp * 100)}% PV`);
-    if (a.armor) b.push(`+${Math.round(a.armor * 100)}% défense`);
-    if (a.dmg) b.push(`+${Math.round(a.dmg * 100)}% dégâts`);
-    if (a.speed) b.push(`+${Math.round(a.speed * 100)}% vitesse`);
-    return b.join(' · ') || 'Aucun bonus';
-  }
-
   function renderGear() {
     swatches($('#swCape'), P.capes, 'cape');
     swatches($('#swSkin'), P.skin, 'skin');
     swatches($('#swHair'), P.hair, 'hair');
-    $('#shopGold').textContent = `🧊 ${me.gold} Grêlons`;
-    $('#slotTabs').replaceChildren(...GD.SLOTS.map((s) => el('button', { class: 'small' + (s === shopSlot ? ' active' : ''), onclick: () => { shopSlot = s; renderGear(); } }, `${SLOT_ICONS[s]} ${GD.SLOT_NAMES[s]}`)));
-    const fam = GD.familyOf(me.cls);
-    const ids = Object.keys(GD.ITEMS).filter((id) => GD.ITEMS[id].slot === shopSlot && GD.canUse(id, me.cls))
-      .sort((x, y) => GD.ITEMS[x].tier - GD.ITEMS[y].tier || (GD.ITEMS[x].style === 'common' ? -1 : 1));
-    $('#shopHint').textContent = fam === 'habitant'
-      ? 'En tant qu’habitant, seul l’équipement commun est disponible : choisis une classe pour débloquer le sien.'
-      : `Équipement ${shopSlot === 'weapon' ? 'des ' + GD.CLASSES[fam].name.toLowerCase() + 's' : 'de style ' + Object.values(GD.ARMOR_STYLES).find((st) => st.families && st.families.includes(fam)).label.toLowerCase()} + équipement commun.`;
-    $('#shopList').replaceChildren(...ids.map((id) => {
-      const a = GD.ITEMS[id];
-      const owned = me.owned.includes(id);
-      const equipped = GD.effectiveEquip(me.cls, me.equip)[shopSlot] === id;
-      const col = a.slot === 'weapon' ? GD.WEAPON_METAL[a.tier] : (GD.itemColors(id) || {}).main;
-      return el('div', { class: 'item' + (equipped ? ' equipped' : '') },
-        itemCanvas(id),
-        el('div', { class: 'meta' },
-          el('div', {}, el('span', { class: 'tier-dot', style: `background:${col}` }), GD.itemName(id, me.cls)),
-          el('div', { class: 'muted small' }, (a.tier ? `Tier ${a.tier} · ` : '') + bonusText(a))),
-        equipped ? el('span', { class: 'chip small' }, 'Équipé')
-          : owned ? el('button', { class: 'small', onclick: () => equipItem(id) }, 'Équiper')
-          : el('button', { class: 'small primary', disabled: me.gold < a.price, onclick: () => buy(id) }, `🧊 ${a.price}`));
-    }));
   }
 
-  async function buy(id) {
-    $('#shopError').textContent = '';
-    try { setUser((await api('/api/shop/buy', { body: { item: id } })).user); toast(`${GD.itemName(id, me.cls)} : acheté !`); }
-    catch (e) { $('#shopError').textContent = e.message; }
+  /* ============================== Équipement & glaçons ============================== */
+  const SLOT_ICONS = { head: '⛑️', body: '🦺', legs: '👖', feet: '👢', weapon: '🗡️' };
+  let invFilter = 'all';
+  const R = (i) => GD.RARITIES[i] || GD.RARITIES[0];
+  const hail = () => el('span', { class: 'hail', 'aria-hidden': 'true' });
+  const fmtPct = (x) => `${Math.round(x * 1000) / 10}%`;
+
+  function wornUids() { return new Set(Object.values(me.equip || {})); }
+
+  // Aperçu du héros portant un objet donné
+  function itemCanvas(item, w, h, scale) {
+    const cv = el('canvas', { width: w || 48, height: h || 56 });
+    const slot = GD.TEMPLATES[item.t].slot;
+    const gear = { ...myGear(), [slot]: { t: item.t, r: item.r } };
+    heroCanvas(cv, () => ({ cls: me.cls, look: me.look, gear, moving: false }), { scale: scale || 0.95, static: true, y: 0.93 });
+    return cv;
   }
-  async function equipItem(id) {
-    try { setUser((await api('/api/me/equip', { method: 'PUT', body: { item: id } })).user); }
-    catch (e) { $('#shopError').textContent = e.message; }
+
+  function statsText(item) {
+    const st = GD.itemStats(item);
+    return Object.entries(st).map(([k, v]) => `+${Math.round(v * 100)}% ${GD.STAT_NAMES[k]}`).join(' · ');
+  }
+  function bonusLine(b) { return Object.entries(b).map(([k, v]) => `+${Math.round(v * 100)}% ${GD.STAT_NAMES[k]}`).join(', '); }
+
+  function renderGold() {
+    $('#hdrGold').replaceChildren(hail(), `${me.gold} Grêlons`);
+    $('#eqGold').replaceChildren(hail(), `${me.gold} Grêlons`);
+  }
+
+  function renderEquip() {
+    renderGold();
+    const n = me.glacons || 0;
+    $('#iceCount').textContent = n;
+    $('#iceBadge').textContent = n;
+    $('#iceBadge').classList.toggle('hidden', !n);
+    $('#openIce').disabled = !n;
+    const P1 = GD.GLACONS.PRICE;
+    $('#buyIce1').replaceChildren('Acheter 1 · ', hail(), String(P1));
+    $('#buyIce5').replaceChildren('Acheter 5 · ', hail(), String(P1 * 5));
+    $('#buyIce1').disabled = me.gold < P1;
+    $('#buyIce5').disabled = me.gold < P1 * 5;
+
+    // objets portés
+    const gear = myGear();
+    $('#slots').replaceChildren(...GD.SLOTS.map((s) => {
+      const it = gear[s];
+      if (!it) return el('div', { class: 'slot empty' }, el('span', { class: 'ic' }, SLOT_ICONS[s]), GD.SLOT_NAMES[s], el('div', { class: 'muted' }, 'vide'));
+      return el('div', { class: 'slot', style: `--rc:${R(it.r).color}`, title: 'Cliquer pour retirer', onclick: () => equip(null, s) },
+        el('span', { class: 'ic' }, SLOT_ICONS[s]), el('div', { class: 'rtag' }, R(it.r).name), GD.itemName(it, me.cls));
+    }));
+    // bonus de set
+    const sb = GD.setBonuses(gear);
+    const sets = Object.entries(sb.count);
+    $('#setInfo').replaceChildren(...(sets.length ? sets.map(([sid, cnt]) => {
+      const set = GD.SETS[sid];
+      const total = set.families ? 5 : 4;
+      return el('div', { style: 'margin-bottom:6px' }, el('b', { style: `color:${set.main === '#2b2433' ? 'var(--text)' : set.main}` }, `Set ${set.name} (${cnt}/${total})`),
+        ...Object.entries(set.bonus).map(([need, b]) => el('div', { class: cnt >= need ? '' : 'muted' }, `${cnt >= need ? '✅' : '▫️'} ${need} pièces : ${bonusLine(b)}`)));
+    }) : [el('span', { class: 'muted' }, 'Porte plusieurs pièces d’un même set pour obtenir des bonus.')]));
+
+    // inventaire
+    const inv = me.inventory.slice().sort((a, b) => b.r - a.r || (b.at || 0) - (a.at || 0));
+    $('#invCount').textContent = `${inv.length} objet(s)`;
+    $('#invTabs').replaceChildren(...['all', ...GD.SLOTS].map((s) => el('button', { class: 'small' + (s === invFilter ? ' active' : ''), onclick: () => { invFilter = s; renderEquip(); } },
+      s === 'all' ? 'Tout' : `${SLOT_ICONS[s]} ${GD.SLOT_NAMES[s]}`)));
+    const worn = wornUids();
+    const list = inv.filter((it) => invFilter === 'all' || GD.TEMPLATES[it.t].slot === invFilter);
+    $('#invList').replaceChildren(...(list.length ? list.map((it) => {
+      const t = GD.TEMPLATES[it.t], usable = GD.canUse(it.t, me.cls), isWorn = worn.has(it.uid);
+      return el('div', { class: 'inv-item' + (usable ? '' : ' locked') + (isWorn ? ' worn' : ''), style: `--rc:${R(it.r).color}` },
+        itemCanvas(it),
+        el('div', { class: 'meta' },
+          el('span', { class: 'rtag' }, R(it.r).name),
+          el('b', {}, GD.itemName(it, me.cls)),
+          el('span', { class: 'muted' }, statsText(it)),
+          el('div', { class: 'muted' }, `Set ${GD.SETS[t.set].name}${t.families ? '' : ' (toutes classes)'}${usable ? '' : ' · pas pour ta classe'}`)),
+        el('div', { class: 'btns' },
+          isWorn ? el('button', { class: 'small', onclick: () => equip(null, t.slot) }, 'Retirer')
+            : el('button', { class: 'small primary', disabled: !usable, onclick: () => equip(it.uid) }, 'Équiper'),
+          isWorn ? '' : el('button', { class: 'small', title: `Recycler contre ${R(it.r).recycle} Grêlons`, onclick: () => recycle(it) }, '♻️ ', String(R(it.r).recycle))));
+    }) : [el('p', { class: 'muted' }, 'Aucun objet. Brise un glaçon pour en obtenir !')]));
+  }
+
+  async function equip(uid, slot) {
+    $('#invError').textContent = '';
+    try { setUser((await api('/api/me/equip', { method: 'PUT', body: uid ? { uid } : { uid: null, slot } })).user); }
+    catch (e) { $('#invError').textContent = e.message; }
+  }
+  async function recycle(it) {
+    if (it.r >= 3 && !confirm(`Recycler cet objet ${R(it.r).name.toLowerCase()} contre ${R(it.r).recycle} Grêlons ?`)) return;
+    try { const d = await api('/api/inventory/recycle', { body: { uid: it.uid } }); setUser(d.user); toast(`♻️ +${d.gain} Grêlons`); }
+    catch (e) { $('#invError').textContent = e.message; }
+  }
+  async function buyIce(n) {
+    $('#iceError').textContent = '';
+    try { setUser((await api('/api/glacons/buy', { body: { n } })).user); toast(`🧊 +${n} glaçon${n > 1 ? 's' : ''}`); }
+    catch (e) { $('#iceError').textContent = e.message; }
+  }
+  $('#buyIce1').addEventListener('click', () => buyIce(1));
+  $('#buyIce5').addEventListener('click', () => buyIce(5));
+  $('#openIce').addEventListener('click', openIce);
+
+  /* ---------- Animation : le glaçon tremble, se fissure, puis éclate ---------- */
+  const SHARDS = [[0, 0, 50, 0], [50, 0, 100, 0], [100, 0, 100, 50], [100, 50, 100, 100], [100, 100, 50, 100], [50, 100, 0, 100], [0, 100, 0, 50], [0, 50, 0, 0]];
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let opening = false;
+
+  async function openIce() {
+    if (opening || !me.glacons) return;
+    opening = true;
+    $('#iceError').textContent = '';
+    const modal = $('#iceModal'), stage = $('#iceStage'), reveal = $('#iceReveal');
+    stage.className = 'ice-stage';
+    stage.querySelectorAll('.shard').forEach((x) => x.remove());
+    reveal.classList.add('hidden');
+    modal.classList.remove('hidden');
+    let res;
+    try { res = await api('/api/glacons/open', { method: 'POST' }); }
+    catch (e) { modal.classList.add('hidden'); $('#iceError').textContent = e.message; opening = false; return; }
+    const item = res.item, rar = R(item.r);
+    // la lueur intérieure trahit la rareté… le suspense monte avec elle
+    modal.style.setProperty('--glow', item.r >= 5 ? '#ff7ad9' : rar.color);
+    await sleep(250);
+    stage.classList.add('charging');
+    if (item.r >= 3) stage.classList.add('hard');
+    await sleep(1500 + item.r * 250);
+    // éclatement
+    stage.classList.add('broken');
+    for (const [x1, y1, x2, y2] of SHARDS) {
+      const sh = el('div', { class: 'shard' });
+      sh.style.clipPath = `polygon(50% 48%, ${x1}% ${y1}%, ${x2}% ${y2}%)`;
+      stage.append(sh);
+      const cx = (50 + x1 + x2) / 3 - 50, cy = (48 + y1 + y2) / 3 - 48;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        sh.style.transform = `translate(${cx * 6}px, ${cy * 6 + 40}px) rotate(${(Math.random() - 0.5) * 220}deg) scale(.6)`;
+        sh.style.opacity = '0';
+      }));
+    }
+    const fl = el('div', { class: 'flash' });
+    document.body.append(fl);
+    setTimeout(() => fl.remove(), 700);
+    if (navigator.vibrate) navigator.vibrate(item.r >= 4 ? [80, 40, 160] : 60);
+    await sleep(450);
+    // révélation de l'objet
+    setUser(res.user);
+    const t = GD.TEMPLATES[item.t];
+    const usableNow = GD.canUse(item.t, me.cls);
+    reveal.className = 'reveal' + (item.r >= 5 ? ' mystic' : '');
+    reveal.style.setProperty('--rc', rar.color);
+    reveal.replaceChildren(
+      el('div', { class: 'rar' }, item.r >= 5 ? '✦ MYSTIQUE ✦' : rar.name.toUpperCase()),
+      itemCanvas(item, 120, 130, 2.3),
+      el('h3', { style: 'margin:.2em 0' }, GD.itemName(item, me.cls)),
+      el('div', { class: 'small muted' }, `${GD.SLOT_NAMES[t.slot]} · Set ${GD.SETS[t.set].name}`),
+      el('div', { class: 'small', style: 'margin:6px 0 12px' }, statsText(item)),
+      el('div', { class: 'row', style: 'justify-content:center' },
+        usableNow ? el('button', { class: 'primary', onclick: async () => { await equip(item.uid); closeIce(); } }, 'Équiper') : '',
+        me.glacons ? el('button', { onclick: () => { opening = false; openIce(); } }, `🧊 Encore (${me.glacons})`) : '',
+        el('button', { onclick: closeIce }, 'Fermer')));
+    opening = false;
+  }
+  function closeIce() { $('#iceModal').classList.add('hidden'); opening = false; }
+  $('#iceModal').addEventListener('click', (e) => { if (e.target.id === 'iceModal' && !opening) closeIce(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !opening) closeIce(); });
+
+  /* ============================== Règles ============================== */
+  function renderRules() {
+    const PR = GD.PROGRESSION, G = GD.GLACONS;
+    const voteEvery = (live && live.run && live.run.voteEvery) || 2;
+    const sec = (title, ...kids) => el('div', { class: 'panel' }, el('h2', {}, title), ...kids);
+    const ul = (items) => el('ul', {}, ...items.map((x) => el('li', {}, ...[].concat(x))));
+    const table = (head, rows) => el('div', { class: 'table-wrap' }, el('table', {}, el('tr', {}, ...head.map((h) => el('th', {}, h))), ...rows.map((r) => el('tr', {}, ...r.map((c) => el('td', {}, c))))));
+    const visible = GD.RARITIES.filter((r) => !r.hidden);
+    const hidden = GD.RARITIES.filter((r) => r.hidden);
+    $('#rules').replaceChildren(
+      sec('🏰 Le but du jeu', el('p', {}, 'Une tour se dresse au centre de l’écran. Des vagues de monstres arrivent de tous les bords : si la tour (200 PV au départ) tombe, la partie est perdue. Il y a 100 manches à survivre.'),
+        el('p', {}, 'Ton héros se bat tout seul grâce à son IA. Toi, tu choisis sa classe, ses statistiques, son équipement et son comportement depuis ce site, et tu votes avec l’équipe.')),
+      sec('🧬 Classes', el('p', {}, `Tout le monde commence Habitant. Au niveau ${PR.CLASS_LEVEL}, choisis une classe. Au niveau ${PR.SPEC_LEVEL}, choisis une spécialisation qui débloque un ultime. Ces choix sont définitifs.`),
+        ul(GD.BASE_CLASSES.map((b) => [el('b', { style: `color:${GD.CLASSES[b].color}` }, GD.CLASSES[b].name), ` → ${GD.specsOf(b).map((s) => `${GD.CLASSES[s].name} (${GD.CLASSES[s].ultName})`).join(' / ')}${GD.CLASSES[b].leash ? ` · reste à moins de ${GD.CLASSES[b].leash} px de la tour` : ''}`]))),
+      sec('📊 Niveaux & statistiques', el('p', {}, `Les éliminations et les manches passées rapportent de l’XP. Chaque niveau donne ${PR.POINTS_PER_LEVEL} point de stat, à répartir librement (réinitialisation gratuite) :`),
+        ul(GD.ATTR_IDS.map((a) => `${GD.ATTRIBUTES[a].icon} ${GD.ATTRIBUTES[a].name} : ${GD.ATTRIBUTES[a].desc}`))),
+      sec('💰 Monnaies', ul([
+        [hail(), el('b', {}, 'Grêlons'), ' : ta monnaie personnelle, gagnée en combattant et conservée entre les parties. Elle sert à acheter des glaçons, et tu en récupères en recyclant des objets.'],
+        ['🪙 ', el('b', {}, 'Écus'), ' : le trésor commun de l’équipe pendant une partie (éliminations, récoltes des paysans). Il est dépensé lors des votes.']])),
+      sec('🧊 Glaçons', ul([
+        `Tu gagnes ${G.PER_WAVE} glaçon pour chaque manche passée avec ton héros en jeu.`,
+        ['Un glaçon s’achète ', hail(), `${G.PRICE} Grêlons.`],
+        `Chaque glaçon contient 1 objet (arme ou armure) utilisable par ta classe actuelle : ${Math.round(G.CLASS_SET_CHANCE * 100)}% de chances d’obtenir une pièce du set de ta famille de classes, ${100 - Math.round(G.CLASS_SET_CHANCE * 100)}% une pièce d’un set universel. Un habitant ne reçoit que des pièces universelles.`,
+        'Les objets en double ou inutiles se recyclent contre des Grêlons.'])),
+      sec('💎 Raretés', el('p', {}, 'La rareté multiplie les bonus de l’objet et change son apparence.'),
+        table(['Rareté', 'Probabilité', 'Bonus', 'Recyclage'], [
+          ...visible.map((r) => [el('b', { style: `color:${r.color}` }, r.name), fmtPct(r.p), `×${r.mult}`, [hail(), String(r.recycle)]]),
+          ...hidden.map((r) => [el('b', { style: 'color:var(--muted)' }, '???'), fmtPct(r.p), '???', '???'])]),
+        el('p', { class: 'small muted' }, 'Une rareté secrète existe… À toi de la découvrir.')),
+      sec('🛡️ Sets d’équipement', el('p', {}, 'Il y a 5 emplacements : casque, torse, pantalon, chaussures et arme. Chaque famille de classes a son set (5 pièces, arme comprise), et 3 sets universels (4 pièces) sont portables par toutes les classes. Porter plusieurs pièces d’un même set donne des bonus, quelle que soit leur rareté.'),
+        table(['Set', 'Classes', 'Bonus'], Object.values(GD.SETS).map((s) => [el('b', {}, s.name), s.families ? s.families.map((f) => GD.CLASSES[f].name).join(', ') : 'Toutes',
+          el('div', {}, ...Object.entries(s.bonus).map(([n, b]) => el('div', {}, `${n} pièces : ${bonusLine(b)}`)))]))),
+      sec('🗳️ Votes d’équipe', el('p', {}, `Toutes les ${voteEvery} manches, pendant l’entracte, les héros votent pour dépenser les écus de l’équipe. L’option la plus votée l’emporte :`),
+        ul(Object.values(GD.UPGRADES).map((u) => `${u.icon} ${u.name} : ${u.desc}${u.unlock ? ` (débloqué quand l’équipe a gagné ${u.unlock} écus)` : ''}`).concat(['🪙 Économiser : garder les écus pour plus tard']))),
+      sec('🌍 Le monde', ul([
+        'Manches 1 à 30 : la prairie gèle peu à peu depuis les bords (un boss toutes les 5 manches). À la manche 30, les arbres se déracinent et le Tréant colossal apparaît.',
+        'Manches 31 à 60 : la corruption verte et des monstres empoisonneurs. Boss final : La Mère-Spore.',
+        'Manches 61 à 90 : les terres brûlées, la lave et les monstres de feu. Boss final : le Géant de magma.',
+        'Manches 91 à 100 : le chaos, tous les terrains mélangés. Manche 100 : les trois grands boss en même temps.']))
+    );
   }
 
   /* ============================== IA ============================== */
@@ -389,13 +563,10 @@
     try {
       const d = await api('/api/me');
       const changed = d.user.level !== me.level || d.user.cls !== me.cls;
-      const goldChanged = d.user.gold !== me.gold;
       me = d.user;
-      if (goldChanged && !changed) renderGear();
+      if (!changed) renderEquip();
       if (!changed) renderAttrs();
       $('#hdrLevel').textContent = `Niv. ${me.level}`;
-      $('#hdrGold').textContent = `🧊 ${me.gold} Grêlons`;
-      $('#shopGold').textContent = `🧊 ${me.gold} Grêlons`;
       $('#xpBar').style.width = `${(100 * me.xp) / me.xpNext}%`;
       $('#xpLabel').textContent = `${me.xp} / ${me.xpNext} XP`;
       if (changed) renderAll();

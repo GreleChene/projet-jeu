@@ -38,7 +38,7 @@ module.exports = {
         h.hp = Math.min(h.maxHp, h.hp + h.maxHp * (0.008 + 0.012 * this.run.upgrades.infirmary) * dt);
       }
       const c = CLASSES[h.cls];
-      if (c.ult && h.ult < 1) h.ult = Math.min(1, h.ult + (dt / ULT_TIME) * (1 + 0.2 * this.run.upgrades.shrine));
+      if (c.ult && h.ult < 1) h.ult = Math.min(1, h.ult + (dt / ULT_TIME) * (h.ultRate || 1) * (1 + 0.2 * this.run.upgrades.shrine));
 
       if (h.dashing) { this.updateDash(h, dt); continue; }
       if (h.chain) { this.updateChain(h, dt); continue; }
@@ -260,7 +260,7 @@ module.exports = {
     if (h.timers.harvest >= 3) {
       h.timers.harvest = 0;
       h.attackAnim = 0.25;
-      const amt = Math.round((1.5 + h.level * 0.15) * (c.harvest === 'any' ? 1 : 1.5));
+      const amt = Math.round((1.5 + h.level * 0.15) * (c.harvest === 'any' ? 1 : 1.5) * (h.harvestMult || 1));
       this.addTreasury(amt);
       this.fx(['coin', Math.round(node.x), Math.round(node.y - 10), amt]);
     }

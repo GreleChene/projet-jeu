@@ -101,26 +101,30 @@
     const c = CLASSES[o.cls] || CLASSES.habitant;
     const a = { ...emptyAttrs(), ...(o.attrs || {}) };
     const up = o.upgrades || {};
-    const eq = effectiveEquip(o.cls, o.equip);
+    const gear = gearFor(o.cls, o.gear);
     let ihp = 0, iarmor = 0, idmg = 0, ispeed = 0;
-    for (const s of SLOTS) { const it = ITEMS[eq[s]]; ihp += it.hp || 0; iarmor += it.armor || 0; idmg += it.dmg || 0; ispeed += it.speed || 0; }
+    for (const s of SLOTS) if (gear[s]) { const st = itemStats(gear[s]); ihp += st.hp || 0; iarmor += st.armor || 0; idmg += st.dmg || 0; ispeed += st.speed || 0; }
+    const sb = setBonuses(gear).bonus;
     const lb = PROGRESSION.statBonus(o.level || 1);
-    const baseDmg = c.dmg * lb * (1 + 0.05 * a.force + idmg);
+    const baseDmg = c.dmg * lb * (1 + 0.05 * a.force + idmg + (sb.dmg || 0));
     return {
-      maxHp: Math.round(c.hp * lb * (1 + ihp + 0.06 * a.vie)),
+      maxHp: Math.round(c.hp * lb * (1 + ihp + (sb.hp || 0) + 0.06 * a.vie)),
       baseDmg,
       dmg: baseDmg * (1 + 0.1 * (up.forge || 0)),
-      armor: Math.min(0.75, (c.armor || 0) + iarmor + 0.02 * a.defense + 0.08 * (up.armory || 0)),
-      cd: c.cd / (1 + 0.04 * a.agilite),
-      speed: c.speed * (1 + 0.03 * a.vitesse + ispeed),
-      crit: Math.min(0.8, (c.crit || 0.05) + 0.015 * a.critique),
+      armor: Math.min(0.75, (c.armor || 0) + iarmor + (sb.armor || 0) + 0.02 * a.defense + 0.08 * (up.armory || 0)),
+      cd: c.cd / (1 + 0.04 * a.agilite + (sb.atkspd || 0)),
+      speed: c.speed * (1 + 0.03 * a.vitesse + ispeed + (sb.speed || 0)),
+      crit: Math.min(0.8, (c.crit || 0.05) + 0.015 * a.critique + (sb.crit || 0)),
+      ultRate: 1 + (sb.ult || 0),
+      harvestMult: 1 + (sb.harvest || 0),
       range: c.range,
       leash: c.leash || 9999
     };
   }
 
   /* ------------------------------------------------------------------ */
-  /* Équipement (acheté avec des Grêlons, conservés entre les parties)  */
+  /* Équipement : objets uniques trouvés dans les glaçons                */
+  /* Chaque objet = un modèle (pièce d'un set) + une rareté              */
   /* ------------------------------------------------------------------ */
   // Famille d'une classe : la classe de base (les spécialisations héritent de leur parent)
   const familyOf = (cls) => {
@@ -128,116 +132,125 @@
     return c.tier === 2 ? c.parent : cls;
   };
 
-  /*
-   * Styles d'armure : chaque famille de classes porte son propre style.
-   * tiers[i] = couleur principale du tier i+1 (le tier 4 est toujours « runique » : or + rune cyan).
-   */
-  const RUNE = '#2fd6e0';
-  const ARMOR_STYLES = {
-    common: { label: 'Commun', families: null, trim: '#6e5233', tiers: ['#9c7b55'], mods: { hp: 1, armor: 1 } },
-    heavy: { label: 'Lourde', families: ['soldat'], trim: '#4e6d95', tiers: ['#8f969f', '#b8c1cc', '#dfe6ee', '#f2c14e'], mods: { hp: 1, armor: 1.5 } },
-    cloth: { label: 'Étoffe', families: ['mage'], trim: '#f2c14e', tiers: ['#6b4fa0', '#3b5bb5', '#9b2f4a', '#2a2140'], mods: { hp: 0.6, armor: 0.5, dmg: 0.03 } },
-    leather: { label: 'Cuir', families: ['archer', 'assassin', 'eleveur'], trim: '#3d2a1a', tiers: ['#9a6a3e', '#6e4526', '#3f5a3a', '#2b2433'], mods: { hp: 0.8, armor: 0.9, speed: 0.02 } },
-    worker: { label: 'Travail', families: ['paysan'], trim: '#5e3a1f', tiers: ['#d9b85a', '#7f8fa6', '#a35a2a', '#4a4f5a'], mods: { hp: 1.3, armor: 0.8 } }
-  };
   const SLOTS = ['head', 'body', 'legs', 'feet', 'weapon'];
   const SLOT_NAMES = { head: 'Casque', body: 'Torse', legs: 'Pantalon', feet: 'Chaussures', weapon: 'Arme' };
-  const SLOT_W = { head: { hp: 0.04, armor: 0.012, price: 1 }, body: { hp: 0.06, armor: 0.025, price: 1.5 }, legs: { hp: 0.035, armor: 0.015, price: 1.15 }, feet: { hp: 0.02, armor: 0.008, price: 0.8 } };
-  const TIER_PRICE = [0, 60, 180, 500, 1400];
-  const ITEM_NAMES = {
-    common: { head: ['Capuche de voyageur'], body: ['Gambison'], legs: ['Pantalon matelassé'], feet: ['Bottes de voyage'] },
-    heavy: {
-      head: ['Casque de fer', 'Bassinet', 'Heaume', 'Heaume runique'], body: ['Brigandine', 'Cotte de mailles', 'Armure de plaques', 'Cuirasse runique'],
-      legs: ['Chausses de mailles', 'Cuissardes de fer', 'Jambières de plaques', 'Jambières runiques'], feet: ['Bottes ferrées', 'Grèves de fer', 'Solerets d’acier', 'Solerets runiques']
-    },
-    cloth: {
-      head: ['Capuche d’apprenti', 'Chapeau pointu', 'Chapeau d’archimage', 'Diadème runique'], body: ['Robe d’apprenti', 'Robe brodée', 'Robe d’archimage', 'Robe runique'],
-      legs: ['Pantalon de lin', 'Chausses de soie', 'Chausses enchantées', 'Chausses runiques'], feet: ['Sandales', 'Souliers de soie', 'Bottines astrales', 'Bottines runiques']
-    },
-    leather: {
-      head: ['Bandeau', 'Capuche de cuir', 'Capuche de rôdeur', 'Masque runique'], body: ['Gilet de cuir', 'Brigandine de cuir', 'Armure de rôdeur', 'Cuir runique'],
-      legs: ['Pantalon de cuir', 'Pantalon renforcé', 'Jambières de rôdeur', 'Jambières runiques'], feet: ['Bottes de cuir', 'Bottes souples', 'Bottes de rôdeur', 'Bottes runiques']
-    },
-    worker: {
-      head: ['Chapeau de paille', 'Bonnet de laine', 'Casque de mineur', 'Casque runique'], body: ['Chemise de travail', 'Tablier de cuir', 'Bleu de travail renforcé', 'Tablier runique'],
-      legs: ['Pantalon de toile', 'Salopette', 'Salopette renforcée', 'Salopette runique'], feet: ['Sabots', 'Bottes de ferme', 'Bottes coquées', 'Bottes runiques']
-    }
-  };
-  const WEAPON_NAMES = {
-    soldat: ['Épée de fer', 'Épée d’acier', 'Lame bénie', 'Lame runique'],
-    mage: ['Bâton de chêne', 'Sceptre de cristal', 'Bâton astral', 'Bâton runique'],
-    eleveur: ['Fouet de cuir', 'Fouet clouté', 'Fouet du maître-bête', 'Fouet runique'],
-    archer: ['Arc en if', 'Arc composite', 'Arc elfique', 'Arc runique'],
-    assassin: ['Dagues de fer', 'Lames courbes', 'Crocs d’ombre', 'Lames runiques'],
-    paysan: ['Outils de fer', 'Outils d’acier', 'Outils de maître', 'Outils runiques']
-  };
-  // Couleur du métal des armes par tier (0 = arme de départ)
-  const WEAPON_METAL = ['#d8dde3', '#c9cfd6', '#eef3f8', '#9fd3ff', '#f2c14e'];
-  const WEAPON_DMG = [0, 0.08, 0.17, 0.28, 0.42];
 
-  const ITEMS = {
-    head_none: { slot: 'head', style: 'common', tier: 0, name: 'Tête nue', price: 0, hp: 0, armor: 0 },
-    body_tunic: { slot: 'body', style: 'common', tier: 0, name: 'Tunique', price: 0, hp: 0, armor: 0 },
-    legs_basic: { slot: 'legs', style: 'common', tier: 0, name: 'Pantalon simple', price: 0, hp: 0, armor: 0 },
-    feet_basic: { slot: 'feet', style: 'common', tier: 0, name: 'Chaussures simples', price: 0, hp: 0, armor: 0 },
-    weapon_none: { slot: 'weapon', family: null, tier: 0, name: 'Arme de départ', price: 0, hp: 0, armor: 0, dmg: 0 }
+  // Raretés. « shape » = niveau de détail du dessin (1 à 4). La rareté mystique est secrète.
+  const RARITIES = [
+    { id: 'commun', name: 'Commun', color: '#b8b3c2', mult: 1, p: 0.5, shape: 1, recycle: 5 },
+    { id: 'peu_commun', name: 'Peu commun', color: '#6cc86a', mult: 1.25, p: 0.28, shape: 1, recycle: 12 },
+    { id: 'rare', name: 'Rare', color: '#4a9cff', mult: 1.55, p: 0.14, shape: 2, recycle: 30 },
+    { id: 'epique', name: 'Épique', color: '#b066ff', mult: 1.9, p: 0.06, shape: 3, recycle: 75 },
+    { id: 'legendaire', name: 'Légendaire', color: '#ff9f1a', mult: 2.4, p: 0.019, shape: 3, recycle: 200 },
+    { id: 'mystique', name: 'Mystique', color: '#2fd6e0', mult: 3.2, p: 0.001, shape: 4, recycle: 800, hidden: true }
+  ];
+  function rollRarity(rnd) {
+    let x = (rnd || Math.random)();
+    for (let i = RARITIES.length - 1; i >= 0; i--) { x -= RARITIES[i].p; if (x < 0) return i; }
+    return 0;
+  }
+
+  // Glaçons (coffres)
+  const GLACONS = { PRICE: 75, PER_WAVE: 1, CLASS_SET_CHANCE: 0.6, START: 3 };
+
+  /*
+   * Styles de dessin (formes) : heavy (lourd), cloth (étoffe), leather (cuir), worker (travail).
+   * Bonus de statistiques par style (multiplicateurs appliqués aux valeurs de base des emplacements).
+   */
+  const STYLE_MODS = { heavy: { hp: 1, armor: 1.5 }, cloth: { hp: 0.6, armor: 0.5, dmg: 0.04 }, leather: { hp: 0.8, armor: 0.9, speed: 0.025 }, worker: { hp: 1.3, armor: 0.8 } };
+  const SLOT_BASE = { head: { hp: 0.05, armor: 0.015 }, body: { hp: 0.08, armor: 0.03 }, legs: { hp: 0.045, armor: 0.02 }, feet: { hp: 0.03, armor: 0.01 }, weapon: { dmg: 0.12 } };
+  const STYLE_NOUNS = {
+    heavy: { head: 'Heaume', body: 'Cuirasse', legs: 'Jambières', feet: 'Solerets' },
+    cloth: { head: 'Chapeau', body: 'Robe', legs: 'Chausses', feet: 'Souliers' },
+    leather: { head: 'Capuche', body: 'Brigandine', legs: 'Pantalon', feet: 'Bottes' },
+    worker: { head: 'Chapeau', body: 'Tablier', legs: 'Salopette', feet: 'Bottes' }
   };
-  for (const [style, slots] of Object.entries(ITEM_NAMES)) {
-    const m = ARMOR_STYLES[style].mods;
-    for (const [slot, names] of Object.entries(slots)) {
-      names.forEach((name, i) => {
-        const t = i + 1, w = SLOT_W[slot];
-        ITEMS[`${slot}_${style}_${t}`] = {
-          slot, style, tier: t, name, price: Math.round(TIER_PRICE[t] * w.price / 10) * 10,
-          hp: +(w.hp * t * m.hp).toFixed(3), armor: +(w.armor * t * m.armor).toFixed(3),
-          dmg: m.dmg ? +(m.dmg * t).toFixed(3) : 0, speed: m.speed ? +(m.speed * t * (slot === 'feet' ? 2 : 1)).toFixed(3) : 0
-        };
-      });
+
+  /*
+   * Sets. families = familles autorisées (null = toutes les classes).
+   * bonus[n] = bonus actif quand n pièces du set sont portées (hp/dmg/armor/speed/crit/atkspd/ult/harvest).
+   */
+  const SETS = {
+    rempart: { name: 'Rempart', of: 'du Rempart', families: ['soldat'], style: 'heavy', main: '#b8c1cc', trim: '#4e6d95', bonus: { 2: { hp: 0.1 }, 4: { armor: 0.08 }, 5: { dmg: 0.15 } } },
+    arcaniste: { name: 'Arcaniste', of: 'de l’Arcaniste', families: ['mage'], style: 'cloth', main: '#3b5bb5', trim: '#f2c14e', bonus: { 2: { dmg: 0.1 }, 4: { ult: 0.25 }, 5: { dmg: 0.15 } } },
+    maitrebete: { name: 'Maître-bête', of: 'du Maître-bête', families: ['eleveur'], style: 'leather', main: '#6e4526', trim: '#2e9e57', bonus: { 2: { hp: 0.1 }, 4: { dmg: 0.12 }, 5: { ult: 0.25 } } },
+    faucon: { name: 'Œil-de-faucon', of: 'de l’Œil-de-faucon', families: ['archer'], style: 'leather', main: '#3f5a3a', trim: '#c8a24a', bonus: { 2: { crit: 0.05 }, 4: { atkspd: 0.15 }, 5: { dmg: 0.15 } } },
+    lamenuit: { name: 'Lame-nuit', of: 'de la Lame-nuit', families: ['assassin'], style: 'leather', main: '#2b2433', trim: '#e74c3c', bonus: { 2: { speed: 0.1 }, 4: { crit: 0.1 }, 5: { dmg: 0.2 } } },
+    moisson: { name: 'Moisson', of: 'de la Moisson', families: ['paysan'], style: 'worker', main: '#a35a2a', trim: '#f1c40f', bonus: { 2: { hp: 0.15 }, 4: { harvest: 0.3 }, 5: { armor: 0.1 } } },
+    voyageur: { name: 'Voyageur', of: 'du Voyageur', families: null, style: 'leather', main: '#9a6a3e', trim: '#5e3a1f', bonus: { 2: { speed: 0.06 }, 4: { hp: 0.1 } } },
+    givre: { name: 'Givre éternel', of: 'du Givre éternel', families: null, style: 'heavy', main: '#bfe6ff', trim: '#2f6fd1', bonus: { 2: { armor: 0.05 }, 4: { hp: 0.12 } } },
+    braise: { name: 'Braise', of: 'de Braise', families: null, style: 'cloth', main: '#9b2f4a', trim: '#ff7a1a', bonus: { 2: { dmg: 0.06 }, 4: { crit: 0.06 } } }
+  };
+  // Modèles d'objets : une pièce par emplacement et par set (les sets de classe ont aussi une arme)
+  const TEMPLATES = {};
+  for (const [sid, set] of Object.entries(SETS)) {
+    for (const slot of SLOTS) {
+      if (slot === 'weapon' && !set.families) continue;
+      const base = SLOT_BASE[slot], m = STYLE_MODS[set.style];
+      TEMPLATES[`${sid}_${slot}`] = {
+        set: sid, slot, style: set.style, families: set.families,
+        name: slot === 'weapon' ? `Arme ${set.of}` : `${STYLE_NOUNS[set.style][slot]} ${set.of}`,
+        hp: (base.hp || 0) * (m.hp || 1), armor: (base.armor || 0) * (m.armor || 1), dmg: (base.dmg || 0) + (slot !== 'weapon' ? m.dmg || 0 : 0), speed: slot === 'feet' ? (m.speed || 0) * 2 : m.speed || 0
+      };
     }
   }
-  for (const [family, names] of Object.entries(WEAPON_NAMES)) {
-    names.forEach((name, i) => {
-      const t = i + 1;
-      ITEMS[`weapon_${family}_${t}`] = { slot: 'weapon', family, tier: t, name, price: Math.round(TIER_PRICE[t] * 1.3 / 10) * 10, hp: 0, armor: 0, dmg: WEAPON_DMG[t] };
-    });
-  }
-  const DEFAULT_EQUIP = { head: 'head_none', body: 'body_tunic', legs: 'legs_basic', feet: 'feet_basic', weapon: 'weapon_none' };
+  const STAT_NAMES = { hp: 'PV', dmg: 'dégâts', armor: 'défense', speed: 'vitesse', crit: 'critique', atkspd: 'vitesse d’attaque', ult: 'charge de l’ultime', harvest: 'récolte' };
 
-  // Un objet est-il utilisable par cette classe ?
-  function canUse(id, cls) {
-    const it = ITEMS[id];
-    if (!it) return false;
-    const fam = familyOf(cls);
-    if (it.slot === 'weapon') return it.family === null || it.family === fam;
-    const st = ARMOR_STYLES[it.style];
-    return !st.families || st.families.includes(fam);
+  // Un objet (modèle) est-il utilisable par cette classe ?
+  function canUse(tid, cls) {
+    const t = TEMPLATES[tid];
+    if (!t) return false;
+    return !t.families || t.families.includes(familyOf(cls));
   }
-  // Équipement réellement porté (les objets d'une autre classe sont ignorés)
-  function effectiveEquip(cls, equip) {
+  // Statistiques d'un objet selon sa rareté
+  function itemStats(item) {
+    const t = TEMPLATES[item.t], r = RARITIES[item.r] || RARITIES[0];
+    if (!t) return {};
+    const out = {};
+    for (const k of ['hp', 'armor', 'dmg', 'speed']) if (t[k]) out[k] = +(t[k] * r.mult).toFixed(3);
+    return out;
+  }
+  // Nom affiché : les armes prennent le nom de l'arme réelle de la classe (marteau, arbalète…)
+  const WEAPON_KIND = { club: 'Gourdin', sword: 'Épée', hammer: 'Marteau', lance: 'Lance', staff: 'Bâton', whip: 'Fouet', scythe: 'Faux', bow: 'Arc', longbow: 'Arc long', crossbow: 'Arbalète', daggers: 'Dagues', pitchfork: 'Fourche', axe: 'Hache', pickaxe: 'Pioche' };
+  function itemName(item, cls) {
+    const t = TEMPLATES[item && item.t];
+    if (!t) return '?';
+    if (t.slot !== 'weapon') return t.name;
+    const fam = t.families[0];
+    const c = cls && familyOf(cls) === fam ? CLASSES[cls] : CLASSES[fam];
+    return `${WEAPON_KIND[c.weapon] || 'Arme'} ${SETS[t.set].of}`;
+  }
+  // Équipement porté et utilisable : { slot: {t, r} | null }
+  function gearFor(cls, gear) {
     const out = {};
     for (const s of SLOTS) {
-      const id = (equip || {})[s];
-      out[s] = id && ITEMS[id] && ITEMS[id].slot === s && canUse(id, cls) ? id : DEFAULT_EQUIP[s];
+      const it = (gear || {})[s];
+      out[s] = it && TEMPLATES[it.t] && TEMPLATES[it.t].slot === s && canUse(it.t, cls) ? it : null;
     }
     return out;
   }
-  // Nom affiché d'un objet : les armes prennent le nom de l'arme réelle de la classe (marteau, arbalète…)
-  const WEAPON_KIND = { club: 'Gourdin', sword: 'Épée', hammer: 'Marteau', lance: 'Lance', staff: 'Bâton', whip: 'Fouet', scythe: 'Faux', bow: 'Arc', longbow: 'Arc long', crossbow: 'Arbalète', daggers: 'Dagues', pitchfork: 'Fourche', axe: 'Hache', pickaxe: 'Pioche' };
-  const WEAPON_TIER_SUFFIX = ['', 'en fer', 'en acier', 'de maître', 'runique'];
-  function itemName(id, cls) {
-    const it = ITEMS[id];
-    if (!it) return '?';
-    if (it.slot !== 'weapon' || !cls) return it.name;
-    const kind = WEAPON_KIND[(CLASSES[cls] || CLASSES.habitant).weapon] || 'Arme';
-    return it.tier ? `${kind} ${WEAPON_TIER_SUFFIX[it.tier]}` : `${kind} de départ`;
+  // Nombre de pièces portées par set et bonus actifs
+  function setBonuses(gear) {
+    const count = {};
+    for (const it of Object.values(gear)) if (it) { const s = TEMPLATES[it.t].set; count[s] = (count[s] || 0) + 1; }
+    const bonus = {};
+    const active = [];
+    for (const [sid, n] of Object.entries(count)) {
+      for (const [need, b] of Object.entries(SETS[sid].bonus)) {
+        if (n >= Number(need)) { active.push({ set: sid, pieces: Number(need), bonus: b }); for (const [k, v] of Object.entries(b)) bonus[k] = (bonus[k] || 0) + v; }
+      }
+    }
+    return { count, bonus, active };
   }
-  // Couleurs d'un objet (pour le dessin)
-  function itemColors(id) {
-    const it = ITEMS[id];
-    if (!it || it.slot === 'weapon') return null;
-    const st = ARMOR_STYLES[it.style];
-    return { main: st.tiers[Math.min(st.tiers.length - 1, Math.max(0, it.tier - 1))], trim: it.tier >= 4 ? RUNE : st.trim, rune: it.tier >= 4 };
+  // Apparence d'une pièce pour le dessin
+  function itemLook(item) {
+    const t = TEMPLATES[item && item.t];
+    if (!t) return null;
+    const set = SETS[t.set], r = RARITIES[item.r] || RARITIES[0];
+    return { style: t.style, shape: r.shape, main: set.main, trim: item.r >= 5 ? '#2fd6e0' : item.r >= 4 ? '#f2c14e' : set.trim, rune: item.r >= 5, rarity: item.r };
   }
+  // Couleur du métal des armes selon le niveau de forme (0 = arme de départ)
+  const WEAPON_METAL = ['#d8dde3', '#c9cfd6', '#eef3f8', '#9fd3ff', '#f2c14e'];
 
   /* ------------------------------------------------------------------ */
   /* IA personnalisable                                                  */
@@ -352,5 +365,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128 }
   };
 
-  return { NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, ARMOR_STYLES, SLOTS, SLOT_NAMES, ITEMS, DEFAULT_EQUIP, WEAPON_METAL, canUse, effectiveEquip, itemColors, itemName, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

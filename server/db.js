@@ -7,10 +7,20 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const config = require('./config');
-const { DEFAULT_AI, PALETTE, emptyAttrs, PROGRESSION, ITEMS, DEFAULT_EQUIP } = require('../shared/constants');
+const { DEFAULT_AI, PALETTE, emptyAttrs, PROGRESSION, TEMPLATES, SLOTS, GLACONS } = require('../shared/constants');
 
 // Anciennes armures (v1) : remboursées en Grêlons
 const LEGACY_ITEMS = { head_hood: 30, head_leather: 90, head_iron: 250, head_great: 600, head_rune: 1500, body_leather: 140, body_mail: 380, body_plate: 900, body_rune: 2200 };
+// Catalogue v2 (armures achetées à l'unité) : prix recalculés pour le remboursement
+function legacyPrice(id) {
+  if (LEGACY_ITEMS[id]) return LEGACY_ITEMS[id];
+  const TIER = [0, 60, 180, 500, 1400], SW = { head: 1, body: 1.5, legs: 1.15, feet: 0.8 };
+  let m = /^weapon_[a-z]+_(\d)$/.exec(id);
+  if (m) return Math.round((TIER[m[1]] * 1.3) / 10) * 10;
+  m = /^(head|body|legs|feet)_[a-z]+_(\d)$/.exec(id);
+  if (m) return Math.round((TIER[m[2]] * SW[m[1]]) / 10) * 10;
+  return 0;
+}
 
 let data = { users: {}, sessions: {}, settings: {} };
 let dirty = false;
@@ -41,17 +51,36 @@ for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { saveNow(); proc
 function migrateUser(u) {
   u.ai = { ...DEFAULT_AI, ...(u.ai || {}) };
   u.look ||= { cape: 0, skin: 1, hair: 0 };
-  u.owned ||= [];
   u.gold ||= 0;
-  for (const id of u.owned) if (LEGACY_ITEMS[id]) u.gold += LEGACY_ITEMS[id];
-  u.owned = [...new Set([...Object.values(DEFAULT_EQUIP), ...u.owned.filter((id) => ITEMS[id])])];
-  u.equip = { ...DEFAULT_EQUIP, ...(u.equip || {}) };
-  for (const [slot, id] of Object.entries(u.equip)) if (!ITEMS[id] || !u.owned.includes(id)) u.equip[slot] = DEFAULT_EQUIP[slot];
+  // v3 : objets uniques (inventaire) + glaçons ; les anciennes armures achetées sont remboursées
+  if (u.gearVersion !== 3) {
+    for (const id of u.owned || []) u.gold += legacyPrice(id);
+    delete u.owned;
+    u.inventory = [];
+    u.equip = {};
+    u.glacons = (u.glacons || 0) + GLACONS.START;
+    u.gearVersion = 3;
+  }
+  u.inventory ||= [];
+  u.inventory = u.inventory.filter((it) => TEMPLATES[it.t]);
+  u.equip ||= {};
+  for (const s of SLOTS) if (u.equip[s] && !u.inventory.some((it) => it.uid === u.equip[s])) delete u.equip[s];
+  u.glacons ||= 0;
   u.stats ||= { kills: 0, runs: 0, bestWave: 0, deaths: 0, bossKills: 0 };
   u.cls ||= 'habitant';
   u.level ||= 1; u.xp ||= 0; u.gold ||= 0;
   syncAttrPoints(u);
   return u;
+}
+
+// Équipement porté sous forme { slot: {t, r} }
+function gearOf(u) {
+  const out = {};
+  for (const s of SLOTS) {
+    const it = u.equip && u.equip[s] && u.inventory.find((x) => x.uid === u.equip[s]);
+    out[s] = it ? { t: it.t, r: it.r } : null;
+  }
+  return out;
 }
 
 // Points de stat : 1 par niveau gagné. Recalcule les points libres (et réinitialise si le niveau a baissé).
@@ -76,7 +105,7 @@ function newUser(pseudo, passHash, role) {
 }
 
 const db = {
-  load, saveNow, markDirty, newUser, syncAttrPoints,
+  load, saveNow, markDirty, newUser, syncAttrPoints, gearOf,
   get data() { return data; },
   userById: (id) => data.users[id] || null,
   userByPseudo: (p) => Object.values(data.users).find((u) => u.pseudoLower === String(p).toLowerCase()) || null,

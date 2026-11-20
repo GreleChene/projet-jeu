@@ -9,7 +9,7 @@ const Terrain = require('../../shared/terrain');
 const U = require('./util');
 const config = require('../config');
 
-const { WORLD, CLASSES, MOBS, MOB_IDS, ITEMS, UPGRADES, PROGRESSION, BOSS_WAVES } = GD;
+const { WORLD, CLASSES, MOBS, MOB_IDS, UPGRADES, PROGRESSION, BOSS_WAVES } = GD;
 const MOB_INDEX = Object.fromEntries(MOB_IDS.map((id, i) => [id, i]));
 const { PROJ_KINDS, ZONE_KINDS, HF, MF } = GD.NET;
 const PROJ_INDEX = Object.fromEntries(PROJ_KINDS.map((k, i) => [k, i]));
@@ -171,19 +171,21 @@ class Game {
     const all = GD.CLASS_IDS.filter((c) => c !== 'habitant');
     const cls = CLASSES[opts.cls] ? opts.cls : U.pick(all);
     const lvl = opts.level ? U.clamp(opts.level | 0, 1, PROGRESSION.MAX_LEVEL) : (CLASSES[cls].tier === 2 ? 8 + ((Math.random() * 12) | 0) : CLASSES[cls].tier === 1 ? 3 + ((Math.random() * 5) | 0) : 1 + ((Math.random() * 3) | 0));
-    // équipement cohérent avec la classe et le niveau
-    const maxTier = Math.min(4, Math.floor(lvl / 8) + 1);
-    const equip = {};
+    // équipement : pièces utilisables par la classe, rareté plus haute avec le niveau
+    const gear = {};
     for (const slot of GD.SLOTS) {
-      const opt = Object.keys(ITEMS).filter((k) => ITEMS[k].slot === slot && ITEMS[k].tier <= maxTier && GD.canUse(k, cls));
-      equip[slot] = Math.random() < 0.85 ? U.pick(opt) : GD.DEFAULT_EQUIP[slot];
+      const opt = Object.keys(GD.TEMPLATES).filter((k) => GD.TEMPLATES[k].slot === slot && GD.canUse(k, cls));
+      if (!opt.length || Math.random() < 0.15) continue;
+      let r = GD.rollRarity();
+      for (let i = 0; i < Math.floor(lvl / 15); i++) r = Math.max(r, GD.rollRarity());
+      gear[slot] = { t: U.pick(opt), r };
     }
     const id = 'bot_' + this.nid;
     const h = this.makeHero({ id, userId: null, name: opts.name || `Bot${this.nid}`, isBot: true });
     h.bot = {
       cls, level: lvl,
       look: { cape: (Math.random() * 10) | 0, skin: (Math.random() * 5) | 0, hair: (Math.random() * 6) | 0 },
-      equip,
+      gear,
       attrs: (() => { const a = GD.emptyAttrs(); for (let i = 1; i < lvl; i++) a[U.pick(GD.ATTR_IDS)]++; return a; })(),
       ai: { stance: U.pick(['offensive', 'balanced', 'defensive']), target: U.pick(['nearest', 'weakest', 'strongest', 'tower']), retreat: U.pick([0, 25, 50]), ult: U.pick(['asap', 'smart', 'boss']) }
     };
@@ -235,11 +237,11 @@ class Game {
     const p = this.heroProfile(h);
     if (!p) return;
     const prevCls = h.cls;
-    h.cls = p.cls; h.level = p.level; h.look = p.look; h.equip = GD.effectiveEquip(p.cls, p.equip); h.ai = p.ai;
+    h.cls = p.cls; h.level = p.level; h.look = p.look; h.gear = GD.gearFor(p.cls, h.isBot ? p.gear : this.db.gearOf(p)); h.ai = p.ai;
     h.attrs = p.attrs;
     const c = CLASSES[h.cls] || CLASSES.habitant;
     const ratio = h.maxHp > 1 ? h.hp / h.maxHp : 1;
-    const st = GD.computeStats({ cls: h.cls, level: h.level, equip: h.equip, attrs: p.attrs, upgrades: this.run.upgrades });
+    const st = GD.computeStats({ cls: h.cls, level: h.level, gear: h.gear, attrs: p.attrs, upgrades: this.run.upgrades });
     Object.assign(h, st);
     h.hp = Math.max(1, Math.min(h.maxHp, Math.round(h.maxHp * ratio)));
     if (prevCls && prevCls !== h.cls) {
@@ -318,6 +320,9 @@ class Game {
     // récompenses de fin de manche
     for (const h of this.heroes.values()) {
       this.reward(h, 10 + r.wave * 4, 2 + Math.ceil(r.wave / 2));
+      // un glaçon (coffre) par manche passée
+      const pu = !h.isBot && this.db.userById(h.userId);
+      if (pu) { pu.glacons = (pu.glacons || 0) + GD.GLACONS.PER_WAVE; this.fx(['text', Math.round(h.x), Math.round(h.y) - 80, '+1 🧊', '#bfe6ff']); }
       if (!h.alive) { h.alive = true; h.zombie = false; h.hp = Math.round(h.maxHp * 0.5); h.x = WORLD.CX; h.y = WORLD.CY + 90; }
       if (h.zombie) { h.zombie = false; this.rosterVersion++; }
       const u = h.userId && this.db.userById(h.userId);
@@ -672,7 +677,7 @@ class Game {
   /* ============================== Réseau ============================== */
   rosterPayload() {
     const out = [];
-    for (const h of this.heroes.values()) out.push({ n: h.nid, name: h.name, cls: h.cls, lvl: h.level, look: h.look, equip: h.equip, bot: h.isBot });
+    for (const h of this.heroes.values()) out.push({ n: h.nid, name: h.name, cls: h.cls, lvl: h.level, look: h.look, gear: h.gear, bot: h.isBot });
     return { v: this.rosterVersion, heroes: out };
   }
 
@@ -742,7 +747,7 @@ class Game {
       phase: this.phase, paused: this.paused, wave: r.wave, cleared: r.cleared, timer: Math.ceil(r.timer),
       tower: { hp: Math.ceil(r.tower.hp), max: r.tower.max }, treasury: r.treasury, wealthEarned: r.wealthEarned,
       upgrades: r.upgrades, heroes: this.heroes.size, mobs: this.mobs.length + r.queue.length + r.bossPending.length,
-      voting: !!r.vote, nextVote: this.nextVoteWave(),
+      voting: !!r.vote, nextVote: this.nextVoteWave(), voteEvery: this.settings.voteEvery,
       pact: r.pactActive ? 'active' : r.pactNext ? 'next' : null, era: GD.eraOfWave(Math.max(1, r.wave)).name
     };
   }
@@ -752,7 +757,7 @@ class Game {
     const r = this.run;
     const out = { run: this.publicRunInfo(), hero: null, vote: null };
     const u = this.db.userById(userId);
-    if (u) out.profile = { level: u.level, xp: u.xp, xpNext: PROGRESSION.xpForLevel(u.level), attrPoints: u.attrPoints || 0 };
+    if (u) out.profile = { level: u.level, xp: u.xp, xpNext: PROGRESSION.xpForLevel(u.level), attrPoints: u.attrPoints || 0, glacons: u.glacons || 0 };
     if (r.vote) {
       out.vote = {
         options: r.vote.options.map((o) => ({ id: o, cost: UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0, level: r.upgrades[o] || 0 })),

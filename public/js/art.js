@@ -112,24 +112,25 @@
   }
 
   /* ------------------------------ héros ------------------------------ */
-  // Pour un objet équipé : { style, tier, main, trim, rune }
-  function piece(id) {
-    const it = GD.ITEMS[id];
-    if (!it) return { style: 'common', tier: 0 };
-    return { style: it.style, tier: it.tier, ...(GD.itemColors(id) || {}) };
+  // Pour un objet équipé {t, r} : { style, tier (niveau de forme 1-4 selon la rareté), main, trim, rune }
+  function piece(item) {
+    const L = GD.itemLook(item);
+    if (!L) return { style: 'common', tier: 0 };
+    return { ...L, tier: L.shape };
   }
   function runeDot(ctx, x, y) { circle(ctx, x, y, 1.5, '#2fd6e0', 0.8); }
 
   /**
-   * o = { cls, look:{cape,skin,hair}, equip:{head,body,legs,feet,weapon}, facing, t, attack(0..1),
+   * o = { cls, look:{cape,skin,hair}, gear:{head,body,legs,feet,weapon: {t, r}}, facing, t, attack(0..1),
    *       moving, zombie, stealth, scale, seed }
    */
   function drawHero(ctx, x, y, o) {
     const c = GD.CLASSES[o.cls] || GD.CLASSES.habitant;
     const look = o.look || { cape: 0, skin: 1, hair: 0 };
-    const eq = GD.effectiveEquip(o.cls, o.equip);
+    const eq = GD.gearFor(o.cls, o.gear);
     const head = piece(eq.head), body = piece(eq.body), legs = piece(eq.legs), feet = piece(eq.feet);
-    const wTier = (GD.ITEMS[eq.weapon] || {}).tier || 0;
+    const wTier = eq.weapon ? GD.RARITIES[eq.weapon.r].shape : 0;
+    const mythic = Object.values(eq).some((it) => it && it.r >= 5);
     const s = o.scale || 1;
     const t = o.t || 0;
     const cape = P.capes[look.cape % P.capes.length];
@@ -148,6 +149,7 @@
     ctx.scale(s, s);
     if (o.stealth) ctx.globalAlpha = 0.35;
     shadow(ctx, 0, 2, 12, 4);
+    if (mythic) { ctx.save(); ctx.globalAlpha = 0.35 + 0.15 * Math.sin(t * 4); ctx.translate(0, -14); glow(ctx, '#2fd6e0', 16); ctx.restore(); }
     ctx.scale(flip, 1);
 
     // ---- jambes (pantalon) + chaussures

@@ -4,6 +4,7 @@ const http = require('http');
 const express = require('express');
 const { Server } = require('socket.io');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const config = require('./config');
 const db = require('./db');
@@ -87,7 +88,7 @@ function rateLimited(key) {
 function publicUser(u) {
   return {
     id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', cls: u.cls, level: u.level, xp: u.xp, xpNext: GD.PROGRESSION.xpForLevel(u.level),
-    gold: u.gold, look: u.look, owned: u.owned, equip: u.equip, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id),
+    gold: u.gold, look: u.look, inventory: u.inventory, equip: u.equip, glacons: u.glacons, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id),
     attrs: u.attrs, attrPoints: u.attrPoints
   };
 }
@@ -203,31 +204,65 @@ app.post('/api/me/attrs/reset', auth, (req, res) => {
   res.json({ user: publicUser(u) });
 });
 
-app.post('/api/shop/buy', auth, (req, res) => {
+/* ============================== Équipement & glaçons ============================== */
+app.put('/api/me/equip', auth, (req, res) => {
   const u = req.user;
-  const id = (req.body || {}).item;
-  const a = GD.ITEMS[id];
-  if (!a) return res.status(400).json({ error: 'Objet inconnu' });
-  if (u.owned.includes(id)) return res.status(400).json({ error: 'Déjà possédé' });
-  if (!GD.canUse(id, u.cls)) return res.status(400).json({ error: 'Cet objet n’est pas fait pour ta classe.' });
-  if (u.gold < a.price) return res.status(400).json({ error: 'Pas assez de Grêlons' });
-  u.gold -= a.price;
-  u.owned.push(id);
-  u.equip[a.slot] = id;
+  const { uid, slot } = req.body || {};
+  if (uid === null && GD.SLOTS.includes(slot)) {
+    delete u.equip[slot];
+  } else {
+    const it = u.inventory.find((x) => x.uid === uid);
+    if (!it) return res.status(400).json({ error: 'Objet introuvable' });
+    if (!GD.canUse(it.t, u.cls)) return res.status(400).json({ error: 'Cet objet n’est pas fait pour ta classe.' });
+    u.equip[GD.TEMPLATES[it.t].slot] = it.uid;
+  }
   afterProfileChange(u);
   res.json({ user: publicUser(u) });
 });
 
-app.put('/api/me/equip', auth, (req, res) => {
+app.post('/api/inventory/recycle', auth, (req, res) => {
   const u = req.user;
-  const id = (req.body || {}).item;
-  const a = GD.ITEMS[id];
-  if (!a || !u.owned.includes(id)) return res.status(400).json({ error: 'Objet non possédé' });
-  if (!GD.canUse(id, u.cls)) return res.status(400).json({ error: 'Cet objet n’est pas fait pour ta classe.' });
-  u.equip[a.slot] = id;
+  const it = u.inventory.find((x) => x.uid === (req.body || {}).uid);
+  if (!it) return res.status(400).json({ error: 'Objet introuvable' });
+  if (Object.values(u.equip).includes(it.uid)) return res.status(400).json({ error: 'Retire d’abord cet objet.' });
+  const gain = GD.RARITIES[it.r].recycle;
+  u.inventory = u.inventory.filter((x) => x !== it);
+  u.gold += gain;
   afterProfileChange(u);
+  res.json({ user: publicUser(u), gain });
+});
+
+app.post('/api/glacons/buy', auth, (req, res) => {
+  const u = req.user;
+  const n = Math.max(1, Math.min(10, Math.floor(Number((req.body || {}).n) || 1)));
+  const cost = n * GD.GLACONS.PRICE;
+  if (u.gold < cost) return res.status(400).json({ error: 'Pas assez de Grêlons' });
+  u.gold -= cost;
+  u.glacons += n;
+  db.markDirty();
   res.json({ user: publicUser(u) });
 });
+
+app.post('/api/glacons/open', auth, (req, res) => {
+  const u = req.user;
+  if (u.glacons < 1) return res.status(400).json({ error: 'Tu n’as aucun glaçon.' });
+  if (u.inventory.length >= 300) return res.status(400).json({ error: 'Inventaire plein (300 objets) : recycle des objets.' });
+  u.glacons--;
+  const item = rollItem(u.cls);
+  u.inventory.push(item);
+  db.markDirty();
+  if (item.r >= 4) game.pushFeed(`${item.r === 5 ? '🌌' : '✨'} ${u.pseudo} obtient un objet ${GD.RARITIES[item.r].name.toLowerCase()} : ${GD.itemName(item, u.cls)} !`);
+  res.json({ user: publicUser(u), item });
+});
+
+// Contenu d'un glaçon : une pièce utilisable par la classe actuelle du joueur
+function rollItem(cls) {
+  const ids = Object.keys(GD.TEMPLATES).filter((t) => GD.canUse(t, cls));
+  const classIds = ids.filter((t) => GD.TEMPLATES[t].families);
+  const pool = classIds.length && Math.random() < GD.GLACONS.CLASS_SET_CHANCE ? classIds : ids.filter((t) => !GD.TEMPLATES[t].families);
+  const t = pool[Math.floor(Math.random() * pool.length)];
+  return { uid: crypto.randomUUID(), t, r: GD.rollRarity(), at: Date.now() };
+}
 
 app.get('/api/leaderboard', (req, res) => {
   const top = db.allUsers().filter((u) => !u.banned)
@@ -286,7 +321,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
 
 app.get('/api/admin/users', admin, (req, res) => {
   res.json({
-    users: db.allUsers().map((u) => ({ id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', banned: !!u.banned, cls: u.cls, level: u.level, gold: u.gold, stats: u.stats, createdAt: u.createdAt, online: isOnline(u.id) }))
+    users: db.allUsers().map((u) => ({ id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', banned: !!u.banned, cls: u.cls, level: u.level, gold: u.gold, glacons: u.glacons, stats: u.stats, createdAt: u.createdAt, online: isOnline(u.id) }))
   });
 });
 
@@ -301,6 +336,7 @@ app.post('/api/admin/users/:id', admin, async (req, res) => {
   }
   if (b.gold !== undefined) u.gold = Math.max(0, Math.floor(Number(b.gold) || 0));
   if (b.addGold !== undefined) u.gold = Math.max(0, u.gold + Math.floor(Number(b.addGold) || 0));
+  if (b.addGlacons !== undefined) u.glacons = Math.max(0, u.glacons + Math.min(1000, Math.floor(Number(b.addGlacons) || 0)));
   if (b.addXp !== undefined) {
     const n = Math.floor(Number(b.addXp) || 0);
     if (n <= 0 || n > 10_000_000) return res.status(400).json({ error: 'Quantité d’XP invalide.' });

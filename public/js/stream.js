@@ -242,7 +242,7 @@
       ctx.beginPath(); ctx.ellipse(h.x, h.y + 1, 21, 8, 0, 0, Math.PI * 2); ctx.fillStyle = CLASSES[info.cls].color; ctx.fill(); ctx.restore();
     }
     A.drawHero(ctx, h.x, h.y, {
-      cls: info.cls, look: info.look, equip: info.equip, facing: h.facing, t: time, seed: h.seed, scale: HERO_SCALE, moving: h.moving,
+      cls: info.cls, look: info.look, gear: info.gear, facing: h.facing, t: time, seed: h.seed, scale: HERO_SCALE, moving: h.moving,
       attack: Math.max(0, h.attackT), zombie: !!(h.f & HF.ZOMBIE), stealth: !!(h.f & HF.STEALTH)
     });
     if (h.f & HF.SHIELD) { ctx.save(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(h.x, h.y - 21, 28, 0, Math.PI * 2); ctx.strokeStyle = P.fx.frost; ctx.lineWidth = 3; ctx.stroke(); ctx.restore(); }
