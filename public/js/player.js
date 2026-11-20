@@ -325,7 +325,6 @@
   // La rareté secrète reste « ??? » tant que le joueur ne l'a pas trouvée
   const rarName = (r) => (GD.RARITIES[r] && GD.RARITIES[r].hidden && !me.mysticFound ? '???' : R(r).name);
   const rarColor = (r) => (GD.RARITIES[r] && GD.RARITIES[r].hidden && !me.mysticFound ? '#a596b8' : R(r).color);
-  const shardsToIce = (n) => (n / GD.GLACONS.SHARDS_PER_GLACON).toLocaleString('fr-FR', { maximumFractionDigits: 1 });
   const LOCK_LABEL = { 'vente': '🏪 En vente', 'échange': '🔄 Proposé en échange' };
 
   // Carte d'objet réutilisable (inventaire, place marchande)
@@ -378,9 +377,6 @@
     $('#buyIce5').replaceChildren('Acheter 5 · ', hail(), String(P1 * 5));
     $('#buyIce1').disabled = me.gold < P1;
     $('#buyIce5').disabled = me.gold < P1 * 5;
-    const per = GD.GLACONS.SHARDS_PER_GLACON;
-    $('#shardInfo').textContent = `Éclats de glace : ${me.iceShards || 0} / ${per} (recycle des objets pour en obtenir)`;
-    $('#shardBar').style.width = `${(100 * (me.iceShards || 0)) / per}%`;
 
     // objets portés
     const gear = myGear();
@@ -410,14 +406,14 @@
     $('#invList').replaceChildren(...(list.length ? list.map((it) => {
       const t = GD.TEMPLATES[it.t], usable = GD.canUse(it.t, me.cls), isWorn = worn.has(it.uid);
       const lock = (me.locked || {})[it.uid];
-      const sh = R(it.r).shards;
+      const val = GD.recycleValue(it.r);
       return itemCard(it, {
         worn: isWorn,
         lines: lock ? [LOCK_LABEL[lock]] : [],
         buttons: lock ? [el('button', { class: 'small', onclick: () => goMarket() }, 'Voir')] : [
           isWorn ? el('button', { class: 'small', onclick: () => equip(null, t.slot) }, 'Retirer')
             : el('button', { class: 'small primary', disabled: !usable, onclick: () => equip(it.uid) }, 'Équiper'),
-          isWorn ? '' : el('button', { class: 'small', title: `Recycler : +${sh} éclat(s) de glace (${shardsToIce(sh)} glaçon)`, onclick: () => recycle(it) }, `♻️ +${shardsToIce(sh)} 🧊`),
+          isWorn ? '' : el('button', { class: 'small', title: `Recycler contre ${val} Grêlons`, onclick: () => recycle(it) }, '♻️ ', hail(), String(val)),
           isWorn ? '' : el('button', { class: 'small', onclick: () => goMarket(it.uid) }, '🏪')]
       });
     }) : [el('p', { class: 'muted' }, 'Aucun objet. Brise un glaçon pour en obtenir !')]));
@@ -429,11 +425,11 @@
     catch (e) { $('#invError').textContent = e.message; }
   }
   async function recycle(it) {
-    if (it.r >= 3 && !confirm(`Recycler cet objet ${rarName(it.r).toLowerCase()} contre ${R(it.r).shards} éclats de glace (${shardsToIce(R(it.r).shards)} glaçon) ?`)) return;
+    if (it.r >= 3 && !confirm(`Recycler cet objet ${rarName(it.r).toLowerCase()} contre ${GD.recycleValue(it.r)} Grêlons ?`)) return;
     try {
       const d = await api('/api/inventory/recycle', { body: { uid: it.uid } });
       setUser(d.user);
-      toast(d.glacons ? `♻️ +${d.shards} éclat(s) → +${d.glacons} glaçon${d.glacons > 1 ? 's' : ''} 🧊 !` : `♻️ +${d.shards} éclat(s) de glace`);
+      toast(`♻️ +${d.gain} Grêlons`);
     }
     catch (e) { $('#invError').textContent = e.message; }
   }
@@ -641,14 +637,14 @@
         `Tu gagnes ${G.PER_WAVE} glaçon pour chaque manche passée avec ton héros en jeu.`,
         ['Un glaçon s’achète ', hail(), `${G.PRICE} Grêlons.`],
         `Chaque glaçon contient 1 objet (arme ou armure) : ${Math.round(G.UNIVERSAL_CHANCE * 100)}% une pièce d’un set universel, ${Math.round((1 - G.UNIVERSAL_CHANCE - G.OTHER_CLASS_CHANCE) * 100)}% une pièce du set de ta famille de classes, ${Math.round(G.OTHER_CLASS_CHANCE * 100)}% une pièce du set d’une autre classe (à échanger ou vendre sur la place marchande). Un habitant n’a pas encore de set : ses ${Math.round((1 - G.UNIVERSAL_CHANCE - G.OTHER_CLASS_CHANCE) * 100)}% vont aux pièces universelles.`,
-        `Recycler un objet rapporte des éclats de glace : plus l’objet est rare, plus il en rapporte. ${G.SHARDS_PER_GLACON} éclats = 1 glaçon.`])),
+        ['Recycler un objet rapporte des Grêlons : plus l’objet est rare, plus il en rapporte, au maximum le prix d’un glaçon (', hail(), `${G.PRICE}).`]])),
       sec('🏪 Place marchande', ul([
         'Mets tes objets en vente au prix que tu veux en Grêlons, éventuellement réservés à un joueur précis.',
         'Offre un objet à un autre joueur, ou propose-lui un échange : ton objet (+ des Grêlons si tu veux) contre un des siens.',
         'Un objet en vente ou proposé en échange ne peut pas être porté ni recyclé. Tu peux annuler à tout moment.'])),
       sec('💎 Raretés', el('p', {}, 'La rareté multiplie les bonus de l’objet et change son apparence.'),
         table(['Rareté', 'Probabilité', 'Bonus', 'Recyclage'], [
-          ...(me.mysticFound ? GD.RARITIES : visible).map((r) => [el('b', { style: `color:${r.color}` }, r.name), fmtPct(r.p), `×${r.mult}`, `${r.shards} éclat${r.shards > 1 ? 's' : ''} (${shardsToIce(r.shards)} 🧊)`])])),
+          ...(me.mysticFound ? GD.RARITIES : visible).map((r) => [el('b', { style: `color:${r.color}` }, r.name), fmtPct(r.p), `×${r.mult}`, [hail(), String(GD.recycleValue(GD.RARITIES.indexOf(r)))]])])),
       sec('🛡️ Sets d’équipement', el('p', {}, 'Il y a 5 emplacements : casque, torse, pantalon, chaussures et arme. Chaque famille de classes a son set (5 pièces, arme comprise), et 3 sets universels (4 pièces) sont portables par toutes les classes. Porter plusieurs pièces d’un même set donne des bonus, quelle que soit leur rareté.'),
         table(['Set', 'Classes', 'Bonus'], Object.values(GD.SETS).map((s) => [el('b', {}, s.name), s.families ? s.families.map((f) => GD.CLASSES[f].name).join(', ') : 'Toutes',
           el('div', {}, ...Object.entries(s.bonus).map(([n, b]) => el('div', {}, `${n} pièces : ${bonusLine(b)}`)))]))),

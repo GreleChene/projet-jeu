@@ -137,12 +137,12 @@
 
   // Raretés. « shape » = niveau de détail du dessin (1 à 4). La rareté mystique est secrète.
   const RARITIES = [
-    { id: 'commun', name: 'Commun', color: '#b8b3c2', mult: 1, p: 0.5, shape: 1, shards: 1 },
-    { id: 'peu_commun', name: 'Peu commun', color: '#6cc86a', mult: 1.25, p: 0.28, shape: 1, shards: 2 },
-    { id: 'rare', name: 'Rare', color: '#4a9cff', mult: 1.55, p: 0.14, shape: 2, shards: 4 },
-    { id: 'epique', name: 'Épique', color: '#b066ff', mult: 1.9, p: 0.06, shape: 3, shards: 10 },
-    { id: 'legendaire', name: 'Légendaire', color: '#ff9f1a', mult: 2.4, p: 0.019, shape: 3, shards: 25 },
-    { id: 'mystique', name: 'Mystique', color: '#2fd6e0', mult: 3.2, p: 0.001, shape: 4, shards: 100, hidden: true }
+    { id: 'commun', name: 'Commun', color: '#b8b3c2', mult: 1, p: 0.5, shape: 1, recycle: 0.05 },
+    { id: 'peu_commun', name: 'Peu commun', color: '#6cc86a', mult: 1.25, p: 0.28, shape: 1, recycle: 0.1 },
+    { id: 'rare', name: 'Rare', color: '#4a9cff', mult: 1.55, p: 0.14, shape: 2, recycle: 0.2 },
+    { id: 'epique', name: 'Épique', color: '#b066ff', mult: 1.9, p: 0.06, shape: 3, recycle: 0.4 },
+    { id: 'legendaire', name: 'Légendaire', color: '#ff9f1a', mult: 2.4, p: 0.019, shape: 3, recycle: 0.7 },
+    { id: 'mystique', name: 'Mystique', color: '#2fd6e0', mult: 3.2, p: 0.001, shape: 4, recycle: 1, hidden: true }
   ];
   function rollRarity(rnd) {
     let x = (rnd || Math.random)();
@@ -152,8 +152,10 @@
 
   // Glaçons (coffres)
   // Contenu : 60% set universel, 35% set de sa classe, 5% set d'une AUTRE classe (à échanger sur la place marchande)
-  // Recyclage : la rareté rapporte des éclats de glace ; SHARDS_PER_GLACON éclats = 1 glaçon
-  const GLACONS = { PRICE: 75, PER_WAVE: 1, START: 3, UNIVERSAL_CHANCE: 0.6, OTHER_CLASS_CHANCE: 0.05, SHARDS_PER_GLACON: 10 };
+  const GLACONS = { PRICE: 75, PER_WAVE: 1, START: 3, UNIVERSAL_CHANCE: 0.6, OTHER_CLASS_CHANCE: 0.05 };
+  // Recyclage : rapporte des Grêlons, une fraction du prix d'un glaçon selon la rareté (au maximum le prix d'un glaçon).
+  // Le montant suit automatiquement GLACONS.PRICE.
+  const recycleValue = (r) => Math.max(1, Math.round(GLACONS.PRICE * Math.min(1, (RARITIES[r] || RARITIES[0]).recycle)));
 
   /*
    * Styles de dessin (formes) : heavy (lourd), cloth (étoffe), leather (cuir), worker (travail).
@@ -367,5 +369,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128 }
   };
 
-  return { NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

@@ -89,7 +89,7 @@ function publicUser(u) {
   return {
     id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', cls: u.cls, level: u.level, xp: u.xp, xpNext: GD.PROGRESSION.xpForLevel(u.level),
     gold: u.gold, look: u.look, inventory: u.inventory, equip: u.equip, glacons: u.glacons, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id),
-    attrs: u.attrs, attrPoints: u.attrPoints, iceShards: u.iceShards || 0, mysticFound: !!u.mysticFound,
+    attrs: u.attrs, attrPoints: u.attrPoints, mysticFound: !!u.mysticFound,
     locked: Object.fromEntries(u.inventory.map((it) => [it.uid, lockOf(u, it.uid)]).filter(([, l]) => l)),
     incomingTrades: db.data.trades.filter((t) => t.toId === u.id).length
   };
@@ -258,15 +258,11 @@ app.post('/api/inventory/recycle', auth, (req, res) => {
   if (isWorn(u, it.uid)) return res.status(400).json({ error: 'Retire d’abord cet objet.' });
   const lock = lockOf(u, it.uid);
   if (lock) return res.status(400).json({ error: `Cet objet est en ${lock}.` });
-  const shards = GD.RARITIES[it.r].shards;
+  const gain = GD.recycleValue(it.r);
   takeItem(u, it.uid);
-  u.iceShards = (u.iceShards || 0) + shards;
-  const per = GD.GLACONS.SHARDS_PER_GLACON;
-  const gained = Math.floor(u.iceShards / per);
-  u.glacons += gained;
-  u.iceShards -= gained * per;
+  u.gold += gain;
   afterProfileChange(u);
-  res.json({ user: publicUser(u), shards, glacons: gained });
+  res.json({ user: publicUser(u), gain });
 });
 
 app.post('/api/glacons/buy', auth, (req, res) => {

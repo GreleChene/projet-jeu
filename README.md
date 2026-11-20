@@ -50,7 +50,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - On gagne 1 glaçon par manche passée, ou on l'achète 75 Grêlons.
   - Contenu : 60 % une pièce d'un set universel, 35 % une pièce du set de sa classe, 5 % une pièce du set d'une **autre** classe (à vendre, donner ou échanger).
   - À l'ouverture, une animation montre le glaçon qui tremble, se fissure et éclate. Sa lueur intérieure trahit la rareté.
-  - **Recyclage** : un objet recyclé rapporte des éclats de glace, d'autant plus qu'il est rare (1, 2, 4, 10, 25… éclats). 10 éclats font 1 glaçon. En moyenne, recycler rapporte 0,28 glaçon par glaçon ouvert : impossible de « farmer ».
+  - **Recyclage** : un objet recyclé rapporte des Grêlons, une fraction du prix d'un glaçon selon sa rareté (5 %, 10 %, 20 %, 40 %, 70 %, 100 %). Le maximum est le prix d'un glaçon, et ces montants suivent automatiquement le prix du glaçon s'il change.
 - **Raretés.**
 
   | Rareté | Probabilité | Bonus |

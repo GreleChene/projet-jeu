@@ -66,7 +66,8 @@ function migrateUser(u) {
   u.equip ||= {};
   for (const s of SLOTS) if (u.equip[s] && !u.inventory.some((it) => it.uid === u.equip[s])) delete u.equip[s];
   u.glacons ||= 0;
-  u.iceShards ||= 0;
+  // ancien système d'éclats de glace : converti en Grêlons
+  if (u.iceShards) { u.gold += Math.round((u.iceShards / 10) * GLACONS.PRICE); delete u.iceShards; }
   if (u.inventory.some((it) => it.r >= 5)) u.mysticFound = true;
   u.stats ||= { kills: 0, runs: 0, bestWave: 0, deaths: 0, bossKills: 0 };
   u.cls ||= 'habitant';
