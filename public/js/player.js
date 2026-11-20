@@ -88,6 +88,7 @@
     $('#heroCls').textContent = c.name;
     $('#heroCls').style.color = c.color;
     renderClasses();
+    renderAttrs();
     renderGear();
     renderAI();
     renderStats();
@@ -115,7 +116,7 @@
         el('div', { class: 'stat' }, el('b', {}, r.treasury), el('span', { class: 'small muted' }, 'richesse'))
       ),
       el('p', {}, `${PHASES[r.phase] || r.phase}${r.paused ? ' (pause)' : ''}${r.phase === 'intermission' ? ` · prochaine manche dans ${r.timer}s` : ''}${r.phase === 'wave' ? ` · ${r.mobs} ennemis` : ''}`),
-      el('p', { class: 'small muted' }, r.era),
+      el('p', { class: 'small muted' }, r.era + (r.phase !== 'lobby' && !r.voting ? ` · prochain vote après la manche ${r.nextVote}` : '')),
       el('label', {}, 'Tour'),
       el('div', { class: 'bar' + (r.tower.hp / r.tower.max < 0.3 ? ' red' : '') }, el('span', { style: `width:${(100 * r.tower.hp) / r.tower.max}%` }), el('div', { class: 'label' }, `${r.tower.hp} / ${r.tower.max}`)),
       r.pact ? el('p', { style: 'color:var(--danger)' }, r.pact === 'active' ? '💀 Pacte de sang actif : récompenses ×2' : '💀 Pacte de sang à la prochaine manche') : ''
@@ -235,6 +236,45 @@
     catch (e) { $('#clsError').textContent = e.message; }
   }
 
+  /* ============================== Statistiques ============================== */
+  function renderAttrs() {
+    const pts = me.attrPoints || 0;
+    $('#ptsChip').textContent = `${pts} point${pts > 1 ? 's' : ''} disponible${pts > 1 ? 's' : ''}`;
+    $('#ptsBadge').textContent = pts;
+    $('#ptsBadge').classList.toggle('hidden', !pts);
+    $('#attrList').replaceChildren(...GD.ATTR_IDS.map((id) => {
+      const a = GD.ATTRIBUTES[id];
+      return el('div', { class: 'attr' },
+        el('span', { class: 'ico' }, a.icon),
+        el('div', { class: 'info' }, el('div', {}, a.name), el('div', { class: 'small muted' }, a.desc)),
+        el('span', { class: 'val' }, me.attrs[id] || 0),
+        el('button', { class: 'primary', disabled: !pts, title: '+1', onclick: () => spend(id, 1) }, '+1'),
+        pts >= 5 ? el('button', { class: 'small', onclick: () => spend(id, 5) }, '+5') : '');
+    }));
+    const st = GD.computeStats({ cls: me.cls, level: me.level, equip: me.equip, attrs: me.attrs });
+    const rows = [
+      ['❤️', 'PV max', st.maxHp],
+      ['⚔️', 'Dégâts', Math.round(st.dmg * 10) / 10],
+      ['🛡️', 'Défense', `${Math.round(st.armor * 100)}%`],
+      ['🌀', 'Attaques / s', (1 / st.cd).toFixed(2)],
+      ['👟', 'Déplacement', Math.round(st.speed)],
+      ['🎯', 'Critique', `${Math.round(st.crit * 100)}%`],
+      ['🏹', 'Portée', st.range],
+      ['📈', 'Niveau', me.level]
+    ];
+    $('#derived').replaceChildren(...rows.map(([i, k, v]) => el('div', { class: 'stat' }, el('b', {}, v), el('span', { class: 'small muted' }, `${i} ${k}`))));
+  }
+
+  async function spend(attr, n) {
+    $('#attrError').textContent = '';
+    try { setUser((await api('/api/me/attrs', { body: { attr, n } })).user); }
+    catch (e) { $('#attrError').textContent = e.message; }
+  }
+  $('#attrReset').addEventListener('click', async () => {
+    if (!confirm('Récupérer tous tes points de stat ?')) return;
+    try { setUser((await api('/api/me/attrs/reset', { method: 'POST' })).user); } catch (e) { toast(e.message); }
+  });
+
   /* ============================== Apparence & armurerie ============================== */
   function swatches(box, colors, key) {
     box.replaceChildren(...colors.map((c, i) => el('button', {
@@ -334,12 +374,13 @@
       const goldChanged = d.user.gold !== me.gold;
       me = d.user;
       if (goldChanged && !changed) renderGear();
+      if (!changed) renderAttrs();
       $('#hdrLevel').textContent = `Niv. ${me.level}`;
       $('#hdrGold').textContent = `${me.gold} écus`;
       $('#shopGold').textContent = `${me.gold} écus`;
       $('#xpBar').style.width = `${(100 * me.xp) / me.xpNext}%`;
       $('#xpLabel').textContent = `${me.xp} / ${me.xpNext} XP`;
-      if (changed) { renderAll(); toast(`Niveau ${me.level} !`); }
+      if (changed) { renderAll(); toast(`Niveau ${me.level} ! +1 point de stat à répartir`); }
     } catch (e) { /* hors ligne */ }
   }, 5000);
 })();

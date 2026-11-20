@@ -12,12 +12,23 @@ const GD = require('../shared/constants');
 
 db.load();
 
-// Compte admin par variables d'environnement
-if (config.ADMIN_PSEUDO && config.ADMIN_PASSWORD) {
-  const u = db.userByPseudo(config.ADMIN_PSEUDO);
-  if (!u) db.newUser(config.ADMIN_PSEUDO, bcrypt.hashSync(config.ADMIN_PASSWORD, 10), 'admin');
-  else if (u.role !== 'admin') { u.role = 'admin'; db.markDirty(); }
+// Compte administrateur unique : « admin ». Seul ce compte a accès à l'administration.
+const ADMIN_PSEUDO = 'admin';
+const ADMIN_DEFAULT_PASSWORD = '1234';
+{
+  const existing = db.userByPseudo(ADMIN_PSEUDO);
+  if (!existing) {
+    db.newUser(ADMIN_PSEUDO, bcrypt.hashSync(ADMIN_DEFAULT_PASSWORD, 10), 'admin');
+    console.log(`Compte « ${ADMIN_PSEUDO} » créé (mot de passe par défaut : ${ADMIN_DEFAULT_PASSWORD}).`);
+  }
+  // personne d'autre ne garde le rôle admin
+  for (const u of db.allUsers()) {
+    const role = u.pseudoLower === ADMIN_PSEUDO ? 'admin' : 'player';
+    if (u.role !== role) { u.role = role; db.markDirty(); }
+    if (u.pseudoLower === ADMIN_PSEUDO) u.banned = false;
+  }
 }
+const isAdmin = (u) => !!u && u.pseudoLower === ADMIN_PSEUDO && u.role === 'admin';
 
 const app = express();
 const server = http.createServer(app);
@@ -54,7 +65,7 @@ function auth(req, res, next) {
   next();
 }
 function admin(req, res, next) {
-  auth(req, res, () => (req.user.role === 'admin' ? next() : res.status(403).json({ error: 'Réservé aux administrateurs' })));
+  auth(req, res, () => (isAdmin(req.user) ? next() : res.status(403).json({ error: 'Réservé à l’administrateur' })));
 }
 
 // limitation simple des tentatives de connexion
@@ -70,8 +81,9 @@ function rateLimited(key) {
 
 function publicUser(u) {
   return {
-    id: u.id, pseudo: u.pseudo, role: u.role, cls: u.cls, level: u.level, xp: u.xp, xpNext: GD.PROGRESSION.xpForLevel(u.level),
-    gold: u.gold, look: u.look, owned: u.owned, equip: u.equip, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id)
+    id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', cls: u.cls, level: u.level, xp: u.xp, xpNext: GD.PROGRESSION.xpForLevel(u.level),
+    gold: u.gold, look: u.look, owned: u.owned, equip: u.equip, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id),
+    attrs: u.attrs, attrPoints: u.attrPoints
   };
 }
 
@@ -83,9 +95,8 @@ app.post('/api/register', async (req, res) => {
   if (rateLimited('reg:' + req.ip)) return res.status(429).json({ error: 'Trop de tentatives, réessaie dans une minute.' });
   if (!PSEUDO_RE.test(pseudo || '')) return res.status(400).json({ error: 'Pseudo : 3 à 20 caractères (lettres, chiffres, _ et -).' });
   if (typeof password !== 'string' || password.length < 6 || password.length > 100) return res.status(400).json({ error: 'Mot de passe : 6 caractères minimum.' });
-  if (db.userByPseudo(pseudo)) return res.status(409).json({ error: 'Ce pseudo est déjà pris.' });
-  const first = db.allUsers().length === 0;
-  const u = db.newUser(pseudo, await bcrypt.hash(password, 10), first ? 'admin' : 'player');
+  if (pseudo.toLowerCase() === ADMIN_PSEUDO || db.userByPseudo(pseudo)) return res.status(409).json({ error: 'Ce pseudo est déjà pris.' });
+  const u = db.newUser(pseudo, await bcrypt.hash(password, 10), 'player');
   setSessionCookie(res, db.createSession(u.id));
   res.json({ user: publicUser(u) });
 });
@@ -165,6 +176,28 @@ app.post('/api/me/class', auth, (req, res) => {
   res.json({ user: publicUser(u) });
 });
 
+/* ============================== Points de statistiques ============================== */
+app.post('/api/me/attrs', auth, (req, res) => {
+  const u = req.user;
+  const { attr } = req.body || {};
+  const n = Math.max(1, Math.min(100, Math.floor(Number((req.body || {}).n) || 1)));
+  if (!GD.ATTRIBUTES[attr]) return res.status(400).json({ error: 'Statistique inconnue' });
+  db.syncAttrPoints(u);
+  if (u.attrPoints < n) return res.status(400).json({ error: 'Pas assez de points de stat.' });
+  u.attrs[attr] += n;
+  u.attrPoints -= n;
+  afterProfileChange(u);
+  res.json({ user: publicUser(u) });
+});
+
+app.post('/api/me/attrs/reset', auth, (req, res) => {
+  const u = req.user;
+  u.attrs = GD.emptyAttrs();
+  db.syncAttrPoints(u);
+  afterProfileChange(u);
+  res.json({ user: publicUser(u) });
+});
+
 app.post('/api/shop/buy', auth, (req, res) => {
   const u = req.user;
   const id = (req.body || {}).item;
@@ -228,7 +261,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
       const s = game.settings;
       const num = (k, a, z) => { if (b[k] !== undefined && !isNaN(b[k])) s[k] = Math.min(z, Math.max(a, Number(b[k]))); };
       num('difficulty', 0.2, 5); num('intermission', 5, 120); num('choiceInterval', 10, 300); num('choiceDuration', 5, 60);
-      num('maxHeroes', 1, 500); num('maxAliveMobs', 20, 600);
+      num('maxHeroes', 1, 500); num('maxAliveMobs', 20, 600); num('voteEvery', 1, 20);
       if (b.autoNext !== undefined) s.autoNext = !!b.autoNext;
       if (b.autoRestart !== undefined) s.autoRestart = !!b.autoRestart;
       game.saveSettings();
@@ -241,7 +274,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
 
 app.get('/api/admin/users', admin, (req, res) => {
   res.json({
-    users: db.allUsers().map((u) => ({ id: u.id, pseudo: u.pseudo, role: u.role, banned: !!u.banned, cls: u.cls, level: u.level, gold: u.gold, stats: u.stats, createdAt: u.createdAt, online: isOnline(u.id) }))
+    users: db.allUsers().map((u) => ({ id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', banned: !!u.banned, cls: u.cls, level: u.level, gold: u.gold, stats: u.stats, createdAt: u.createdAt, online: isOnline(u.id) }))
   });
 });
 
@@ -249,17 +282,13 @@ app.post('/api/admin/users/:id', admin, async (req, res) => {
   const u = db.userById(req.params.id);
   if (!u) return res.status(404).json({ error: 'Utilisateur introuvable' });
   const b = req.body || {};
-  if (b.role && ['admin', 'player'].includes(b.role)) {
-    if (u.id === req.user.id && b.role !== 'admin') return res.status(400).json({ error: 'Impossible de te retirer tes propres droits.' });
-    u.role = b.role;
-  }
   if (b.banned !== undefined) {
     if (u.id === req.user.id) return res.status(400).json({ error: 'Impossible de te bannir toi-même.' });
     u.banned = !!b.banned;
     if (u.banned) { db.deleteUserSessions(u.id); game.removeHero(u.id); }
   }
   if (b.gold !== undefined) u.gold = Math.max(0, Math.floor(Number(b.gold) || 0));
-  if (b.level !== undefined) { u.level = Math.min(GD.PROGRESSION.MAX_LEVEL, Math.max(1, Math.floor(Number(b.level) || 1))); u.xp = 0; }
+  if (b.level !== undefined) { u.level = Math.min(GD.PROGRESSION.MAX_LEVEL, Math.max(1, Math.floor(Number(b.level) || 1))); u.xp = 0; db.syncAttrPoints(u); }
   if (b.resetClass) u.cls = 'habitant';
   if (b.password) {
     if (String(b.password).length < 6) return res.status(400).json({ error: 'Mot de passe : 6 caractères minimum.' });
@@ -278,6 +307,12 @@ app.delete('/api/admin/users/:id', admin, (req, res) => {
 });
 
 /* ============================== Fichiers statiques ============================== */
+// La page d'administration n'est servie qu'au compte « admin »
+app.get(['/admin', '/admin.html'], (req, res) => {
+  const u = db.sessionUser(parseCookies(req.headers.cookie).sid);
+  if (!isAdmin(u)) return res.redirect('/');
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
+});
 app.use('/shared', express.static(path.join(__dirname, '..', 'shared')));
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
 

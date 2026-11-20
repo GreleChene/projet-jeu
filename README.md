@@ -9,7 +9,7 @@ npm install
 ```
 
 ```bash
-ADMIN_PSEUDO=monpseudo ADMIN_PASSWORD=motdepasse npm start
+npm start
 ```
 
 | Page | URL | Usage |
@@ -18,7 +18,7 @@ ADMIN_PSEUDO=monpseudo ADMIN_PASSWORD=motdepasse npm start
 | Stream | `http://localhost:3000/stream` | **source Navigateur OBS en 1920×1080** (publique, en lecture seule) |
 | Admin | `http://localhost:3000/admin` | lancer, mettre en pause ou arrêter une partie, aller à une manche, régler, bots de test, comptes |
 
-Le **premier compte créé** devient administrateur, tout comme le compte défini par `ADMIN_PSEUDO` et `ADMIN_PASSWORD`.
+**Administration :** au premier démarrage, le compte **`admin`** est créé avec le mot de passe **`1234`**. C'est le **seul** compte qui a accès à `/admin` et à l'API d'administration ; la page redirige tous les autres vers l'accueil, et personne ne peut s'inscrire sous le pseudo « admin ». Change ce mot de passe dès la mise en ligne (onglet « Compte » de la page joueur, connecté en tant qu'`admin`).
 
 ### Variables d'environnement
 
@@ -26,7 +26,6 @@ Le **premier compte créé** devient administrateur, tout comme le compte défin
 |---|---|---|
 | `PORT` | `3000` | port HTTP |
 | `DATA_FILE` | `data/db.json` | fichier de sauvegarde (comptes, progression, réglages) |
-| `ADMIN_PSEUDO` / `ADMIN_PASSWORD` | – | compte admin créé ou promu au démarrage |
 | `PUBLIC_URL` | hôte courant | adresse affichée sur le stream (« Rejoins la défense : … ») |
 | `SECURE_COOKIES` | `0` | à mettre à `1` derrière HTTPS |
 
@@ -34,7 +33,8 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
 
 ## Le jeu
 
-- **Mode défense de tour.** Les monstres arrivent de tous les bords. Si la tour tombe, la partie est perdue. Il y a 100 manches.
+- **Mode défense de tour.** Les monstres arrivent de tous les bords. La tour commence avec **200 PV** ; si elle tombe, la partie est perdue. Il y a 100 manches.
+- **Statistiques.** Chaque niveau gagné rapporte **1 point de stat** à répartir librement (onglet « Statistiques ») : Vie, Force, Défense, Agilité, Vitesse, Critique. Les points peuvent être réinitialisés gratuitement.
 - **Classes évolutives.** Tout le monde commence *Habitant*. Au niveau 3, le joueur choisit une classe. Au niveau 8, il choisit une spécialisation, qui donne un **ultime** :
   - Soldat → Paladin (tourbillon en cercle) / Chevalier (charge à 200 %)
   - Mage → Glace (cône de froid) / Feu (boule de feu) / Soin (soin de zone de 350 px)
@@ -45,7 +45,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
 - **IA personnalisable.** Le joueur règle la posture, la cible prioritaire, le seuil de retraite et l'usage de l'ultime. Les changements s'appliquent en direct.
 - **Armures.** Casques et plastrons en 5 tiers (tissu → runique), achetés avec des écus gagnés en jeu et conservés d'une partie à l'autre. Elles sont visibles sur le personnage.
 - **Choix en bataille** (sur le site). Toutes les 40 s environ, chaque joueur reçoit une carte : Fureur, Potion, Concentration, Bouclier, Célérité, ou **Défi** (3 élites apparaissent, contre des récompenses doublées).
-- **Votes d'équipe.** Pendant l'entracte, les joueurs votent pour dépenser la richesse (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus de richesse. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
+- **Votes d'équipe.** Toutes les **2 manches** (réglable dans l'admin), pendant l'entracte, les joueurs votent pour dépenser la richesse (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus de richesse. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
 
 ### Progression du terrain
 

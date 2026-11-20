@@ -70,6 +70,7 @@
   const SETTINGS = [
     ['difficulty', 'Difficulté (×)', 'number', 0.1],
     ['intermission', 'Durée de l’entracte / vote (s)', 'number', 1],
+    ['voteEvery', 'Vote des viewers toutes les N manches', 'number', 1],
     ['choiceInterval', 'Choix personnel toutes les (s)', 'number', 1],
     ['choiceDuration', 'Temps pour choisir (s)', 'number', 1],
     ['maxHeroes', 'Héros maximum', 'number', 1],
@@ -105,7 +106,6 @@
         el('td', { style: `color:${GD.CLASSES[u.cls].color}` }, GD.CLASSES[u.cls].name),
         el('td', {}, u.level), el('td', {}, u.gold), el('td', {}, u.stats.bestWave),
         el('td', { class: 'row', style: 'gap:4px' },
-          el('button', { class: 'small', onclick: () => editUser(u, { role: u.role === 'admin' ? 'player' : 'admin' }) }, u.role === 'admin' ? 'Retirer admin' : 'Rendre admin'),
           el('button', { class: 'small', onclick: () => { const g = prompt('Écus :', u.gold); if (g !== null) editUser(u, { gold: Number(g) }); } }, 'Écus'),
           el('button', { class: 'small', onclick: () => { const l = prompt('Niveau :', u.level); if (l !== null) editUser(u, { level: Number(l) }); } }, 'Niveau'),
           el('button', { class: 'small', onclick: () => confirm('Remettre la classe à « Habitant » ?') && editUser(u, { resetClass: true }) }, 'Reset classe'),

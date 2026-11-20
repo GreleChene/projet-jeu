@@ -78,8 +78,45 @@
     SPEC_LEVEL: 8, // niveau pour choisir une spécialisation
     MAX_LEVEL: 60,
     xpForLevel: (lvl) => Math.round(60 * Math.pow(lvl, 1.45)), // XP nécessaire pour passer de lvl à lvl+1
-    statBonus: (lvl) => 1 + 0.03 * (lvl - 1)
+    statBonus: (lvl) => 1 + 0.01 * (lvl - 1), // petit bonus automatique ; l'essentiel vient des points de stat
+    POINTS_PER_LEVEL: 1
   };
+
+  /* ------------------------------------------------------------------ */
+  /* Statistiques : 1 point gagné à chaque niveau, réparti librement      */
+  /* ------------------------------------------------------------------ */
+  const ATTRIBUTES = {
+    vie: { name: 'Vie', icon: '❤️', desc: '+6% de PV max par point' },
+    force: { name: 'Force', icon: '⚔️', desc: '+5% de dégâts par point' },
+    defense: { name: 'Défense', icon: '🛡️', desc: '+2% de réduction des dégâts par point' },
+    agilite: { name: 'Agilité', icon: '🌀', desc: '+4% de vitesse d’attaque par point' },
+    vitesse: { name: 'Vitesse', icon: '👟', desc: '+3% de vitesse de déplacement par point' },
+    critique: { name: 'Critique', icon: '🎯', desc: '+1,5% de chances de coup critique par point' }
+  };
+  const ATTR_IDS = Object.keys(ATTRIBUTES);
+  const emptyAttrs = () => Object.fromEntries(ATTR_IDS.map((k) => [k, 0]));
+
+  // Statistiques finales d'un héros (utilisé par le serveur ET affiché sur la page joueur)
+  function computeStats(o) {
+    const c = CLASSES[o.cls] || CLASSES.habitant;
+    const a = { ...emptyAttrs(), ...(o.attrs || {}) };
+    const up = o.upgrades || {};
+    const head = ARMORS[(o.equip || {}).head] || ARMORS.head_none;
+    const body = ARMORS[(o.equip || {}).body] || ARMORS.body_tunic;
+    const lb = PROGRESSION.statBonus(o.level || 1);
+    const baseDmg = c.dmg * lb * (1 + 0.05 * a.force);
+    return {
+      maxHp: Math.round(c.hp * lb * (1 + head.hp + body.hp + 0.06 * a.vie)),
+      baseDmg,
+      dmg: baseDmg * (1 + 0.1 * (up.forge || 0)),
+      armor: Math.min(0.75, (c.armor || 0) + head.armor + body.armor + 0.02 * a.defense + 0.08 * (up.armory || 0)),
+      cd: c.cd / (1 + 0.04 * a.agilite),
+      speed: c.speed * (1 + 0.03 * a.vitesse),
+      crit: Math.min(0.8, (c.crit || 0.05) + 0.015 * a.critique),
+      range: c.range,
+      leash: c.leash || 9999
+    };
+  }
 
   /* ------------------------------------------------------------------ */
   /* Armures (achetées avec des écus, conservés entre les parties)       */
@@ -226,5 +263,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128 }
   };
 
-  return { NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ARMOR_TIERS, ARMORS, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, PERSONAL_CHOICES, UPGRADES, ERAS, eraOfWave };
+  return { NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, ARMOR_TIERS, ARMORS, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, PERSONAL_CHOICES, UPGRADES, ERAS, eraOfWave };
 });

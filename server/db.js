@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const config = require('./config');
-const { DEFAULT_AI, PALETTE } = require('../shared/constants');
+const { DEFAULT_AI, PALETTE, emptyAttrs, PROGRESSION } = require('../shared/constants');
 
 let data = { users: {}, sessions: {}, settings: {} };
 let dirty = false;
@@ -42,7 +42,17 @@ function migrateUser(u) {
   u.stats ||= { kills: 0, runs: 0, bestWave: 0, deaths: 0, bossKills: 0 };
   u.cls ||= 'habitant';
   u.level ||= 1; u.xp ||= 0; u.gold ||= 0;
+  syncAttrPoints(u);
   return u;
+}
+
+// Points de stat : 1 par niveau gagné. Recalcule les points libres (et réinitialise si le niveau a baissé).
+function syncAttrPoints(u) {
+  u.attrs = { ...emptyAttrs(), ...(u.attrs || {}) };
+  const total = (u.level - 1) * PROGRESSION.POINTS_PER_LEVEL;
+  const spent = Object.values(u.attrs).reduce((a, b) => a + b, 0);
+  if (spent > total) { u.attrs = emptyAttrs(); u.attrPoints = total; }
+  else u.attrPoints = total - spent;
 }
 
 function newUser(pseudo, passHash, role) {
@@ -58,7 +68,7 @@ function newUser(pseudo, passHash, role) {
 }
 
 const db = {
-  load, saveNow, markDirty, newUser,
+  load, saveNow, markDirty, newUser, syncAttrPoints,
   get data() { return data; },
   userById: (id) => data.users[id] || null,
   userByPseudo: (p) => Object.values(data.users).find((u) => u.pseudoLower === String(p).toLowerCase()) || null,

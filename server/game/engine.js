@@ -15,7 +15,10 @@ const { PROJ_KINDS, ZONE_KINDS, HF, MF } = GD.NET;
 const PROJ_INDEX = Object.fromEntries(PROJ_KINDS.map((k, i) => [k, i]));
 const ZONE_INDEX = Object.fromEntries(ZONE_KINDS.map((k, i) => [k, i]));
 
+const TOWER_BASE_HP = 200;
+
 const DEFAULT_SETTINGS = {
+  voteEvery: 2, // vote des viewers toutes les N manches
   difficulty: 1, // multiplicateur global
   intermission: 20, // secondes d'entracte (vote)
   choiceInterval: 40, // un choix personnel toutes les X secondes de combat
@@ -56,7 +59,7 @@ class Game {
       wave: 0,
       cleared: 0,
       uprooted: false,
-      tower: { hp: 3000, max: 3000, ballistaT: 0, catapultT: 0 },
+      tower: { hp: TOWER_BASE_HP, max: TOWER_BASE_HP, ballistaT: 0, catapultT: 0 },
       treasury: 0,
       wealthEarned: 0,
       upgrades: Object.fromEntries(Object.keys(UPGRADES).map((k) => [k, 0])),
@@ -98,7 +101,6 @@ class Game {
     this.run.timer = 8;
     this.paused = false;
     this.announce('La bataille va commencer !', 'Défendez la tour !');
-    this.openVote();
   }
 
   stopRun() {
@@ -180,6 +182,7 @@ class Game {
       cls, level: lvl,
       look: { cape: (Math.random() * 10) | 0, skin: (Math.random() * 5) | 0, hair: (Math.random() * 6) | 0 },
       equip: { head: U.pick(heads), body: U.pick(bodies) },
+      attrs: (() => { const a = GD.emptyAttrs(); for (let i = 1; i < lvl; i++) a[U.pick(GD.ATTR_IDS)]++; return a; })(),
       ai: { stance: U.pick(['offensive', 'balanced', 'defensive']), target: U.pick(['nearest', 'weakest', 'strongest', 'tower']), retreat: U.pick([0, 25, 50]), ult: U.pick(['asap', 'smart', 'boss']) }
     };
     this.refreshHero(h);
@@ -231,19 +234,12 @@ class Game {
     if (!p) return;
     const prevCls = h.cls;
     h.cls = p.cls; h.level = p.level; h.look = p.look; h.equip = p.equip; h.ai = p.ai;
+    h.attrs = p.attrs;
     const c = CLASSES[h.cls] || CLASSES.habitant;
-    const lb = PROGRESSION.statBonus(h.level);
-    const head = ARMORS[h.equip.head] || ARMORS.head_none;
-    const body = ARMORS[h.equip.body] || ARMORS.body_tunic;
-    const up = this.run.upgrades;
     const ratio = h.maxHp > 1 ? h.hp / h.maxHp : 1;
-    h.maxHp = Math.round(c.hp * lb * (1 + head.hp + body.hp));
+    const st = GD.computeStats({ cls: h.cls, level: h.level, equip: h.equip, attrs: p.attrs, upgrades: this.run.upgrades });
+    Object.assign(h, st);
     h.hp = Math.max(1, Math.min(h.maxHp, Math.round(h.maxHp * ratio)));
-    h.baseDmg = c.dmg * lb;
-    h.dmg = h.baseDmg * (1 + 0.1 * up.forge);
-    h.armor = Math.min(0.7, (c.armor || 0) + head.armor + body.armor + 0.08 * up.armory);
-    h.range = c.range; h.cd = c.cd; h.speed = c.speed; h.crit = c.crit || 0.05;
-    h.leash = c.leash || 9999;
     if (prevCls && prevCls !== h.cls) {
       this.allies = this.allies.filter((a) => a.ownerId !== h.id);
       h.ult = 0;
@@ -266,12 +262,14 @@ class Game {
     while (p.level < PROGRESSION.MAX_LEVEL && p.xp >= PROGRESSION.xpForLevel(p.level)) {
       p.xp -= PROGRESSION.xpForLevel(p.level);
       p.level++;
+      p.attrPoints = (p.attrPoints || 0) + PROGRESSION.POINTS_PER_LEVEL;
       leveled = true;
     }
     if (leveled) {
       this.refreshHero(h);
       this.fx(['lvl', h.x, h.y, p.level]);
       if (p.level === PROGRESSION.CLASS_LEVEL || p.level === PROGRESSION.SPEC_LEVEL) this.pushFeed(`${h.name} peut faire évoluer sa classe !`);
+      this.fx(['text', h.x, h.y - 70, '+1 point de stat', GD.PALETTE.fx.xp]);
     }
     this.db.markDirty();
   }
@@ -322,9 +320,21 @@ class Game {
     r.pactActive = false;
     if (r.wave >= 100) return this.victory();
     this.phase = 'intermission';
-    r.timer = this.settings.intermission;
-    this.announce(`Manche ${r.wave} terminée !`, wasBoss ? 'Le terrain se transforme…' : `+${bonus} richesse`);
-    this.openVote();
+    // Les viewers votent toutes les « voteEvery » manches ; sinon, courte pause
+    const voting = this.isVoteWave(r.wave);
+    r.timer = voting ? this.settings.intermission : Math.min(8, this.settings.intermission);
+    this.announce(`Manche ${r.wave} terminée !`, wasBoss ? 'Le terrain se transforme…' : voting ? 'Votez pour une amélioration !' : `+${bonus} richesse`);
+    if (voting) this.openVote();
+  }
+
+  isVoteWave(w) {
+    const n = Math.max(1, Math.round(this.settings.voteEvery || 2));
+    return w > 0 && w % n === 0;
+  }
+
+  nextVoteWave() {
+    const n = Math.max(1, Math.round(this.settings.voteEvery || 2));
+    return (Math.floor(this.run.cleared / n) + 1) * n;
   }
 
   addTreasury(n) {
@@ -774,6 +784,7 @@ class Game {
       phase: this.phase, paused: this.paused, wave: r.wave, cleared: r.cleared, timer: Math.ceil(r.timer),
       tower: { hp: Math.ceil(r.tower.hp), max: r.tower.max }, treasury: r.treasury, wealthEarned: r.wealthEarned,
       upgrades: r.upgrades, heroes: this.heroes.size, mobs: this.mobs.length + r.queue.length + r.bossPending.length,
+      voting: !!r.vote, nextVote: this.nextVoteWave(),
       pact: r.pactActive ? 'active' : r.pactNext ? 'next' : null, era: GD.eraOfWave(Math.max(1, r.wave)).name
     };
   }

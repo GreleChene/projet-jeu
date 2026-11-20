@@ -57,3 +57,15 @@ test('le terrain est envahi depuis les bords après chaque boss', () => {
   assert.strictEqual(Terrain.terrainState(90).fire, 1);
   assert.ok(Terrain.terrainState(90).mix);
 });
+
+test('la tour a 200 PV et le vote a lieu toutes les deux manches', () => {
+  const g = makeGame();
+  g.startRun(1);
+  assert.strictEqual(g.run.tower.max, 200);
+  assert.strictEqual(g.run.vote, null, 'pas de vote avant la manche 1');
+  g.setWave(1); g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
+  assert.strictEqual(g.phase, 'intermission');
+  assert.strictEqual(g.run.vote, null, 'pas de vote après la manche 1');
+  g.setWave(2); g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
+  assert.ok(g.run.vote, 'vote après la manche 2');
+});

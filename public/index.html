@@ -46,6 +46,7 @@
       <nav class="tabs" id="tabs">
         <button data-tab="battle" class="active">⚔️ Bataille</button>
         <button data-tab="hero">🧬 Classe</button>
+        <button data-tab="stats">📊 Statistiques <span class="badge hidden" id="ptsBadge"></span></button>
         <button data-tab="gear">🛡️ Apparence & armures</button>
         <button data-tab="ai">🧠 IA</button>
         <button data-tab="ladder">🏆 Classement</button>
@@ -104,6 +105,24 @@
           <div class="error" id="clsError"></div>
         </div>
         <div class="tree" id="classTree"></div>
+      </div>
+
+      <!-- Statistiques -->
+      <div data-view="stats" class="hidden">
+        <div class="grid two">
+          <div class="panel">
+            <div class="row"><h2 style="margin:0">Points de stat</h2><span class="spacer"></span><span class="chip gold" id="ptsChip"></span></div>
+            <p class="small muted">Tu gagnes 1 point à chaque niveau. Répartis-les comme tu veux ; tu peux tout réinitialiser gratuitement.</p>
+            <div id="attrList" class="attr-list"></div>
+            <div class="error" id="attrError"></div>
+            <div class="row" style="margin-top:10px"><span class="spacer"></span><button class="small" id="attrReset">↺ Réinitialiser les points</button></div>
+          </div>
+          <div class="panel">
+            <h2>Caractéristiques du héros</h2>
+            <p class="small muted">Valeurs finales avec classe, niveau, armures et points de stat (hors bonus de partie).</p>
+            <div id="derived" class="stats3"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Apparence & armures -->
