@@ -41,7 +41,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - Éleveur (laisse de 800 px) → Dompteur (renforce et soigne ses bêtes) / Nécromancien (relève un allié mort à 75 % de ses PV, qui perd ensuite 1 % de PV par seconde)
   - Archer (laisse de 800 px) → Arbalétrier (cadence ×3) / Arc long (3 flèches perforantes à 150 %)
   - Assassin → Ombre (invisible toutes les 10 s, écran de fumée) / Flèche (dash critique toutes les 6 s, dash en chaîne sans limite)
-  - Paysan (laisse de 500 px, récolte la richesse de l'équipe) → Agriculteur (soigne les alliés) / Bûcheron (soigne la tour) / Mineur (augmente les PV max de la tour)
+  - Paysan (laisse de 500 px, récolte les écus de l'équipe) → Agriculteur (soigne les alliés) / Bûcheron (soigne la tour) / Mineur (augmente les PV max de la tour)
 - **IA personnalisable.** Le joueur règle la posture, la cible prioritaire, le seuil de retraite et l'usage de l'ultime. Les changements s'appliquent en direct.
 - **Deux monnaies.**
   - **Grêlons** 🧊 : monnaie personnelle de chaque joueur, gagnée en combattant et conservée d'une partie à l'autre. Elle sert à acheter de l'équipement.
