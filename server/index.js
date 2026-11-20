@@ -14,12 +14,17 @@ db.load();
 
 // Compte administrateur unique : « admin ». Seul ce compte a accès à l'administration.
 const ADMIN_PSEUDO = 'admin';
-const ADMIN_DEFAULT_PASSWORD = '1234';
+const ADMIN_DEFAULT_PASSWORD = '123456';
 {
   const existing = db.userByPseudo(ADMIN_PSEUDO);
   if (!existing) {
     db.newUser(ADMIN_PSEUDO, bcrypt.hashSync(ADMIN_DEFAULT_PASSWORD, 10), 'admin');
     console.log(`Compte « ${ADMIN_PSEUDO} » créé (mot de passe par défaut : ${ADMIN_DEFAULT_PASSWORD}).`);
+  } else if (bcrypt.compareSync('1234', existing.passHash)) {
+    // ancien mot de passe par défaut, trop court : remplacé
+    existing.passHash = bcrypt.hashSync(ADMIN_DEFAULT_PASSWORD, 10);
+    db.deleteUserSessions(existing.id);
+    console.log(`Mot de passe du compte « ${ADMIN_PSEUDO} » mis à jour : ${ADMIN_DEFAULT_PASSWORD}.`);
   }
   // personne d'autre ne garde le rôle admin
   for (const u of db.allUsers()) {
