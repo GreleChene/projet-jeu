@@ -206,10 +206,11 @@ app.post('/api/me/attrs/reset', auth, (req, res) => {
 app.post('/api/shop/buy', auth, (req, res) => {
   const u = req.user;
   const id = (req.body || {}).item;
-  const a = GD.ARMORS[id];
+  const a = GD.ITEMS[id];
   if (!a) return res.status(400).json({ error: 'Objet inconnu' });
   if (u.owned.includes(id)) return res.status(400).json({ error: 'Déjà possédé' });
-  if (u.gold < a.price) return res.status(400).json({ error: 'Pas assez d’écus' });
+  if (!GD.canUse(id, u.cls)) return res.status(400).json({ error: 'Cet objet n’est pas fait pour ta classe.' });
+  if (u.gold < a.price) return res.status(400).json({ error: 'Pas assez de Grêlons' });
   u.gold -= a.price;
   u.owned.push(id);
   u.equip[a.slot] = id;
@@ -220,8 +221,9 @@ app.post('/api/shop/buy', auth, (req, res) => {
 app.put('/api/me/equip', auth, (req, res) => {
   const u = req.user;
   const id = (req.body || {}).item;
-  const a = GD.ARMORS[id];
+  const a = GD.ITEMS[id];
   if (!a || !u.owned.includes(id)) return res.status(400).json({ error: 'Objet non possédé' });
+  if (!GD.canUse(id, u.cls)) return res.status(400).json({ error: 'Cet objet n’est pas fait pour ta classe.' });
   u.equip[a.slot] = id;
   afterProfileChange(u);
   res.json({ user: publicUser(u) });
@@ -258,7 +260,12 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
     case 'next': if (game.phase === 'intermission') game.run.timer = 0; break;
     case 'treasury': game.addTreasury(Math.max(-game.run.treasury, Number(b.amount) || 0)); break;
     case 'healTower': game.run.tower.hp = game.run.tower.max; break;
-    case 'bots': for (let i = 0; i < Math.min(50, Number(b.count) || 1); i++) game.addBot(); break;
+    case 'bots': {
+      const cls = GD.CLASSES[b.cls] ? b.cls : null;
+      const level = b.level ? Math.min(GD.PROGRESSION.MAX_LEVEL, Math.max(1, Math.floor(Number(b.level) || 1))) : null;
+      for (let i = 0; i < Math.min(50, Number(b.count) || 1); i++) game.addBot({ cls, level });
+      break;
+    }
     case 'clearBots': for (const h of [...game.heroes.values()]) if (h.isBot) game.removeHero(h.id); break;
     case 'kick': game.removeHero(String(b.id)); break;
     case 'announce': game.announce(String(b.text || '').slice(0, 80), String(b.sub || '').slice(0, 120)); break;
@@ -293,6 +300,12 @@ app.post('/api/admin/users/:id', admin, async (req, res) => {
     if (u.banned) { db.deleteUserSessions(u.id); game.removeHero(u.id); }
   }
   if (b.gold !== undefined) u.gold = Math.max(0, Math.floor(Number(b.gold) || 0));
+  if (b.addGold !== undefined) u.gold = Math.max(0, u.gold + Math.floor(Number(b.addGold) || 0));
+  if (b.addXp !== undefined) {
+    const n = Math.floor(Number(b.addXp) || 0);
+    if (n <= 0 || n > 10_000_000) return res.status(400).json({ error: 'Quantité d’XP invalide.' });
+    game.grantXp(u, n);
+  }
   if (b.level !== undefined) { u.level = Math.min(GD.PROGRESSION.MAX_LEVEL, Math.max(1, Math.floor(Number(b.level) || 1))); u.xp = 0; db.syncAttrPoints(u); }
   if (b.resetClass) u.cls = 'habitant';
   if (b.password) {

@@ -20,6 +20,11 @@
     r = Math.round((t - r) * p + r); g = Math.round((t - g) * p + g); b = Math.round((t - b) * p + b);
     return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
   }
+  function mix(a, b, k) {
+    const x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16);
+    const c = (sh) => Math.round(((x >> sh) & 255) * (1 - k) + ((y >> sh) & 255) * k);
+    return '#' + ((1 << 24) | (c(16) << 16) | (c(8) << 8) | c(0)).toString(16).slice(1);
+  }
   function rgba(hex, a) {
     const n = parseInt(hex.slice(1), 16);
     return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
@@ -55,52 +60,87 @@
   }
 
   /* ------------------------------ armes ------------------------------ */
-  function drawWeapon(ctx, weapon, color, swing) {
-    // dessiné dans le repère de la main (pointe vers +x)
+  // tier 0 = arme de départ ; 1-4 = armes achetées (métal plus brillant, taille, runes)
+  function drawWeapon(ctx, weapon, color, swing, tier) {
+    tier = tier || 0;
+    const M = GD.WEAPON_METAL[tier] || GD.WEAPON_METAL[0];
+    const W = P.wood, S = P.stone;
+    const wood = tier >= 4 ? '#c99a3a' : tier === 3 ? '#e0c79a' : W[1];
+    const guard = tier >= 2 ? P.ui.gold : W[2];
+    const k = 1 + 0.07 * tier;
     ctx.save();
     ctx.rotate(-0.9 + swing * 1.8);
-    const W = P.wood, S = P.stone;
+    ctx.scale(k, k);
+    if (tier >= 4) { ctx.save(); ctx.globalAlpha = 0.35; ctx.translate(14, 0); glow(ctx, '#2fd6e0', 9); ctx.restore(); }
     switch (weapon) {
       case 'club': line(ctx, 0, 0, 14, 0, W[1], 3); circle(ctx, 15, 0, 3.5, W[0]); break;
-      case 'sword': line(ctx, -2, 0, 4, 0, W[2], 3); line(ctx, 4, -4, 4, 4, P.ui.gold, 2); line(ctx, 5, 0, 20, 0, '#e8eef5', 3); break;
-      case 'hammer': line(ctx, -2, 0, 16, 0, W[1], 3); rrect(ctx, 13, -6, 7, 12, 2, P.ui.gold); break;
-      case 'lance': line(ctx, -6, 0, 24, 0, W[0], 2.5); poly(ctx, [24, -3, 32, 0, 24, 3], '#e8eef5', 1.5); poly(ctx, [6, -4, 10, 0, 6, 4], color, 1.2); break;
-      case 'staff': line(ctx, -4, 0, 16, 0, W[1], 2.5); circle(ctx, 18, 0, 4.5, color); circle(ctx, 17, -1.5, 1.5, '#ffffff', 0.01); break;
-      case 'whip': ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(10, -10 + swing * 20, 22, 2); ctx.lineWidth = 2; ctx.strokeStyle = W[2]; ctx.stroke(); line(ctx, -2, 0, 4, 0, W[1], 3); break;
-      case 'scythe': line(ctx, -4, 0, 16, 0, W[2], 2.5); ctx.beginPath(); ctx.moveTo(16, 0); ctx.quadraticCurveTo(14, -12, 4, -14); ctx.quadraticCurveTo(12, -8, 13, 0); fillStroke(ctx, '#d8dde3', 1.5); break;
+      case 'sword':
+        line(ctx, -2, 0, 4, 0, W[2], 3); line(ctx, 4, -4.5, 4, 4.5, guard, 2);
+        ctx.beginPath(); ctx.moveTo(5, -2.2); ctx.lineTo(19 + tier, -1.6); ctx.lineTo(23 + tier, 0); ctx.lineTo(19 + tier, 1.6); ctx.lineTo(5, 2.2); ctx.closePath(); fillStroke(ctx, M, 1.4);
+        ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(7, -0.6); ctx.lineTo(18 + tier, -0.6); ctx.stroke();
+        break;
+      case 'hammer': line(ctx, -2, 0, 16, 0, wood, 3); rrect(ctx, 12, -7, 9, 14, 2, tier ? M : P.ui.gold); rrect(ctx, 14.5, -3, 4, 6, 1, guard, 1); break;
+      case 'lance': line(ctx, -6, 0, 24, 0, wood, 2.5); poly(ctx, [24, -3.5, 33 + tier, 0, 24, 3.5], M, 1.5); poly(ctx, [6, -4, 11, 0, 6, 4], color, 1.2); break;
+      case 'staff':
+        line(ctx, -4, 0, 16, 0, wood, 2.5);
+        if (tier >= 2) { ctx.beginPath(); ctx.arc(18, 0, 6.5, 0.6, -0.6 + TAU); ctx.lineWidth = 2.5; ctx.strokeStyle = OL; ctx.stroke(); ctx.lineWidth = 1.2; ctx.strokeStyle = guard; ctx.stroke(); }
+        ctx.save(); ctx.translate(18, 0); glow(ctx, color, 5 + tier); ctx.restore();
+        circle(ctx, 18, 0, 4.5 + tier * 0.4, tier >= 4 ? '#2fd6e0' : color); circle(ctx, 17, -1.5, 1.5, '#ffffff', 0.01); break;
+      case 'whip':
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(10, -10 + swing * 20, 22 + tier * 2, 2); ctx.lineWidth = 2 + tier * 0.3; ctx.strokeStyle = tier >= 3 ? '#3a2433' : W[2]; ctx.stroke();
+        if (tier >= 2) { ctx.fillStyle = M; for (const q of [0.4, 0.7]) ctx.fillRect(10 * q * 2 - 1, -5 + swing * 10 * q, 2, 2); }
+        line(ctx, -2, 0, 4, 0, guard, 3); break;
+      case 'scythe': line(ctx, -4, 0, 16, 0, tier >= 3 ? '#3a2e3e' : W[2], 2.5); ctx.beginPath(); ctx.moveTo(16, 0); ctx.quadraticCurveTo(14, -13 - tier, 3, -15 - tier); ctx.quadraticCurveTo(12, -8, 13, 0); fillStroke(ctx, M, 1.5); break;
       case 'bow': case 'longbow': {
-        const L = weapon === 'longbow' ? 15 : 11;
-        ctx.beginPath(); ctx.arc(-2, 0, L, -1.1, 1.1); ctx.lineWidth = 4.5; ctx.strokeStyle = OL; ctx.stroke(); ctx.lineWidth = 2.5; ctx.strokeStyle = W[0]; ctx.stroke();
+        const L = (weapon === 'longbow' ? 15 : 11) + tier;
+        ctx.beginPath(); ctx.arc(-2, 0, L, -1.1, 1.1); ctx.lineWidth = 4.5; ctx.strokeStyle = OL; ctx.stroke(); ctx.lineWidth = 2.5; ctx.strokeStyle = wood; ctx.stroke();
+        if (tier >= 2) { circle(ctx, -2 + Math.cos(-1.1) * L, Math.sin(-1.1) * L, 1.8, guard, 1); circle(ctx, -2 + Math.cos(1.1) * L, Math.sin(1.1) * L, 1.8, guard, 1); }
         ctx.beginPath(); ctx.moveTo(-2 + Math.cos(-1.1) * L, Math.sin(-1.1) * L); ctx.lineTo(-2 - swing * 6, 0); ctx.lineTo(-2 + Math.cos(1.1) * L, Math.sin(1.1) * L); ctx.lineWidth = 1; ctx.strokeStyle = '#f3ead7'; ctx.stroke();
         break;
       }
-      case 'crossbow': line(ctx, -4, 0, 12, 0, W[1], 3.5); ctx.beginPath(); ctx.arc(14, 0, 8, -1.4 + Math.PI, 1.4 + Math.PI, true); ctx.lineWidth = 4; ctx.strokeStyle = OL; ctx.stroke(); ctx.lineWidth = 2; ctx.strokeStyle = S[0]; ctx.stroke(); break;
-      case 'daggers': line(ctx, -1, 0, 3, 0, W[2], 3); poly(ctx, [3, -2.5, 13, 0, 3, 2.5], '#e8eef5', 1.2); break;
-      case 'pitchfork': line(ctx, -4, 0, 16, 0, W[0], 2.5); line(ctx, 16, -5, 16, 5, S[1], 1.5); for (const o of [-5, 0, 5]) line(ctx, 16, o, 22, o, S[0], 1.2); break;
-      case 'axe': line(ctx, -2, 0, 16, 0, W[1], 3); ctx.beginPath(); ctx.moveTo(12, -1); ctx.quadraticCurveTo(22, -10, 20, 2); ctx.lineTo(12, 3); fillStroke(ctx, '#d8dde3', 1.5); break;
-      case 'pickaxe': line(ctx, -2, 0, 16, 0, W[1], 3); ctx.beginPath(); ctx.moveTo(16, -10); ctx.quadraticCurveTo(22, 0, 16, 10); ctx.lineWidth = 5; ctx.strokeStyle = OL; ctx.stroke(); ctx.lineWidth = 3; ctx.strokeStyle = S[0]; ctx.stroke(); break;
+      case 'crossbow': line(ctx, -4, 0, 12, 0, wood, 3.5); ctx.beginPath(); ctx.arc(14, 0, 8 + tier * 0.6, -1.4 + Math.PI, 1.4 + Math.PI, true); ctx.lineWidth = 4; ctx.strokeStyle = OL; ctx.stroke(); ctx.lineWidth = 2; ctx.strokeStyle = tier ? M : S[0]; ctx.stroke(); break;
+      case 'daggers':
+        line(ctx, -1, 0, 3, 0, W[2], 3);
+        if (tier >= 2) { ctx.beginPath(); ctx.moveTo(3, -2.5); ctx.quadraticCurveTo(10, -4, 14 + tier, 0); ctx.quadraticCurveTo(9, 1, 3, 2.5); ctx.closePath(); fillStroke(ctx, M, 1.2); }
+        else poly(ctx, [3, -2.5, 13 + tier, 0, 3, 2.5], M, 1.2);
+        break;
+      case 'pitchfork': line(ctx, -4, 0, 16, 0, wood, 2.5); line(ctx, 16, -5, 16, 5, tier ? M : S[1], 1.5); for (const o of [-5, 0, 5]) line(ctx, 16, o, 22 + tier, o, tier ? M : S[0], 1.2); break;
+      case 'axe': line(ctx, -2, 0, 16, 0, wood, 3); ctx.beginPath(); ctx.moveTo(12, -1); ctx.quadraticCurveTo(22 + tier, -10 - tier, 20 + tier, 2); ctx.lineTo(12, 3); fillStroke(ctx, M, 1.5); break;
+      case 'pickaxe': line(ctx, -2, 0, 16, 0, wood, 3); ctx.beginPath(); ctx.moveTo(16, -10 - tier); ctx.quadraticCurveTo(22 + tier, 0, 16, 10 + tier); ctx.lineWidth = 5; ctx.strokeStyle = OL; ctx.stroke(); ctx.lineWidth = 3; ctx.strokeStyle = tier ? M : S[0]; ctx.stroke(); break;
     }
     ctx.restore();
   }
 
   /* ------------------------------ héros ------------------------------ */
+  // Pour un objet équipé : { style, tier, main, trim, rune }
+  function piece(id) {
+    const it = GD.ITEMS[id];
+    if (!it) return { style: 'common', tier: 0 };
+    return { style: it.style, tier: it.tier, ...(GD.itemColors(id) || {}) };
+  }
+  function runeDot(ctx, x, y) { circle(ctx, x, y, 1.5, '#2fd6e0', 0.8); }
+
   /**
-   * o = { cls, look:{cape,skin,hair}, equip:{head,body}, facing, t, attack(0..1), zombie, stealth, scale, seed }
+   * o = { cls, look:{cape,skin,hair}, equip:{head,body,legs,feet,weapon}, facing, t, attack(0..1),
+   *       moving, zombie, stealth, scale, seed }
    */
   function drawHero(ctx, x, y, o) {
     const c = GD.CLASSES[o.cls] || GD.CLASSES.habitant;
     const look = o.look || { cape: 0, skin: 1, hair: 0 };
-    const head = GD.ARMORS[(o.equip || {}).head] || GD.ARMORS.head_none;
-    const body = GD.ARMORS[(o.equip || {}).body] || GD.ARMORS.body_tunic;
+    const eq = GD.effectiveEquip(o.cls, o.equip);
+    const head = piece(eq.head), body = piece(eq.body), legs = piece(eq.legs), feet = piece(eq.feet);
+    const wTier = (GD.ITEMS[eq.weapon] || {}).tier || 0;
     const s = o.scale || 1;
     const t = o.t || 0;
     const cape = P.capes[look.cape % P.capes.length];
     let skin = P.skin[look.skin % P.skin.length];
     if (o.zombie) skin = '#9bc27a';
     const hair = P.hair[look.hair % P.hair.length];
-    const bodyTier = GD.ARMOR_TIERS[Math.max(0, body.tier)];
     const flip = Math.cos(o.facing || 0) < 0 ? -1 : 1;
-    const bob = Math.sin(t * 9 + (o.seed || 0)) * 1.2;
+    const moving = o.moving === undefined ? true : o.moving;
+    const ph = t * 10 + (o.seed || 0);
+    const bob = moving ? Math.abs(Math.sin(ph)) * -1.6 : Math.sin(t * 2 + (o.seed || 0)) * 0.5;
+    const step = moving ? Math.sin(ph) * 2.2 : 0;
     const swing = o.attack > 0 ? Math.sin((1 - o.attack) * Math.PI) : 0;
 
     ctx.save();
@@ -109,67 +149,156 @@
     if (o.stealth) ctx.globalAlpha = 0.35;
     shadow(ctx, 0, 2, 12, 4);
     ctx.scale(flip, 1);
-    ctx.translate(0, bob * 0.5);
 
-    // cape
-    poly(ctx, [-6, -20, 6, -20, 9, -2, -11, -2 + Math.sin(t * 6) * 1.5], shade(cape, -0.15));
-    // jambes
-    const step = Math.sin(t * 9 + (o.seed || 0)) * 2;
-    rrect(ctx, -6, -6 + step * 0.3, 5, 7, 2, P.wood[2], 1.5);
-    rrect(ctx, 1, -6 - step * 0.3, 5, 7, 2, P.wood[2], 1.5);
-    // bouclier (dans le dos)
-    if (c.shield) { circle(ctx, -9, -11, 6, c.color); circle(ctx, -9, -11, 2, P.ui.gold, 1); }
-    // corps / armure
-    const bodyCol = body.tier <= 0 ? cape : bodyTier.color;
-    rrect(ctx, -8, -20, 16, 15, 5, bodyCol);
-    if (body.tier >= 2) { ctx.fillStyle = rgba(OL, 0.18); for (let i = -5; i <= 5; i += 3.3) ctx.fillRect(i, -18, 1.2, 11); }
-    if (body.tier >= 3) { circle(ctx, -7, -18, 3.5, bodyTier.trim, 1.5); circle(ctx, 7, -18, 3.5, bodyTier.trim, 1.5); }
-    // ceinture + écusson de classe (repère visuel)
-    ctx.fillStyle = OL; ctx.fillRect(-8, -9, 16, 2.5);
-    circle(ctx, 1, -14, 3, c.color, 1.5);
-    if (body.tier === 4) circle(ctx, 1, -14, 1.4, bodyTier.trim, 0.01);
-    // tête
-    const hy = -28;
+    // ---- jambes (pantalon) + chaussures
+    const pantsCol = legs.tier ? legs.main : P.wood[2];
+    for (const [lx, d] of [[-6, 1], [1, -1]]) {
+      const ly = -7 + step * 0.35 * d;
+      rrect(ctx, lx, ly, 5, 7, 2, pantsCol, 1.5);
+      if (legs.style === 'heavy' && legs.tier >= 2) circle(ctx, lx + 2.5, ly + 2, 1.8, legs.trim, 1);
+      if (legs.style === 'worker' && legs.tier >= 2) { ctx.fillStyle = legs.trim; ctx.fillRect(lx + 1, ly, 1.2, 3); }
+      if (legs.rune) runeDot(ctx, lx + 2.5, ly + 2.5);
+      drawFoot(ctx, lx, ly + 5.5, feet, skin);
+    }
+    // ---- cape
+    ctx.save();
+    ctx.translate(0, bob);
+    const capeWave = Math.sin(t * 6 + (o.seed || 0)) * (moving ? 2.2 : 0.8);
+    poly(ctx, [-6, -21, 6, -21, 8, -4, -11 - (moving ? 2 : 0), -3 + capeWave], A_shade(cape, -0.18));
+    // bouclier dans le dos
+    if (c.shield) { circle(ctx, -9, -12, 6.5, c.color); circle(ctx, -9, -12, 2.2, P.ui.gold, 1); ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(-10.5, -14, 2.5, 0, TAU); ctx.fill(); }
+    // ---- torse
+    drawTorso(ctx, body, cape, c);
+    // ---- tête
+    const hy = -29;
     circle(ctx, 0, hy, 8.5, skin);
-    if (head.tier < 0 || head.tier === 0) {
-      // cheveux
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.arc(-2.5, hy - 3, 3.5, 0, TAU); ctx.fill();
+    const hatHidesHair = head.tier > 0 && !(head.style === 'leather' && head.tier === 1);
+    if (!hatHidesHair) {
       ctx.beginPath(); ctx.arc(0, hy - 1, 8.5, Math.PI * 1.05, Math.PI * 1.95); ctx.lineTo(4, hy - 4); ctx.lineTo(-8, hy - 1); ctx.closePath(); fillStroke(ctx, hair, 1.5);
     }
-    eyes(ctx, 3.5, hy + 0.5, 0.01, 1.4);
-    ctx.fillStyle = OL; ctx.fillRect(5.5, hy - 0.8, 1.6, 2.6);
-    ctx.fillRect(2, hy - 0.8, 1.6, 2.6);
+    ctx.fillStyle = OL; ctx.fillRect(5.5, hy - 0.8, 1.6, 2.6); ctx.fillRect(2, hy - 0.8, 1.6, 2.6);
     if (o.zombie) { ctx.fillStyle = '#5c7a3d'; ctx.fillRect(-4, hy + 2, 3, 2); }
-    drawHelmet(ctx, head, hy, cape);
-    // main + arme
+    drawHeadgear(ctx, head, hy, cape, t);
+    // ---- main + arme
     ctx.save();
-    ctx.translate(8, -13);
-    drawWeapon(ctx, c.weapon, c.color, swing);
-    circle(ctx, 0, 0, 3, skin, 1.5);
+    ctx.translate(8, -14);
+    drawWeapon(ctx, c.weapon, c.color, swing, wTier);
+    circle(ctx, 0, 0, 3, (body.style === 'heavy' && body.tier >= 2) ? body.main : skin, 1.5);
     ctx.restore();
-    if (c.weapon === 'daggers') { ctx.save(); ctx.translate(-8, -12); ctx.scale(-1, 1); drawWeapon(ctx, 'daggers', c.color, 1 - swing); ctx.restore(); }
+    if (c.weapon === 'daggers') { ctx.save(); ctx.translate(-8, -13); ctx.scale(-1, 1); drawWeapon(ctx, 'daggers', c.color, 1 - swing, wTier); ctx.restore(); }
+    ctx.restore();
     ctx.restore();
   }
+  const A_shade = (h, k) => shade(h, k);
 
-  function drawHelmet(ctx, head, hy, cape) {
-    if (head.tier < 0) return;
-    const tier = GD.ARMOR_TIERS[head.tier];
-    switch (head.tier) {
-      case 0: // capuche
-        ctx.beginPath(); ctx.arc(0, hy - 1, 10, Math.PI * 0.95, Math.PI * 2.05); ctx.lineTo(10, hy + 4); ctx.lineTo(7, hy + 1); ctx.arc(0, hy, 7.5, 0, Math.PI, true); ctx.lineTo(-10, hy + 4); ctx.closePath();
-        fillStroke(ctx, shade(cape, -0.25), 1.8); break;
-      case 1: // cuir
-        ctx.beginPath(); ctx.arc(0, hy - 1, 9.5, Math.PI, TAU); ctx.closePath(); fillStroke(ctx, tier.color, 1.8);
-        ctx.fillStyle = tier.trim; ctx.fillRect(-9.5, hy - 2.5, 19, 2.5); break;
-      case 2: // fer + nasal
-        ctx.beginPath(); ctx.arc(0, hy - 1, 9.8, Math.PI, TAU); ctx.closePath(); fillStroke(ctx, tier.color, 1.8);
-        rrect(ctx, 3.5, hy - 2, 2.5, 7, 1, tier.trim, 1); break;
-      case 3: // heaume
-        rrect(ctx, -9.5, hy - 11, 19, 18, 5, tier.color, 1.8);
+  function drawFoot(ctx, lx, fy, feet, skin) {
+    const st = feet.style, t = feet.tier;
+    if (!t) { rrect(ctx, lx - 0.5, fy, 6.5, 3, 1.5, '#3c2a1e', 1.2); return; }
+    switch (st) {
+      case 'heavy': rrect(ctx, lx - 1, fy - 1, 7.5, 4, 1.5, feet.main, 1.3); if (t >= 3) { ctx.fillStyle = feet.trim; ctx.fillRect(lx + 1, fy, 3.5, 1); } break;
+      case 'cloth':
+        if (t === 1) { rrect(ctx, lx - 0.5, fy + 0.5, 6.5, 2.5, 1, skin, 1); ctx.fillStyle = P.wood[2]; ctx.fillRect(lx, fy + 1, 5.5, 1); }
+        else { rrect(ctx, lx - 0.5, fy, 7, 3, 1.5, feet.main, 1.2); if (t >= 3) { poly(ctx, [lx + 6.5, fy, lx + 8.5, fy - 1.5, lx + 6.5, fy + 2], feet.main, 1); } } break;
+      case 'leather': rrect(ctx, lx - 0.5, fy - 2.5, 6.5, 5.5, 1.5, feet.main, 1.2); ctx.fillStyle = feet.trim; ctx.fillRect(lx, fy - 1, 5.5, 1); break;
+      case 'worker': rrect(ctx, lx - 1, fy - (t === 1 ? 0 : 2), 7.5, t === 1 ? 3.5 : 5.5, 2, t === 1 ? P.wood[0] : feet.main, 1.3); break;
+      default: rrect(ctx, lx - 0.5, fy - 1.5, 6.5, 4.5, 1.5, P.wood[1], 1.2);
+    }
+    if (feet.rune) runeDot(ctx, lx + 3, fy + 1);
+  }
+
+  function drawTorso(ctx, body, cape, c) {
+    const st = body.style, t = body.tier;
+    if (!t || st === 'common') {
+      rrect(ctx, -8, -21, 16, 15, 5, t ? body.main : cape);
+      if (t) { ctx.fillStyle = 'rgba(0,0,0,.18)'; for (let i = -18; i < -8; i += 3) ctx.fillRect(-7, i, 14, 1); }
+    } else if (st === 'heavy') {
+      rrect(ctx, -8.5, -21, 17, 15, 5, body.main);
+      ctx.fillStyle = 'rgba(0,0,0,.15)'; ctx.fillRect(-0.6, -20, 1.2, 12);
+      if (t === 2) { ctx.fillStyle = 'rgba(0,0,0,.2)'; for (let i = -6; i <= 6; i += 3) for (let j = -19; j < -9; j += 3) ctx.fillRect(i, j + (i % 2 ? 1.5 : 0), 1.3, 1.3); }
+      if (t >= 2) { circle(ctx, -8, -19, 4, body.main, 1.6); circle(ctx, 8, -19, 4, body.main, 1.6); }
+      if (t >= 3) { ctx.strokeStyle = body.trim; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(-6, -12); ctx.lineTo(0, -9); ctx.lineTo(6, -12); ctx.stroke(); }
+      ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-6, -19, 3, 6);
+    } else if (st === 'cloth') {
+      // robe longue qui descend sur les jambes
+      ctx.beginPath(); ctx.moveTo(-7, -21); ctx.lineTo(7, -21); ctx.lineTo(10, -3); ctx.quadraticCurveTo(0, -1, -10, -3); ctx.closePath(); fillStroke(ctx, body.main);
+      ctx.strokeStyle = body.trim; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(-9.5, -4.2); ctx.quadraticCurveTo(0, -2.2, 9.5, -4.2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -21); ctx.lineTo(0, -4); ctx.stroke();
+      if (t >= 2) { ctx.fillStyle = body.trim; ctx.beginPath(); ctx.arc(0, -19, 2.4, 0, Math.PI); ctx.fill(); }
+      if (t >= 3) { ctx.fillStyle = body.trim; for (const [sx, sy] of [[-4, -14], [4, -10], [-3, -8]]) ctx.fillRect(sx, sy, 1.5, 1.5); }
+    } else if (st === 'leather') {
+      rrect(ctx, -8, -21, 16, 15, 5, body.main);
+      ctx.strokeStyle = body.trim; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-7, -20); ctx.lineTo(6, -9); ctx.stroke();
+      if (t >= 2) { ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(-7, -17, 14, 1.2); ctx.fillRect(-7, -13, 14, 1.2); }
+      if (t >= 3) { poly(ctx, [-9, -21, -4, -21, -6, -15], body.trim, 1.2); poly(ctx, [9, -21, 4, -21, 6, -15], body.trim, 1.2); }
+    } else if (st === 'worker') {
+      rrect(ctx, -8, -21, 16, 15, 5, t === 1 ? body.main : '#e8dcc0');
+      if (t >= 2) {
+        rrect(ctx, -6, -18, 12, 13, 3, body.main, 1.5);
+        ctx.fillStyle = body.trim; ctx.fillRect(-5.5, -20.5, 1.5, 3); ctx.fillRect(4, -20.5, 1.5, 3);
+        rrect(ctx, -2.5, -14, 5, 3.5, 1, A_shade(body.main, -0.2), 1);
+      }
+    }
+    if (body.rune) { runeDot(ctx, 0, -15); ctx.save(); ctx.globalAlpha = 0.25; ctx.translate(0, -14); glow(ctx, '#2fd6e0', 8); ctx.restore(); }
+    // ceinture + écusson de classe (repère visuel commun à tous)
+    if (st !== 'cloth' || !t) { ctx.fillStyle = OL; ctx.fillRect(-8, -9.5, 16, 2.5); }
+    circle(ctx, 1, -15, 3, c.color, 1.5);
+  }
+
+  function drawHeadgear(ctx, head, hy, cape, t) {
+    const st = head.style, tier = head.tier;
+    if (!tier) return;
+    const M = head.main, T = head.trim;
+    if (st === 'common') {
+      ctx.beginPath(); ctx.arc(0, hy - 1, 10, Math.PI * 0.95, Math.PI * 2.05); ctx.lineTo(10, hy + 4); ctx.lineTo(7, hy + 1); ctx.arc(0, hy, 7.5, 0, Math.PI, true); ctx.lineTo(-10, hy + 4); ctx.closePath();
+      fillStroke(ctx, shade(cape, -0.25), 1.8); return;
+    }
+    if (st === 'heavy') {
+      if (tier === 1) { ctx.beginPath(); ctx.arc(0, hy - 1, 9.6, Math.PI, TAU); ctx.closePath(); fillStroke(ctx, M, 1.8); ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(-9.6, hy - 2.5, 19.2, 2); }
+      else if (tier === 2) { ctx.beginPath(); ctx.arc(0, hy - 1, 10, Math.PI, TAU); ctx.lineTo(10, hy + 5); ctx.lineTo(7, hy + 5); ctx.lineTo(7, hy - 1); ctx.lineTo(-7, hy - 1); ctx.lineTo(-7, hy + 5); ctx.lineTo(-10, hy + 5); ctx.closePath(); fillStroke(ctx, M, 1.8); rrect(ctx, 3.5, hy - 2, 2.5, 7, 1, T, 1); }
+      else {
+        rrect(ctx, -9.5, hy - 11, 19, 18, 5, M, 1.8);
         ctx.fillStyle = OL; ctx.fillRect(1, hy - 1.5, 9, 2.2);
-        poly(ctx, [-2, hy - 11, 0, hy - 17, 2, hy - 11], tier.trim, 1.2); break;
-      case 4: // couronne runique
-        poly(ctx, [-8, hy - 6, -8, hy - 13, -4, hy - 9, 0, hy - 15, 4, hy - 9, 8, hy - 13, 8, hy - 6], tier.color, 1.6);
-        circle(ctx, 0, hy - 8.5, 1.8, tier.trim, 1); break;
+        ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-7, hy - 9, 3, 7);
+        if (tier === 3) poly(ctx, [-2, hy - 11, 0, hy - 17, 2, hy - 11], T, 1.2);
+        else { poly(ctx, [-7, hy - 10, -7, hy - 17, -3, hy - 13, 0, hy - 19, 3, hy - 13, 7, hy - 17, 7, hy - 10], P.ui.gold, 1.4); runeDot(ctx, 0, hy - 13); }
+      }
+      return;
+    }
+    if (st === 'cloth') {
+      if (tier === 1) { ctx.beginPath(); ctx.arc(0, hy - 1, 10, Math.PI * 0.95, Math.PI * 2.05); ctx.lineTo(10, hy + 4); ctx.lineTo(7, hy + 1); ctx.arc(0, hy, 7.5, 0, Math.PI, true); ctx.lineTo(-10, hy + 4); ctx.closePath(); fillStroke(ctx, M, 1.8); }
+      else if (tier <= 3) {
+        const h = tier === 2 ? 16 : 22;
+        ellipse(ctx, 0, hy - 5, 13, 3.5, M, 1.8);
+        ctx.beginPath(); ctx.moveTo(-7, hy - 6); ctx.quadraticCurveTo(-2, hy - h * 0.6, -1 - Math.sin(t * 2) * 2, hy - 6 - h); ctx.quadraticCurveTo(3, hy - h * 0.5, 7, hy - 6); ctx.closePath(); fillStroke(ctx, M, 1.8);
+        ctx.fillStyle = T; ctx.fillRect(-6.5, hy - 8.5, 13, 2);
+        if (tier === 3) { ctx.fillStyle = T; ctx.fillRect(-2, hy - 15, 1.6, 1.6); ctx.fillRect(1, hy - 19, 1.6, 1.6); }
+      } else {
+        // diadème runique + cheveux visibles
+        ctx.beginPath(); ctx.arc(0, hy - 1, 8.5, Math.PI * 1.05, Math.PI * 1.95); ctx.lineTo(4, hy - 4); ctx.lineTo(-8, hy - 1); ctx.closePath(); fillStroke(ctx, '#e8e2cf', 1.5);
+        ctx.strokeStyle = P.ui.gold; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, hy, 8.8, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+        poly(ctx, [0, hy - 13, 2.5, hy - 9.5, 0, hy - 6, -2.5, hy - 9.5], '#2fd6e0', 1.2);
+      }
+      return;
+    }
+    if (st === 'leather') {
+      if (tier === 1) { ctx.fillStyle = M; ctx.fillRect(-8.6, hy - 5, 17.2, 3); ctx.strokeStyle = OL; ctx.lineWidth = 1.2; ctx.strokeRect(-8.6, hy - 5, 17.2, 3); poly(ctx, [-8, hy - 4, -13, hy - 1 + Math.sin(t * 6) * 1.5, -12, hy - 5], M, 1.2); }
+      else {
+        ctx.beginPath(); ctx.arc(0, hy - 1, 10, Math.PI * 0.95, Math.PI * 2.05); ctx.lineTo(10, hy + 4); ctx.lineTo(7, hy + 1); ctx.arc(0, hy, 7.5, 0, Math.PI, true); ctx.lineTo(-10, hy + 4); ctx.closePath(); fillStroke(ctx, M, 1.8);
+        if (tier >= 3) poly(ctx, [-6, hy - 9, -14, hy - 16, -9, hy - 8], '#f3ead7', 1.2); // plume
+        if (tier === 4) { rrect(ctx, 0.5, hy + 0.5, 9, 4.5, 2, '#2b2433', 1.2); runeDot(ctx, 5, hy + 2.7); }
+      }
+      return;
+    }
+    if (st === 'worker') {
+      if (tier === 1) { ellipse(ctx, 0, hy - 5, 14, 3.5, '#e2c56a', 1.6); ctx.beginPath(); ctx.arc(0, hy - 5, 7.5, Math.PI, TAU); ctx.closePath(); fillStroke(ctx, '#e2c56a', 1.6); ctx.fillStyle = '#b23a48'; ctx.fillRect(-7.3, hy - 7.5, 14.6, 2); }
+      else if (tier === 2) { ctx.beginPath(); ctx.arc(0, hy - 1.5, 9.5, Math.PI, TAU); ctx.closePath(); fillStroke(ctx, M, 1.8); circle(ctx, 0, hy - 12, 2.6, '#f3ead7', 1.2); }
+      else {
+        ctx.beginPath(); ctx.arc(0, hy - 1, 10, Math.PI, TAU); ctx.closePath(); fillStroke(ctx, tier === 4 ? '#f2c14e' : M, 1.8);
+        ellipse(ctx, 0, hy - 1, 12, 2.2, tier === 4 ? '#f2c14e' : M, 1.4);
+        rrect(ctx, 3, hy - 8, 5, 4, 1, '#3c3546', 1); circle(ctx, 7.5, hy - 6, 2, tier === 4 ? '#2fd6e0' : '#ffd76a', 1);
+        ctx.save(); ctx.globalAlpha = 0.35; ctx.translate(11, hy - 6); glow(ctx, tier === 4 ? '#2fd6e0' : '#ffd76a', 6); ctx.restore();
+      }
     }
   }
 
@@ -502,25 +631,31 @@
     const grid = [];
     for (let ty = 0; ty < T.ROWS; ty++) { grid[ty] = []; for (let tx = 0; tx < T.COLS; tx++) grid[ty][tx] = T.tileBiome(tx, ty, st, seed); }
 
-    // 1. sol : couche par couche avec des bords organiques (« blobs »)
-    ctx.fillStyle = P.biome.prairie.ground[0]; ctx.fillRect(0, 0, W, H);
+    // 1. sol : une couleur par tuile, agrandie avec lissage (dégradés doux, plus de damier)
+    const tileCol = (tx, ty) => {
+      const G = P.biome[grid[ty][tx]].ground;
+      const f = T.valueNoise(tx / 3.2, ty / 3.2, seed + 3) * (G.length - 1);
+      return mix(G[Math.floor(f)], G[Math.min(G.length - 1, Math.ceil(f))], f - Math.floor(f));
+    };
+    const small = document.createElement('canvas');
+    small.width = T.COLS; small.height = T.ROWS;
+    const sctx = small.getContext('2d');
+    for (let ty = 0; ty < T.ROWS; ty++) for (let tx = 0; tx < T.COLS; tx++) { sctx.fillStyle = tileCol(tx, ty); sctx.fillRect(tx, ty, 1, 1); }
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(small, 0, 0, T.COLS * TS, T.ROWS * TS);
+    // bords organiques (« blobs ») des couches de biome qui envahissent les autres
     for (const b of BIOME_ORDER) {
-      const G = P.biome[b].ground;
       for (let ty = 0; ty < T.ROWS; ty++) for (let tx = 0; tx < T.COLS; tx++) {
         if (grid[ty][tx] !== b) continue;
-        const h = T.valueNoise(tx / 3.2, ty / 3.2, seed + 3);
-        ctx.fillStyle = G[Math.min(G.length - 1, Math.floor(h * G.length))];
-        ctx.fillRect(tx * TS, ty * TS, TS, TS);
-        // débordement arrondi sur les voisins de couches inférieures
         const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
           const n = grid[ty + dy] && grid[ty + dy][tx + dx];
           return n && BIOME_ORDER.indexOf(n) < BIOME_ORDER.indexOf(b);
         });
-        if (edge) {
-          for (let k = 0; k < 3; k++) {
-            const ox = (T.hash2(tx, ty, seed + 20 + k) - 0.5) * TS * 0.9, oy = (T.hash2(tx, ty, seed + 30 + k) - 0.5) * TS * 0.9;
-            ctx.beginPath(); ctx.arc(tx * TS + TS / 2 + ox, ty * TS + TS / 2 + oy, TS * (0.45 + T.hash2(tx, ty, seed + 40 + k) * 0.3), 0, TAU); ctx.fill();
-          }
+        if (!edge) continue;
+        ctx.fillStyle = tileCol(tx, ty);
+        for (let k = 0; k < 3; k++) {
+          const ox = (T.hash2(tx, ty, seed + 20 + k) - 0.5) * TS * 0.9, oy = (T.hash2(tx, ty, seed + 30 + k) - 0.5) * TS * 0.9;
+          ctx.beginPath(); ctx.arc(tx * TS + TS / 2 + ox, ty * TS + TS / 2 + oy, TS * (0.45 + T.hash2(tx, ty, seed + 40 + k) * 0.3), 0, TAU); ctx.fill();
         }
       }
     }
@@ -540,6 +675,14 @@
     ctx.beginPath(); ctx.ellipse(GD.WORLD.CX, GD.WORLD.CY + 10, 150, 95, 0, 0, TAU); ctx.fill();
     ctx.globalAlpha = 1;
     ctx.restore();
+
+    // lumière chaude autour de la tour + ombre douce venant du haut
+    const lg = ctx.createRadialGradient(GD.WORLD.CX, GD.WORLD.CY, 40, GD.WORLD.CX, GD.WORLD.CY, 620);
+    lg.addColorStop(0, 'rgba(255,236,190,0.16)'); lg.addColorStop(1, 'rgba(255,236,190,0)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
+    const sg = ctx.createLinearGradient(0, 0, 0, H);
+    sg.addColorStop(0, 'rgba(20,12,30,0.10)'); sg.addColorStop(0.4, 'rgba(20,12,30,0)');
+    ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H);
 
     // 3. rivières de lave
     const lava = [];

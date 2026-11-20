@@ -15,6 +15,10 @@
   function init() {
     $$('[data-act]').forEach((b) => b.addEventListener('click', () => act(b.dataset.act)));
     $('#saveSettings').addEventListener('click', saveSettings);
+    // liste des classes pour les bots, groupées par famille
+    $('#botCls').replaceChildren(el('option', { value: '' }, 'Aléatoire'), el('option', { value: 'habitant' }, 'Habitant'),
+      ...GD.BASE_CLASSES.map((b) => el('optgroup', { label: GD.CLASSES[b].name },
+        el('option', { value: b }, GD.CLASSES[b].name), ...GD.specsOf(b).map((s) => el('option', { value: s }, '↳ ' + GD.CLASSES[s].name)))));
     $('#userFilter').addEventListener('input', renderUsers);
     refresh();
     loadUsers();
@@ -31,7 +35,7 @@
     if (action === 'stop' && !confirm('Arrêter la partie en cours ?')) return;
     if (action === 'wave') body.wave = Number($('#gotoWave').value) || 1;
     if (action === 'treasury') body.amount = Number($('#treasuryAmt').value) || 0;
-    if (action === 'bots') body.count = Number($('#botCount').value) || 1;
+    if (action === 'bots') { body.count = Number($('#botCount').value) || 1; body.cls = $('#botCls').value || null; body.level = Number($('#botLevel').value) || null; }
     if (action === 'announce') { body.text = $('#annTitle').value; body.sub = $('#annSub').value; }
     try { await api('/api/admin/game/' + action, { body }); refresh(); }
     catch (e) { toast(e.message); }
@@ -48,7 +52,7 @@
         el('div', { class: 'stat' }, el('b', {}, r.wave), el('span', { class: 'small muted' }, r.era)),
         el('div', { class: 'stat' }, el('b', {}, r.mobs), el('span', { class: 'small muted' }, 'ennemis')),
         el('div', { class: 'stat' }, el('b', {}, `${r.tower.hp}`), el('span', { class: 'small muted' }, `PV tour / ${r.tower.max}`)),
-        el('div', { class: 'stat' }, el('b', {}, r.treasury), el('span', { class: 'small muted' }, 'richesse')),
+        el('div', { class: 'stat' }, el('b', {}, '🪙 ' + r.treasury), el('span', { class: 'small muted' }, 'écus de l’équipe')),
         el('div', { class: 'stat' }, el('b', {}, r.heroes), el('span', { class: 'small muted' }, 'héros'))
       ),
       el('p', { class: 'small muted' }, 'Améliorations : ' + (Object.entries(r.upgrades).filter(([k, v]) => v && k !== 'pact').map(([k, v]) => `${GD.UPGRADES[k].icon} ${GD.UPGRADES[k].name} ${v}`).join(' · ') || 'aucune'))
@@ -62,7 +66,10 @@
         el('td', { style: `color:${GD.CLASSES[h.cls].color}` }, GD.CLASSES[h.cls].name),
         el('td', {}, h.level), el('td', {}, `${h.hp}/${h.maxHp}`), el('td', {}, h.kills),
         el('td', {}, h.alive ? 'en vie' : '☠️', h.bot ? '' : h.online ? ' · 🟢' : ' · ⚪'),
-        el('td', {}, el('button', { class: 'small danger', onclick: () => act('kick', { id: h.id }) }, 'Retirer'))))
+        el('td', { class: 'row', style: 'gap:4px' },
+          h.bot ? '' : el('button', { class: 'small', onclick: () => giveXp({ id: h.id, pseudo: h.name }) }, '+ XP'),
+          h.bot ? '' : el('button', { class: 'small', onclick: () => giveGold({ id: h.id, pseudo: h.name }) }, '+ 🧊'),
+          el('button', { class: 'small danger', onclick: () => act('kick', { id: h.id }) }, 'Retirer'))))
     );
     if (!settingsLoaded) { settingsLoaded = true; renderSettings(d.settings); }
   }
@@ -97,20 +104,30 @@
     const q = $('#userFilter').value.trim().toLowerCase();
     const list = users.filter((u) => !q || u.pseudo.toLowerCase().includes(q)).sort((a, b) => b.level - a.level);
     $('#users').replaceChildren(
-      el('tr', {}, el('th', {}, 'Pseudo'), el('th', {}, 'Rôle'), el('th', {}, 'Classe'), el('th', {}, 'Niv.'), el('th', {}, 'Écus'), el('th', {}, 'Record'), el('th', {}, 'Actions')),
+      el('tr', {}, el('th', {}, 'Pseudo'), el('th', {}, 'Rôle'), el('th', {}, 'Classe'), el('th', {}, 'Niv.'), el('th', {}, 'Grêlons'), el('th', {}, 'Record'), el('th', {}, 'Actions')),
       ...list.map((u) => el('tr', {},
         el('td', {}, u.pseudo, u.online ? ' 🟢' : '', u.banned ? ' 🚫' : ''),
         el('td', {}, u.role === 'admin' ? '⭐ admin' : 'joueur'),
         el('td', { style: `color:${GD.CLASSES[u.cls].color}` }, GD.CLASSES[u.cls].name),
         el('td', {}, u.level), el('td', {}, u.gold), el('td', {}, u.stats.bestWave),
         el('td', { class: 'row', style: 'gap:4px' },
-          el('button', { class: 'small', onclick: () => { const g = prompt('Écus :', u.gold); if (g !== null) editUser(u, { gold: Number(g) }); } }, 'Écus'),
+          el('button', { class: 'small', onclick: () => giveXp(u) }, '+ XP'),
+          el('button', { class: 'small', onclick: () => giveGold(u) }, '+ Grêlons'),
+          el('button', { class: 'small', onclick: () => { const g = prompt(`Fixer les Grêlons de ${u.pseudo} à :`, u.gold); if (g !== null) editUser(u, { gold: Number(g) }); } }, 'Fixer Grêlons'),
           el('button', { class: 'small', onclick: () => { const l = prompt('Niveau :', u.level); if (l !== null) editUser(u, { level: Number(l) }); } }, 'Niveau'),
           el('button', { class: 'small', onclick: () => confirm('Remettre la classe à « Habitant » ?') && editUser(u, { resetClass: true }) }, 'Reset classe'),
           el('button', { class: 'small', onclick: () => { const p = prompt('Nouveau mot de passe (6 caractères min.) :'); if (p) editUser(u, { password: p }); } }, 'Mot de passe'),
           el('button', { class: 'small danger', onclick: () => editUser(u, { banned: !u.banned }) }, u.banned ? 'Débannir' : 'Bannir'),
           el('button', { class: 'small danger', onclick: () => deleteUser(u) }, 'Supprimer'))))
     );
+  }
+  function giveXp(u) {
+    const n = prompt(`Combien d’XP donner à ${u.pseudo} ?`, '500');
+    if (n !== null && Number(n) > 0) editUser(u, { addXp: Number(n) });
+  }
+  function giveGold(u) {
+    const n = prompt(`Combien de Grêlons 🧊 donner à ${u.pseudo} ? (négatif pour retirer)`, '200');
+    if (n !== null && Number(n)) editUser(u, { addGold: Number(n) });
   }
   async function editUser(u, body) {
     try { await api('/api/admin/users/' + u.id, { body }); toast('Modifié ✓'); loadUsers(); }

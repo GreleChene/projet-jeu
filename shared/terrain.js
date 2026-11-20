@@ -79,8 +79,8 @@
   function tileDecor(tx, ty, seed) {
     if (nearTower(tx, ty, 150)) return null;
     const h = hash2(tx, ty, seed + 7);
-    if (h < 0.05) return { kind: 'tree', v: hash2(tx, ty, seed + 8), ox: (hash2(tx, ty, seed + 9) - 0.5) * 18, oy: (hash2(tx, ty, seed + 10) - 0.5) * 18 };
-    if (h < 0.075) return { kind: 'rock', v: hash2(tx, ty, seed + 8), ox: (hash2(tx, ty, seed + 9) - 0.5) * 20, oy: (hash2(tx, ty, seed + 10) - 0.5) * 20 };
+    if (h < 0.028) return { kind: 'tree', v: hash2(tx, ty, seed + 8), ox: (hash2(tx, ty, seed + 9) - 0.5) * 18, oy: (hash2(tx, ty, seed + 10) - 0.5) * 18 };
+    if (h < 0.05) return { kind: 'rock', v: hash2(tx, ty, seed + 8), ox: (hash2(tx, ty, seed + 9) - 0.5) * 20, oy: (hash2(tx, ty, seed + 10) - 0.5) * 20 };
     if (h < 0.4) return { kind: 'small', v: hash2(tx, ty, seed + 8), ox: (hash2(tx, ty, seed + 9) - 0.5) * 24, oy: (hash2(tx, ty, seed + 10) - 0.5) * 24 };
     return null;
   }

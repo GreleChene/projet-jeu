@@ -11,6 +11,8 @@
   const ctx = cv.getContext('2d');
   const FONT_T = '"Cinzel", Georgia, serif';
   const FONT_B = '"Nunito", system-ui, sans-serif';
+  // Échelle d'affichage (purement visuelle) des personnages et des monstres
+  const HERO_SCALE = 1.3, MOB_SCALE = 1.2;
 
   /* ----------------------------- mise à l'échelle ----------------------------- */
   function fit() {
@@ -47,6 +49,8 @@
       seen.add(id);
       let e = map.get(id);
       if (!e) { e = mk(row); map.set(id, e); }
+      if (e.row && row[4] < e.row[4]) e.flash = 0.12; // touché : flash blanc
+      e.moving = e.tx !== undefined && Math.hypot(row[2] - e.tx, row[3] - e.ty) > 0.3;
       e.row = row; e.tx = row[2]; e.ty = row[3];
       if (e.x === undefined || Math.abs(e.x - e.tx) > 250 || Math.abs(e.y - e.ty) > 250) { e.x = e.tx; e.y = e.ty; }
     }
@@ -62,6 +66,7 @@
       let e = heroes.get(r[0]);
       if (!e) { e = { seed: Math.random() * 10, attackT: 0 }; heroes.set(r[0], e); }
       if (e.x === undefined || Math.abs(e.x - r[1]) > 250 || Math.abs(e.y - r[2]) > 250) { e.x = r[1]; e.y = r[2]; }
+      e.moving = e.tx !== undefined && Math.hypot(r[1] - e.tx, r[2] - e.ty) > 0.3;
       e.tx = r[1]; e.ty = r[2]; e.hp = r[3]; e.f = r[4]; e.facing = r[5] / 100; e.lvl = r[6];
       if (e.f & HF.ATTACK && e.attackT <= 0) e.attackT = 1;
     }
@@ -128,7 +133,7 @@
       }
       case 'hdeath': burst(e[1], e[2] - 14, P.ui.danger, 14, 150); break;
       case 'lvl': add({ k: 'text', x: e[1], y: e[2] - 50, s: 'NIVEAU ' + e[3], color: P.ui.gold, dur: 1.6, size: 22 }); add({ k: 'ring', x: e[1], y: e[2], r: 40, color: P.ui.gold, dur: 0.6, w: 6 }); break;
-      case 'coin': add({ k: 'text', x: e[1], y: e[2], s: '+' + e[3] + ' 💰', color: P.ui.gold, dur: 1.1, size: 15 }); break;
+      case 'coin': add({ k: 'text', x: e[1], y: e[2], s: '+' + e[3] + ' 🪙', color: P.ui.gold, dur: 1.1, size: 15 }); break;
       case 'text': add({ k: 'text', x: e[1], y: e[2], s: e[3], color: e[4], dur: 1.5, size: 18 }); break;
       case 'dash': add({ k: 'dash', x: e[1], y: e[2] - 14, x2: e[3], y2: e[4] - 14, dur: 0.3 }); break;
       case 'puff': add({ k: 'puff', x: e[1], y: e[2] - 10, dur: 0.5, r: 18 }); break;
@@ -164,6 +169,7 @@
       const tx = e.tx !== undefined ? e.tx : e.x, ty = e.ty !== undefined ? e.ty : e.y;
       e.x += (tx - e.x) * Math.min(1, dt * k); e.y += (ty - e.y) * Math.min(1, dt * k);
       if (e.attackT > 0) e.attackT -= dt * 4.5;
+      if (e.flash > 0) e.flash -= dt;
     }
   }
 
@@ -222,6 +228,7 @@
     drawFx();
     drawAmbient();
     drawLabels();
+    drawVignette();
     ctx.restore();
     drawHud();
   }
@@ -229,16 +236,16 @@
   function drawHeroEnt(id, h) {
     const info = roster.get(id);
     if (!info) return;
-    if (h.f & HF.DEAD) { A.drawGrave(ctx, h.x, h.y, time); return; }
+    if (h.f & HF.DEAD) { ctx.save(); ctx.translate(h.x, h.y); ctx.scale(HERO_SCALE, HERO_SCALE); A.drawGrave(ctx, 0, 0, time); ctx.restore(); return; }
     if (h.f & HF.ULT) {
       ctx.save(); ctx.globalAlpha = 0.35 + 0.2 * Math.sin(time * 6);
-      ctx.beginPath(); ctx.ellipse(h.x, h.y + 1, 16, 6, 0, 0, Math.PI * 2); ctx.fillStyle = CLASSES[info.cls].color; ctx.fill(); ctx.restore();
+      ctx.beginPath(); ctx.ellipse(h.x, h.y + 1, 21, 8, 0, 0, Math.PI * 2); ctx.fillStyle = CLASSES[info.cls].color; ctx.fill(); ctx.restore();
     }
     A.drawHero(ctx, h.x, h.y, {
-      cls: info.cls, look: info.look, equip: info.equip, facing: h.facing, t: time, seed: h.seed,
+      cls: info.cls, look: info.look, equip: info.equip, facing: h.facing, t: time, seed: h.seed, scale: HERO_SCALE, moving: h.moving,
       attack: Math.max(0, h.attackT), zombie: !!(h.f & HF.ZOMBIE), stealth: !!(h.f & HF.STEALTH)
     });
-    if (h.f & HF.SHIELD) { ctx.save(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(h.x, h.y - 16, 22, 0, Math.PI * 2); ctx.strokeStyle = P.fx.frost; ctx.lineWidth = 3; ctx.stroke(); ctx.restore(); }
+    if (h.f & HF.SHIELD) { ctx.save(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(h.x, h.y - 21, 28, 0, Math.PI * 2); ctx.strokeStyle = P.fx.frost; ctx.lineWidth = 3; ctx.stroke(); ctx.restore(); }
     if (h.f & HF.FURY && Math.random() < 0.3) fx.push({ k: 'part', x: h.x + (Math.random() - 0.5) * 16, y: h.y - 10, vx: 0, vy: -60, dur: 0.4, t: 0, color: P.fx.burn, size: 3 });
     if (h.f & HF.POISON && Math.random() < 0.15) fx.push({ k: 'part', x: h.x + (Math.random() - 0.5) * 16, y: h.y - 20, vx: 0, vy: -40, dur: 0.5, t: 0, color: P.fx.poison, size: 3 });
     if (h.f & HF.BURN && Math.random() < 0.2) fx.push({ k: 'part', x: h.x + (Math.random() - 0.5) * 16, y: h.y - 20, vx: 0, vy: -70, dur: 0.4, t: 0, color: P.fx.burn, size: 3 });
@@ -250,12 +257,30 @@
     const d = MOBS[type];
     const f = r[5];
     const elite = !ally && f & MF.ELITE, boss = !ally && f & MF.BOSS;
-    const size = d.size * (elite ? 1.3 : 1);
+    const size = d.size * (elite ? 1.3 : 1) * MOB_SCALE;
     A.drawMob(ctx, type, m.x, m.y, { size, t: time, seed: m.seed, facing: r[6] / 100, attack: Math.max(0, m.attackT), elite, boss, frozen: !ally && f & MF.FROZEN });
+    if (m.flash > 0) {
+      ctx.save(); ctx.globalAlpha = Math.min(0.55, m.flash * 5); ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(m.x, m.y - size * 0.8, size * 0.95, size * 0.85, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
     if (!ally && f & MF.BURN && Math.random() < 0.15) fx.push({ k: 'part', x: m.x, y: m.y - size, vx: 0, vy: -60, dur: 0.4, t: 0, color: P.fx.burn, size: 3 });
     if (!ally && f & MF.POISON && Math.random() < 0.1) fx.push({ k: 'part', x: m.x, y: m.y - size, vx: 0, vy: -40, dur: 0.5, t: 0, color: P.fx.poison, size: 3 });
     if (!ally && f & MF.SLOW) { ctx.fillStyle = A.rgba(P.fx.frost, 0.35); ctx.beginPath(); ctx.ellipse(m.x, m.y, size, size * 0.35, 0, 0, Math.PI * 2); ctx.fill(); }
     if (r[4] < 100 && !boss) bar(m.x - size, m.y - size * 2.2 - 6, size * 2, 4, r[4] / 100, ally ? P.ui.ok : elite ? P.ui.gold : P.ui.danger);
+  }
+
+  // Vignettage léger (pré-calculé) pour donner de la profondeur
+  let vignette = null;
+  function drawVignette() {
+    if (!vignette) {
+      vignette = document.createElement('canvas');
+      vignette.width = WORLD.W; vignette.height = WORLD.H;
+      const v = vignette.getContext('2d');
+      const g = v.createRadialGradient(WORLD.CX, WORLD.CY, WORLD.H * 0.45, WORLD.CX, WORLD.CY, WORLD.W * 0.62);
+      g.addColorStop(0, 'rgba(20,12,30,0)'); g.addColorStop(1, 'rgba(20,12,30,0.38)');
+      v.fillStyle = g; v.fillRect(0, 0, WORLD.W, WORLD.H);
+    }
+    ctx.drawImage(vignette, 0, 0);
   }
 
   function bar(x, y, w, h, k, color) {
@@ -272,7 +297,7 @@
       const info = roster.get(id);
       if (!info) continue;
       const dead = h.f & HF.DEAD;
-      const y = h.y - (dead ? 30 : 50);
+      const y = h.y - (dead ? 38 : 64);
       ctx.globalAlpha = dead ? 0.6 : h.f & HF.STEALTH ? 0.45 : 1;
       ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
       ctx.strokeText(info.name, h.x, y);
@@ -426,10 +451,10 @@
     bar(WORLD.CX - 300, 90, 600, 16, s.tw[0] / s.tw[1], s.tw[0] / s.tw[1] < 0.3 ? P.ui.danger : P.ui.ok);
     text(`🏰 ${s.tw[0]} / ${s.tw[1]}`, WORLD.CX, 104, 13, '#ffffff', 'center', 'b');
     if (s.ph === 'wave') text(`👹 ${s.left}`, WORLD.CX + 310, 54, 18, P.ui.text, 'right', 'b');
-    // richesse + améliorations
+    // écus de l'équipe + améliorations
     panel(14, 14, 300, 104);
-    text(`💰 ${s.tr}`, 34, 50, 24, P.ui.gold, 'left', 'b');
-    text('Richesse de l’équipe', 34, 70, 12, P.ui.muted, 'left', 'b');
+    text(`🪙 ${s.tr} écus`, 34, 50, 24, P.ui.gold, 'left', 'b');
+    text('Trésor de l’équipe', 34, 70, 12, P.ui.muted, 'left', 'b');
     let ux = 34;
     for (const [id, lvl] of Object.entries(s.up)) {
       if (!lvl || id === 'pact') continue;
@@ -496,14 +521,14 @@
       const x = x0 + i * (w + gap);
       const up = UPGRADES[o];
       const name = o === 'save' ? 'Économiser' : up.name;
-      const icon = o === 'save' ? '💰' : up.icon;
+      const icon = o === 'save' ? '🪙' : up.icon;
       const cost = s.vote.cost[o];
       const afford = !cost || cost <= s.tr;
       ctx.globalAlpha = afford ? 1 : 0.45;
       A.rrect(ctx, x, y0, w, 120, 10, o === 'pact' ? '#3a1f2a' : P.ui.panel2, 2);
       ctx.font = `32px ${FONT_B}`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(icon, x + 34, y0 + 48);
       text(name, x + 64, y0 + 34, 17, '#ffffff', 'left', 'b');
-      text(cost ? `${cost} 💰` : o === 'pact' ? 'Récompenses ×2' : 'Garder la richesse', x + 64, y0 + 56, 13, cost ? P.ui.gold : P.ui.muted, 'left', 'b');
+      text(cost ? `🪙 ${cost} écus` : o === 'pact' ? 'Récompenses ×2' : 'Garder les écus', x + 64, y0 + 56, 13, cost ? P.ui.gold : P.ui.muted, 'left', 'b');
       const n = s.vote.c[o] || 0;
       bar(x + 14, y0 + 84, w - 28, 12, n / total, o === 'pact' ? P.ui.danger : P.ui.accent);
       text(`${n} vote${n > 1 ? 's' : ''}`, x + w / 2, y0 + 112, 13, P.ui.text, 'center', 'b');

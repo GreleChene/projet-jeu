@@ -7,7 +7,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const config = require('./config');
-const { DEFAULT_AI, PALETTE, emptyAttrs, PROGRESSION } = require('../shared/constants');
+const { DEFAULT_AI, PALETTE, emptyAttrs, PROGRESSION, ITEMS, DEFAULT_EQUIP } = require('../shared/constants');
+
+// Anciennes armures (v1) : remboursées en Grêlons
+const LEGACY_ITEMS = { head_hood: 30, head_leather: 90, head_iron: 250, head_great: 600, head_rune: 1500, body_leather: 140, body_mail: 380, body_plate: 900, body_rune: 2200 };
 
 let data = { users: {}, sessions: {}, settings: {} };
 let dirty = false;
@@ -17,6 +20,7 @@ function load() {
     data = JSON.parse(fs.readFileSync(config.DATA_FILE, 'utf8'));
     data.users ||= {}; data.sessions ||= {}; data.settings ||= {};
     for (const u of Object.values(data.users)) migrateUser(u);
+    dirty = true; // enregistre les migrations éventuelles
   } catch (e) {
     if (e.code !== 'ENOENT') { console.error('Base illisible :', e.message); process.exit(1); }
   }
@@ -37,8 +41,12 @@ for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { saveNow(); proc
 function migrateUser(u) {
   u.ai = { ...DEFAULT_AI, ...(u.ai || {}) };
   u.look ||= { cape: 0, skin: 1, hair: 0 };
-  u.owned ||= ['head_none', 'body_tunic'];
-  u.equip ||= { head: 'head_none', body: 'body_tunic' };
+  u.owned ||= [];
+  u.gold ||= 0;
+  for (const id of u.owned) if (LEGACY_ITEMS[id]) u.gold += LEGACY_ITEMS[id];
+  u.owned = [...new Set([...Object.values(DEFAULT_EQUIP), ...u.owned.filter((id) => ITEMS[id])])];
+  u.equip = { ...DEFAULT_EQUIP, ...(u.equip || {}) };
+  for (const [slot, id] of Object.entries(u.equip)) if (!ITEMS[id] || !u.owned.includes(id)) u.equip[slot] = DEFAULT_EQUIP[slot];
   u.stats ||= { kills: 0, runs: 0, bestWave: 0, deaths: 0, bossKills: 0 };
   u.cls ||= 'habitant';
   u.level ||= 1; u.xp ||= 0; u.gold ||= 0;

@@ -61,7 +61,7 @@
     ombre: { name: 'Ombre', tier: 2, parent: 'assassin', color: '#5b4a7a', weapon: 'daggers', hp: 115, dmg: 18, range: 34, cd: 0.65, speed: 122, armor: 0.04, crit: 0.3, stealth: { every: 10, dur: 3 }, ult: 'smoke', ultName: 'Écran de fumée', ultDesc: 'Nuage de fumée : les alliés à l’intérieur deviennent invisibles pour les monstres.', desc: 'Disparaît toutes les 10 s.' },
     fleche: { name: 'Flèche', tier: 2, parent: 'assassin', color: '#e74c3c', weapon: 'daggers', hp: 110, dmg: 19, range: 34, cd: 0.7, speed: 125, armor: 0.03, crit: 0.3, dash: { every: 6, range: 320 }, ult: 'chaindash', ultName: 'Danse mortelle', ultDesc: 'Dash critique derrière un ennemi ; s’il meurt, enchaîne sur un autre, sans limite.', desc: 'Toutes les 6 s, surgit derrière l’ennemi le plus faible.' },
 
-    paysan: { name: 'Paysan', tier: 1, parent: 'habitant', color: '#c8a24a', weapon: 'pitchfork', hp: 115, dmg: 7, range: 40, cd: 1.0, speed: 82, armor: 0.03, leash: 500, harvest: 'any', desc: 'Récolte de la richesse pour débloquer de meilleures améliorations.' },
+    paysan: { name: 'Paysan', tier: 1, parent: 'habitant', color: '#c8a24a', weapon: 'pitchfork', hp: 115, dmg: 7, range: 40, cd: 1.0, speed: 82, armor: 0.03, leash: 500, harvest: 'any', desc: 'Récolte des écus pour débloquer de meilleures améliorations.' },
     agriculteur: { name: 'Agriculteur', tier: 2, parent: 'paysan', color: '#f1c40f', weapon: 'scythe', hp: 135, dmg: 9, range: 42, cd: 1.0, speed: 82, armor: 0.05, leash: 500, harvest: 'field', ult: 'harvestheal', ultName: 'Festin', ultDesc: 'Soigne tous les alliés de 35% de leurs PV max.', desc: 'Les champs nourrissent l’armée.' },
     bucheron: { name: 'Bûcheron', tier: 2, parent: 'paysan', color: '#8b5a2b', weapon: 'axe', hp: 150, dmg: 11, range: 42, cd: 1.05, speed: 80, armor: 0.06, leash: 500, harvest: 'tree', ult: 'towerheal', ultName: 'Réparations', ultDesc: 'Soigne la tour de 12% de ses PV max.', desc: 'Du bois pour réparer les remparts.' },
     mineur: { name: 'Mineur', tier: 2, parent: 'paysan', color: '#95a5a6', weapon: 'pickaxe', hp: 145, dmg: 10, range: 40, cd: 1.0, speed: 78, armor: 0.08, leash: 500, harvest: 'rock', ult: 'fortify', ultName: 'Fortification', ultDesc: 'Augmente les PV max de la tour de 6%.', desc: 'La pierre rend la tour plus solide.' }
@@ -101,17 +101,18 @@
     const c = CLASSES[o.cls] || CLASSES.habitant;
     const a = { ...emptyAttrs(), ...(o.attrs || {}) };
     const up = o.upgrades || {};
-    const head = ARMORS[(o.equip || {}).head] || ARMORS.head_none;
-    const body = ARMORS[(o.equip || {}).body] || ARMORS.body_tunic;
+    const eq = effectiveEquip(o.cls, o.equip);
+    let ihp = 0, iarmor = 0, idmg = 0, ispeed = 0;
+    for (const s of SLOTS) { const it = ITEMS[eq[s]]; ihp += it.hp || 0; iarmor += it.armor || 0; idmg += it.dmg || 0; ispeed += it.speed || 0; }
     const lb = PROGRESSION.statBonus(o.level || 1);
-    const baseDmg = c.dmg * lb * (1 + 0.05 * a.force);
+    const baseDmg = c.dmg * lb * (1 + 0.05 * a.force + idmg);
     return {
-      maxHp: Math.round(c.hp * lb * (1 + head.hp + body.hp + 0.06 * a.vie)),
+      maxHp: Math.round(c.hp * lb * (1 + ihp + 0.06 * a.vie)),
       baseDmg,
       dmg: baseDmg * (1 + 0.1 * (up.forge || 0)),
-      armor: Math.min(0.75, (c.armor || 0) + head.armor + body.armor + 0.02 * a.defense + 0.08 * (up.armory || 0)),
+      armor: Math.min(0.75, (c.armor || 0) + iarmor + 0.02 * a.defense + 0.08 * (up.armory || 0)),
       cd: c.cd / (1 + 0.04 * a.agilite),
-      speed: c.speed * (1 + 0.03 * a.vitesse),
+      speed: c.speed * (1 + 0.03 * a.vitesse + ispeed),
       crit: Math.min(0.8, (c.crit || 0.05) + 0.015 * a.critique),
       range: c.range,
       leash: c.leash || 9999
@@ -119,28 +120,124 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Armures (achetées avec des écus, conservés entre les parties)       */
+  /* Équipement (acheté avec des Grêlons, conservés entre les parties)  */
   /* ------------------------------------------------------------------ */
-  const ARMOR_TIERS = [
-    { tier: 0, color: '#9c7b55', trim: '#6e5233', label: 'Tissu' },
-    { tier: 1, color: '#8a5a33', trim: '#5e3a1f', label: 'Cuir' },
-    { tier: 2, color: '#a9b2bd', trim: '#6e7883', label: 'Fer' },
-    { tier: 3, color: '#cfd8e3', trim: '#4e6d95', label: 'Plaque' },
-    { tier: 4, color: '#f2c14e', trim: '#2fd6e0', label: 'Runique' }
-  ];
-  const ARMORS = {
-    head_none: { slot: 'head', name: 'Tête nue', tier: -1, price: 0, hp: 0, armor: 0 },
-    head_hood: { slot: 'head', name: 'Capuche', tier: 0, price: 30, hp: 0.04, armor: 0 },
-    head_leather: { slot: 'head', name: 'Casque de cuir', tier: 1, price: 90, hp: 0.07, armor: 0.02 },
-    head_iron: { slot: 'head', name: 'Casque de fer', tier: 2, price: 250, hp: 0.1, armor: 0.04 },
-    head_great: { slot: 'head', name: 'Heaume', tier: 3, price: 600, hp: 0.14, armor: 0.06 },
-    head_rune: { slot: 'head', name: 'Couronne runique', tier: 4, price: 1500, hp: 0.2, armor: 0.08 },
-    body_tunic: { slot: 'body', name: 'Tunique', tier: 0, price: 0, hp: 0, armor: 0 },
-    body_leather: { slot: 'body', name: 'Armure de cuir', tier: 1, price: 140, hp: 0.08, armor: 0.04 },
-    body_mail: { slot: 'body', name: 'Cotte de mailles', tier: 2, price: 380, hp: 0.12, armor: 0.07 },
-    body_plate: { slot: 'body', name: 'Armure de plaques', tier: 3, price: 900, hp: 0.18, armor: 0.1 },
-    body_rune: { slot: 'body', name: 'Armure runique', tier: 4, price: 2200, hp: 0.25, armor: 0.13 }
+  // Famille d'une classe : la classe de base (les spécialisations héritent de leur parent)
+  const familyOf = (cls) => {
+    const c = CLASSES[cls] || CLASSES.habitant;
+    return c.tier === 2 ? c.parent : cls;
   };
+
+  /*
+   * Styles d'armure : chaque famille de classes porte son propre style.
+   * tiers[i] = couleur principale du tier i+1 (le tier 4 est toujours « runique » : or + rune cyan).
+   */
+  const RUNE = '#2fd6e0';
+  const ARMOR_STYLES = {
+    common: { label: 'Commun', families: null, trim: '#6e5233', tiers: ['#9c7b55'], mods: { hp: 1, armor: 1 } },
+    heavy: { label: 'Lourde', families: ['soldat'], trim: '#4e6d95', tiers: ['#8f969f', '#b8c1cc', '#dfe6ee', '#f2c14e'], mods: { hp: 1, armor: 1.5 } },
+    cloth: { label: 'Étoffe', families: ['mage'], trim: '#f2c14e', tiers: ['#6b4fa0', '#3b5bb5', '#9b2f4a', '#2a2140'], mods: { hp: 0.6, armor: 0.5, dmg: 0.03 } },
+    leather: { label: 'Cuir', families: ['archer', 'assassin', 'eleveur'], trim: '#3d2a1a', tiers: ['#9a6a3e', '#6e4526', '#3f5a3a', '#2b2433'], mods: { hp: 0.8, armor: 0.9, speed: 0.02 } },
+    worker: { label: 'Travail', families: ['paysan'], trim: '#5e3a1f', tiers: ['#d9b85a', '#7f8fa6', '#a35a2a', '#4a4f5a'], mods: { hp: 1.3, armor: 0.8 } }
+  };
+  const SLOTS = ['head', 'body', 'legs', 'feet', 'weapon'];
+  const SLOT_NAMES = { head: 'Casque', body: 'Torse', legs: 'Pantalon', feet: 'Chaussures', weapon: 'Arme' };
+  const SLOT_W = { head: { hp: 0.04, armor: 0.012, price: 1 }, body: { hp: 0.06, armor: 0.025, price: 1.5 }, legs: { hp: 0.035, armor: 0.015, price: 1.15 }, feet: { hp: 0.02, armor: 0.008, price: 0.8 } };
+  const TIER_PRICE = [0, 60, 180, 500, 1400];
+  const ITEM_NAMES = {
+    common: { head: ['Capuche de voyageur'], body: ['Gambison'], legs: ['Pantalon matelassé'], feet: ['Bottes de voyage'] },
+    heavy: {
+      head: ['Casque de fer', 'Bassinet', 'Heaume', 'Heaume runique'], body: ['Brigandine', 'Cotte de mailles', 'Armure de plaques', 'Cuirasse runique'],
+      legs: ['Chausses de mailles', 'Cuissardes de fer', 'Jambières de plaques', 'Jambières runiques'], feet: ['Bottes ferrées', 'Grèves de fer', 'Solerets d’acier', 'Solerets runiques']
+    },
+    cloth: {
+      head: ['Capuche d’apprenti', 'Chapeau pointu', 'Chapeau d’archimage', 'Diadème runique'], body: ['Robe d’apprenti', 'Robe brodée', 'Robe d’archimage', 'Robe runique'],
+      legs: ['Pantalon de lin', 'Chausses de soie', 'Chausses enchantées', 'Chausses runiques'], feet: ['Sandales', 'Souliers de soie', 'Bottines astrales', 'Bottines runiques']
+    },
+    leather: {
+      head: ['Bandeau', 'Capuche de cuir', 'Capuche de rôdeur', 'Masque runique'], body: ['Gilet de cuir', 'Brigandine de cuir', 'Armure de rôdeur', 'Cuir runique'],
+      legs: ['Pantalon de cuir', 'Pantalon renforcé', 'Jambières de rôdeur', 'Jambières runiques'], feet: ['Bottes de cuir', 'Bottes souples', 'Bottes de rôdeur', 'Bottes runiques']
+    },
+    worker: {
+      head: ['Chapeau de paille', 'Bonnet de laine', 'Casque de mineur', 'Casque runique'], body: ['Chemise de travail', 'Tablier de cuir', 'Bleu de travail renforcé', 'Tablier runique'],
+      legs: ['Pantalon de toile', 'Salopette', 'Salopette renforcée', 'Salopette runique'], feet: ['Sabots', 'Bottes de ferme', 'Bottes coquées', 'Bottes runiques']
+    }
+  };
+  const WEAPON_NAMES = {
+    soldat: ['Épée de fer', 'Épée d’acier', 'Lame bénie', 'Lame runique'],
+    mage: ['Bâton de chêne', 'Sceptre de cristal', 'Bâton astral', 'Bâton runique'],
+    eleveur: ['Fouet de cuir', 'Fouet clouté', 'Fouet du maître-bête', 'Fouet runique'],
+    archer: ['Arc en if', 'Arc composite', 'Arc elfique', 'Arc runique'],
+    assassin: ['Dagues de fer', 'Lames courbes', 'Crocs d’ombre', 'Lames runiques'],
+    paysan: ['Outils de fer', 'Outils d’acier', 'Outils de maître', 'Outils runiques']
+  };
+  // Couleur du métal des armes par tier (0 = arme de départ)
+  const WEAPON_METAL = ['#d8dde3', '#c9cfd6', '#eef3f8', '#9fd3ff', '#f2c14e'];
+  const WEAPON_DMG = [0, 0.08, 0.17, 0.28, 0.42];
+
+  const ITEMS = {
+    head_none: { slot: 'head', style: 'common', tier: 0, name: 'Tête nue', price: 0, hp: 0, armor: 0 },
+    body_tunic: { slot: 'body', style: 'common', tier: 0, name: 'Tunique', price: 0, hp: 0, armor: 0 },
+    legs_basic: { slot: 'legs', style: 'common', tier: 0, name: 'Pantalon simple', price: 0, hp: 0, armor: 0 },
+    feet_basic: { slot: 'feet', style: 'common', tier: 0, name: 'Chaussures simples', price: 0, hp: 0, armor: 0 },
+    weapon_none: { slot: 'weapon', family: null, tier: 0, name: 'Arme de départ', price: 0, hp: 0, armor: 0, dmg: 0 }
+  };
+  for (const [style, slots] of Object.entries(ITEM_NAMES)) {
+    const m = ARMOR_STYLES[style].mods;
+    for (const [slot, names] of Object.entries(slots)) {
+      names.forEach((name, i) => {
+        const t = i + 1, w = SLOT_W[slot];
+        ITEMS[`${slot}_${style}_${t}`] = {
+          slot, style, tier: t, name, price: Math.round(TIER_PRICE[t] * w.price / 10) * 10,
+          hp: +(w.hp * t * m.hp).toFixed(3), armor: +(w.armor * t * m.armor).toFixed(3),
+          dmg: m.dmg ? +(m.dmg * t).toFixed(3) : 0, speed: m.speed ? +(m.speed * t * (slot === 'feet' ? 2 : 1)).toFixed(3) : 0
+        };
+      });
+    }
+  }
+  for (const [family, names] of Object.entries(WEAPON_NAMES)) {
+    names.forEach((name, i) => {
+      const t = i + 1;
+      ITEMS[`weapon_${family}_${t}`] = { slot: 'weapon', family, tier: t, name, price: Math.round(TIER_PRICE[t] * 1.3 / 10) * 10, hp: 0, armor: 0, dmg: WEAPON_DMG[t] };
+    });
+  }
+  const DEFAULT_EQUIP = { head: 'head_none', body: 'body_tunic', legs: 'legs_basic', feet: 'feet_basic', weapon: 'weapon_none' };
+
+  // Un objet est-il utilisable par cette classe ?
+  function canUse(id, cls) {
+    const it = ITEMS[id];
+    if (!it) return false;
+    const fam = familyOf(cls);
+    if (it.slot === 'weapon') return it.family === null || it.family === fam;
+    const st = ARMOR_STYLES[it.style];
+    return !st.families || st.families.includes(fam);
+  }
+  // Équipement réellement porté (les objets d'une autre classe sont ignorés)
+  function effectiveEquip(cls, equip) {
+    const out = {};
+    for (const s of SLOTS) {
+      const id = (equip || {})[s];
+      out[s] = id && ITEMS[id] && ITEMS[id].slot === s && canUse(id, cls) ? id : DEFAULT_EQUIP[s];
+    }
+    return out;
+  }
+  // Nom affiché d'un objet : les armes prennent le nom de l'arme réelle de la classe (marteau, arbalète…)
+  const WEAPON_KIND = { club: 'Gourdin', sword: 'Épée', hammer: 'Marteau', lance: 'Lance', staff: 'Bâton', whip: 'Fouet', scythe: 'Faux', bow: 'Arc', longbow: 'Arc long', crossbow: 'Arbalète', daggers: 'Dagues', pitchfork: 'Fourche', axe: 'Hache', pickaxe: 'Pioche' };
+  const WEAPON_TIER_SUFFIX = ['', 'en fer', 'en acier', 'de maître', 'runique'];
+  function itemName(id, cls) {
+    const it = ITEMS[id];
+    if (!it) return '?';
+    if (it.slot !== 'weapon' || !cls) return it.name;
+    const kind = WEAPON_KIND[(CLASSES[cls] || CLASSES.habitant).weapon] || 'Arme';
+    return it.tier ? `${kind} ${WEAPON_TIER_SUFFIX[it.tier]}` : `${kind} de départ`;
+  }
+  // Couleurs d'un objet (pour le dessin)
+  function itemColors(id) {
+    const it = ITEMS[id];
+    if (!it || it.slot === 'weapon') return null;
+    const st = ARMOR_STYLES[it.style];
+    return { main: st.tiers[Math.min(st.tiers.length - 1, Math.max(0, it.tier - 1))], trim: it.tier >= 4 ? RUNE : st.trim, rune: it.tier >= 4 };
+  }
 
   /* ------------------------------------------------------------------ */
   /* IA personnalisable                                                  */
@@ -223,7 +320,7 @@
   /* Améliorations d'équipe                 */
   /* ------------------------------------------------------------------ */
 
-  // Améliorations d'équipe (votées pendant l'entracte avec la richesse de la partie)
+  // Améliorations d'équipe (votées pendant l'entracte avec les écus de la partie)
   const UPGRADES = {
     walls: { name: 'Remparts', icon: '🧱', desc: '+15% PV max de la tour (et soin équivalent)', cost: 60, growth: 1.5, max: 10, unlock: 0 },
     ballista: { name: 'Baliste', icon: '🏹', desc: 'La tour tire sur les ennemis (+1 niveau de baliste)', cost: 80, growth: 1.6, max: 8, unlock: 0 },
@@ -232,7 +329,7 @@
     armory: { name: 'Armurerie', icon: '🛡️', desc: '+8% de réduction de dégâts pour les héros', cost: 150, growth: 1.6, max: 5, unlock: 250 },
     shrine: { name: 'Autel arcanique', icon: '🔮', desc: 'Les ultimes se chargent 20% plus vite', cost: 220, growth: 1.7, max: 5, unlock: 400 },
     catapult: { name: 'Catapulte', icon: '☄️', desc: 'La tour lance des rochers explosifs', cost: 400, growth: 1.7, max: 5, unlock: 800 },
-    banner: { name: 'Étendard royal', icon: '🚩', desc: '+20% XP et écus gagnés', cost: 350, growth: 1.8, max: 5, unlock: 600 },
+    banner: { name: 'Étendard royal', icon: '🚩', desc: '+20% d’XP et de Grêlons gagnés', cost: 350, growth: 1.8, max: 5, unlock: 600 },
     pact: { name: 'Pacte de sang', icon: '💀', desc: 'Manche suivante : ennemis +50% PV et nombre, récompenses ×2', cost: 0, growth: 1, max: 999, unlock: 0, challenge: true }
   };
 
@@ -255,5 +352,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128 }
   };
 
-  return { NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, ARMOR_TIERS, ARMORS, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, ARMOR_STYLES, SLOTS, SLOT_NAMES, ITEMS, DEFAULT_EQUIP, WEAPON_METAL, canUse, effectiveEquip, itemColors, itemName, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

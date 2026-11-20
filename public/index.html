@@ -57,7 +57,7 @@
       <div data-view="battle">
         <div class="panel hidden" id="voteBox">
           <div class="row"><h2 style="margin:0">🗳️ Vote de l’équipe</h2><span class="spacer"></span><span class="chip" id="voteTimer"></span></div>
-          <p class="small muted">Dépensez la richesse de l’équipe ! L’option la plus votée est appliquée à la fin de l’entracte.</p>
+          <p class="small muted">Dépensez les écus 🪙 de l’équipe ! L’option la plus votée est appliquée à la fin de l’entracte.</p>
           <div class="options" id="voteOpts"></div>
         </div>
         <div class="grid two">
@@ -80,7 +80,7 @@
               <div class="stats3">
                 <div class="stat"><b id="sKills">0</b><span class="small muted">éliminations</span></div>
                 <div class="stat"><b id="sXp">0</b><span class="small muted">XP gagnée</span></div>
-                <div class="stat"><b id="sGold">0</b><span class="small muted">écus gagnés</span></div>
+                <div class="stat"><b id="sGold">0</b><span class="small muted">Grêlons gagnés</span></div>
               </div>
               <div class="row" style="margin-top:12px"><span class="spacer"></span><button class="small" id="leaveBtn">Quitter la bataille</button></div>
             </div>
@@ -134,9 +134,10 @@
           </div>
           <div class="panel">
             <div class="row"><h2 style="margin:0">Armurerie</h2><span class="spacer"></span><span class="chip gold" id="shopGold"></span></div>
-            <p class="small muted">Les écus se gagnent en combattant et restent d’une partie à l’autre.</p>
-            <h3>Casques</h3><div class="shop" id="shopHead"></div>
-            <h3 style="margin-top:14px">Armures</h3><div class="shop" id="shopBody"></div>
+            <p class="small muted">Les <b>Grêlons</b> 🧊 se gagnent en combattant et restent d’une partie à l’autre. Chaque famille de classes a ses propres armures et armes.</p>
+            <nav class="tabs" id="slotTabs"></nav>
+            <p class="small muted" id="shopHint"></p>
+            <div class="shop" id="shopList"></div>
             <div class="error" id="shopError"></div>
           </div>
         </div>

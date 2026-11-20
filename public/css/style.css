@@ -145,3 +145,5 @@ iframe.stream { width: 100%; aspect-ratio: 16 / 9; border: 2px solid var(--outli
 .attr .info { flex: 1; }
 .attr .val { font-family: var(--font-title); color: var(--gold); font-size: 1.3rem; min-width: 34px; text-align: center; }
 .attr button { padding: 6px 12px; }
+.item.equipped { box-shadow: inset 0 0 0 2px var(--gold); }
+#slotTabs { margin: 6px 0 4px; }

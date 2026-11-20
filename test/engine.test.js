@@ -5,7 +5,7 @@ const Game = require('../server/game/engine');
 const Terrain = require('../shared/terrain');
 
 function makeGame() {
-  const db = { data: { settings: {} }, markDirty() {}, userById() { return null; } };
+  const db = { data: { settings: {} }, markDirty() {}, userById() { return null; }, syncAttrPoints() {} };
   const io = { to: () => ({ emit() {} }), sockets: { sockets: new Map() } };
   return new Game(db, io);
 }

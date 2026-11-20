@@ -16,7 +16,7 @@ npm start
 |---|---|---|
 | Joueur | `http://localhost:3000/` | inscription (pseudo + mot de passe), classe, statistiques, armures, IA, votes |
 | Stream | `http://localhost:3000/stream` | **source Navigateur OBS en 1920×1080** (publique, en lecture seule) |
-| Admin | `http://localhost:3000/admin` | lancer, mettre en pause ou arrêter une partie, aller à une manche, régler, bots de test, comptes |
+| Admin | `http://localhost:3000/admin` | lancer, mettre en pause ou arrêter une partie, aller à une manche, régler, bots de test (classe et niveau au choix), comptes (donner de l'XP ou des Grêlons) |
 
 **Administration :** au premier démarrage, le compte **`admin`** est créé avec le mot de passe **`123456`**. C'est le **seul** compte qui a accès à `/admin` et à l'API d'administration ; la page redirige tous les autres vers l'accueil, et personne ne peut s'inscrire sous le pseudo « admin ». Change ce mot de passe dès la mise en ligne (onglet « Compte » de la page joueur, connecté en tant qu'`admin`).
 
@@ -43,8 +43,18 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - Assassin → Ombre (invisible toutes les 10 s, écran de fumée) / Flèche (dash critique toutes les 6 s, dash en chaîne sans limite)
   - Paysan (laisse de 500 px, récolte la richesse de l'équipe) → Agriculteur (soigne les alliés) / Bûcheron (soigne la tour) / Mineur (augmente les PV max de la tour)
 - **IA personnalisable.** Le joueur règle la posture, la cible prioritaire, le seuil de retraite et l'usage de l'ultime. Les changements s'appliquent en direct.
-- **Armures.** Casques et plastrons en 5 tiers (tissu → runique), achetés avec des écus gagnés en jeu et conservés d'une partie à l'autre. Elles sont visibles sur le personnage.
-- **Votes d'équipe.** Toutes les **2 manches** (réglable dans l'admin), pendant l'entracte, les joueurs votent pour dépenser la richesse (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus de richesse. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
+- **Deux monnaies.**
+  - **Grêlons** 🧊 : monnaie personnelle de chaque joueur, gagnée en combattant et conservée d'une partie à l'autre. Elle sert à acheter de l'équipement.
+  - **Écus** 🪙 : trésor collectif de la partie en cours (éliminations, récoltes des paysans). L'équipe le dépense lors des votes.
+- **Équipement par classe.** Le héros a 5 emplacements : casque, torse, pantalon, chaussures et arme, avec 4 tiers chacun (le tier 4 est runique). Chaque famille de classes a son propre style, visible sur le personnage :
+  - Soldat : armure lourde (+ défense)
+  - Mage : étoffe (robe, chapeau pointu, + dégâts)
+  - Archer, Assassin et Éleveur : cuir (+ vitesse)
+  - Paysan : tenue de travail (+ PV)
+  - L'équipement commun est accessible à tous, y compris aux habitants.
+
+  Les armes prennent la forme de l'arme de la classe (marteau du paladin, arbalète…).
+- **Votes d'équipe.** Toutes les **2 manches** (réglable dans l'admin), pendant l'entracte, les joueurs votent pour dépenser les écus de l'équipe (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus d'écus. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
 
 ### Progression du terrain
 

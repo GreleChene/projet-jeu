@@ -9,7 +9,7 @@ const Terrain = require('../../shared/terrain');
 const U = require('./util');
 const config = require('../config');
 
-const { WORLD, CLASSES, MOBS, MOB_IDS, ARMORS, UPGRADES, PROGRESSION, BOSS_WAVES } = GD;
+const { WORLD, CLASSES, MOBS, MOB_IDS, ITEMS, UPGRADES, PROGRESSION, BOSS_WAVES } = GD;
 const MOB_INDEX = Object.fromEntries(MOB_IDS.map((id, i) => [id, i]));
 const { PROJ_KINDS, ZONE_KINDS, HF, MF } = GD.NET;
 const PROJ_INDEX = Object.fromEntries(PROJ_KINDS.map((k, i) => [k, i]));
@@ -91,7 +91,7 @@ class Game {
     this.resetRun();
     this.run.cleared = Math.max(0, Math.min(99, (fromWave | 0) - 1));
     this.run.wave = this.run.cleared;
-    // si on démarre plus loin (test), on donne un peu de richesse et d'améliorations cohérentes
+    // si on démarre plus loin (test), on donne quelques écus et d'améliorations cohérentes
     if (this.run.cleared > 0) this.run.treasury = this.run.wealthEarned = this.run.cleared * 25;
     this.terrainChanged();
     this.phase = 'intermission';
@@ -169,16 +169,21 @@ class Game {
 
   addBot(opts = {}) {
     const all = GD.CLASS_IDS.filter((c) => c !== 'habitant');
-    const cls = opts.cls || U.pick(all);
-    const lvl = opts.level || (CLASSES[cls].tier === 2 ? 8 + ((Math.random() * 12) | 0) : 3 + ((Math.random() * 5) | 0));
-    const heads = Object.keys(ARMORS).filter((a) => ARMORS[a].slot === 'head');
-    const bodies = Object.keys(ARMORS).filter((a) => ARMORS[a].slot === 'body');
+    const cls = CLASSES[opts.cls] ? opts.cls : U.pick(all);
+    const lvl = opts.level ? U.clamp(opts.level | 0, 1, PROGRESSION.MAX_LEVEL) : (CLASSES[cls].tier === 2 ? 8 + ((Math.random() * 12) | 0) : CLASSES[cls].tier === 1 ? 3 + ((Math.random() * 5) | 0) : 1 + ((Math.random() * 3) | 0));
+    // équipement cohérent avec la classe et le niveau
+    const maxTier = Math.min(4, Math.floor(lvl / 8) + 1);
+    const equip = {};
+    for (const slot of GD.SLOTS) {
+      const opt = Object.keys(ITEMS).filter((k) => ITEMS[k].slot === slot && ITEMS[k].tier <= maxTier && GD.canUse(k, cls));
+      equip[slot] = Math.random() < 0.85 ? U.pick(opt) : GD.DEFAULT_EQUIP[slot];
+    }
     const id = 'bot_' + this.nid;
     const h = this.makeHero({ id, userId: null, name: opts.name || `Bot${this.nid}`, isBot: true });
     h.bot = {
       cls, level: lvl,
       look: { cape: (Math.random() * 10) | 0, skin: (Math.random() * 5) | 0, hair: (Math.random() * 6) | 0 },
-      equip: { head: U.pick(heads), body: U.pick(bodies) },
+      equip,
       attrs: (() => { const a = GD.emptyAttrs(); for (let i = 1; i < lvl; i++) a[U.pick(GD.ATTR_IDS)]++; return a; })(),
       ai: { stance: U.pick(['offensive', 'balanced', 'defensive']), target: U.pick(['nearest', 'weakest', 'strongest', 'tower']), retreat: U.pick([0, 25, 50]), ult: U.pick(['asap', 'smart', 'boss']) }
     };
@@ -230,7 +235,7 @@ class Game {
     const p = this.heroProfile(h);
     if (!p) return;
     const prevCls = h.cls;
-    h.cls = p.cls; h.level = p.level; h.look = p.look; h.equip = p.equip; h.ai = p.ai;
+    h.cls = p.cls; h.level = p.level; h.look = p.look; h.equip = GD.effectiveEquip(p.cls, p.equip); h.ai = p.ai;
     h.attrs = p.attrs;
     const c = CLASSES[h.cls] || CLASSES.habitant;
     const ratio = h.maxHp > 1 ? h.hp / h.maxHp : 1;
@@ -246,7 +251,7 @@ class Game {
     this.rosterVersion++;
   }
 
-  // Gain d'XP / d'écus persistants
+  // Gain d'XP et de Grêlons (monnaie personnelle persistante)
   reward(h, xp, gold) {
     const mult = (1 + 0.2 * this.run.upgrades.banner) * (this.run.pactActive ? 2 : 1);
     xp = Math.round(xp * mult); gold = Math.round(gold * mult);
@@ -254,21 +259,29 @@ class Game {
     const p = this.heroProfile(h);
     if (!p || h.isBot) return;
     p.gold += gold;
-    p.xp += xp;
-    let leveled = false;
+    this.grantXp(p, xp);
+  }
+
+  // Ajoute de l'XP à un profil joueur (montées de niveau + points de stat). Utilisé aussi par l'admin.
+  grantXp(p, xp) {
+    p.xp += Math.max(0, Math.round(xp));
+    const before = p.level;
     while (p.level < PROGRESSION.MAX_LEVEL && p.xp >= PROGRESSION.xpForLevel(p.level)) {
       p.xp -= PROGRESSION.xpForLevel(p.level);
       p.level++;
-      p.attrPoints = (p.attrPoints || 0) + PROGRESSION.POINTS_PER_LEVEL;
-      leveled = true;
     }
-    if (leveled) {
+    if (p.level >= PROGRESSION.MAX_LEVEL) p.xp = 0;
+    this.db.syncAttrPoints(p);
+    this.db.markDirty();
+    const gained = p.level - before;
+    const h = this.heroes.get(p.id);
+    if (gained > 0 && h) {
       this.refreshHero(h);
       this.fx(['lvl', h.x, h.y, p.level]);
-      if (p.level === PROGRESSION.CLASS_LEVEL || p.level === PROGRESSION.SPEC_LEVEL) this.pushFeed(`${h.name} peut faire évoluer sa classe !`);
-      this.fx(['text', h.x, h.y - 70, '+1 point de stat', GD.PALETTE.fx.xp]);
+      this.fx(['text', h.x, h.y - 70, `+${gained} point${gained > 1 ? 's' : ''} de stat`, GD.PALETTE.fx.xp]);
+      if (before < PROGRESSION.CLASS_LEVEL && p.level >= PROGRESSION.CLASS_LEVEL || before < PROGRESSION.SPEC_LEVEL && p.level >= PROGRESSION.SPEC_LEVEL) this.pushFeed(`${h.name} peut faire évoluer sa classe !`);
     }
-    this.db.markDirty();
+    return gained;
   }
 
   /* ============================== Manches ============================== */
@@ -318,7 +331,7 @@ class Game {
     // Les viewers votent toutes les « voteEvery » manches ; sinon, courte pause
     const voting = this.isVoteWave(r.wave);
     r.timer = voting ? this.settings.intermission : Math.min(8, this.settings.intermission);
-    this.announce(`Manche ${r.wave} terminée !`, wasBoss ? 'Le terrain se transforme…' : voting ? 'Votez pour une amélioration !' : `+${bonus} richesse`);
+    this.announce(`Manche ${r.wave} terminée !`, wasBoss ? 'Le terrain se transforme…' : voting ? 'Votez pour une amélioration !' : `+${bonus} écus`);
     if (voting) this.openVote();
   }
 
@@ -394,7 +407,7 @@ class Game {
 
   applyUpgrade(id) {
     const r = this.run;
-    if (id === 'save') { this.pushFeed('L’équipe économise sa richesse.'); return; }
+    if (id === 'save') { this.pushFeed('L’équipe garde ses écus.'); return; }
     if (id === 'pact') {
       r.pactNext = true;
       this.pushFeed('💀 Pacte de sang accepté : la prochaine manche sera brutale !');

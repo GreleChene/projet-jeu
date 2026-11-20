@@ -85,7 +85,7 @@
     const c = GD.CLASSES[me.cls];
     $('#hdrPseudo').textContent = me.pseudo;
     $('#hdrLevel').textContent = `Niv. ${me.level}`;
-    $('#hdrGold').textContent = `${me.gold} écus`;
+    $('#hdrGold').textContent = `🧊 ${me.gold} Grêlons`;
     $('#heroCls').textContent = c.name;
     $('#heroCls').style.color = c.color;
     renderClasses();
@@ -115,7 +115,7 @@
       el('div', { class: 'stats3' },
         el('div', { class: 'stat' }, el('b', {}, r.wave || '—'), el('span', { class: 'small muted' }, 'manche')),
         el('div', { class: 'stat' }, el('b', {}, r.heroes), el('span', { class: 'small muted' }, 'héros')),
-        el('div', { class: 'stat' }, el('b', {}, r.treasury), el('span', { class: 'small muted' }, 'richesse'))
+        el('div', { class: 'stat' }, el('b', {}, '🪙 ' + r.treasury), el('span', { class: 'small muted' }, 'écus de l’équipe'))
       ),
       el('p', {}, `${PHASES[r.phase] || r.phase}${r.paused ? ' (pause)' : ''}${r.phase === 'intermission' ? ` · prochaine manche dans ${r.timer}s` : ''}${r.phase === 'wave' ? ` · ${r.mobs} ennemis` : ''}`),
       el('p', { class: 'small muted' }, r.era + (r.phase !== 'lobby' && !r.voting ? ` · prochain vote après la manche ${r.nextVote}` : '')),
@@ -156,10 +156,10 @@
           const isSave = o.id === 'save';
           const afford = isSave || !o.cost || o.cost <= r.treasury;
           return el('button', { class: 'option' + (o.id === 'pact' ? ' challenge' : '') + (v.mine === o.id ? ' voted' : ''), disabled: !afford, onclick: () => socket.emit('vote', o.id) },
-            el('span', { class: 'icon' }, isSave ? '💰' : up.icon),
+            el('span', { class: 'icon' }, isSave ? '🪙' : up.icon),
             el('span', { class: 'name' }, isSave ? 'Économiser' : `${up.name}${o.level ? ` (niv. ${o.level + 1})` : ''}`),
-            el('span', { class: 'desc' }, isSave ? 'Garder la richesse pour plus tard' : up.desc),
-            el('span', { class: 'desc', style: 'display:block;margin-top:6px;color:var(--gold)' }, `${o.cost ? o.cost + ' 💰 · ' : ''}${v.counts[o.id] || 0} vote(s)`));
+            el('span', { class: 'desc' }, isSave ? 'Garder les écus pour plus tard' : up.desc),
+            el('span', { class: 'desc', style: 'display:block;margin-top:6px;color:var(--gold)' }, `${o.cost ? '🪙 ' + o.cost + ' écus · ' : ''}${v.counts[o.id] || 0} vote(s)`));
         }));
       }
     }
@@ -285,41 +285,57 @@
     })));
   }
 
+  let shopSlot = 'head';
+  const SLOT_ICONS = { head: '⛑️', body: '🦺', legs: '👖', feet: '👢', weapon: '🗡️' };
+
   function itemCanvas(id) {
-    const a = GD.ARMORS[id];
-    const cv = el('canvas', { width: 44, height: 50 });
+    const a = GD.ITEMS[id];
+    const cv = el('canvas', { width: 52, height: 60 });
     const equip = { ...me.equip, [a.slot]: id };
-    heroCanvas(cv, () => ({ cls: me.cls, look: me.look, equip }), { scale: 0.95, static: true, y: 0.94 });
+    heroCanvas(cv, () => ({ cls: me.cls, look: me.look, equip, moving: false }), { scale: 1.05, static: true, y: 0.93 });
     return cv;
+  }
+
+  function bonusText(a) {
+    const b = [];
+    if (a.hp) b.push(`+${Math.round(a.hp * 100)}% PV`);
+    if (a.armor) b.push(`+${Math.round(a.armor * 100)}% défense`);
+    if (a.dmg) b.push(`+${Math.round(a.dmg * 100)}% dégâts`);
+    if (a.speed) b.push(`+${Math.round(a.speed * 100)}% vitesse`);
+    return b.join(' · ') || 'Aucun bonus';
   }
 
   function renderGear() {
     swatches($('#swCape'), P.capes, 'cape');
     swatches($('#swSkin'), P.skin, 'skin');
     swatches($('#swHair'), P.hair, 'hair');
-    $('#shopGold').textContent = `${me.gold} écus`;
-    for (const slot of ['head', 'body']) {
-      const ids = Object.keys(GD.ARMORS).filter((id) => GD.ARMORS[id].slot === slot);
-      $(slot === 'head' ? '#shopHead' : '#shopBody').replaceChildren(...ids.map((id) => {
-        const a = GD.ARMORS[id];
-        const owned = me.owned.includes(id);
-        const equipped = me.equip[slot] === id;
-        const tier = GD.ARMOR_TIERS[Math.max(0, a.tier)];
-        return el('div', { class: 'item' },
-          itemCanvas(id),
-          el('div', { class: 'meta' },
-            el('div', {}, a.tier >= 0 ? el('span', { class: 'tier-dot', style: `background:${tier.color}` }) : '', a.name),
-            el('div', { class: 'muted small' }, a.hp || a.armor ? `+${Math.round(a.hp * 100)}% PV · +${Math.round(a.armor * 100)}% armure` : 'Aucun bonus')),
-          equipped ? el('span', { class: 'chip small' }, 'Équipé')
-            : owned ? el('button', { class: 'small', onclick: () => equipItem(id) }, 'Équiper')
-            : el('button', { class: 'small primary', disabled: me.gold < a.price, onclick: () => buy(id) }, `${a.price} écus`));
-      }));
-    }
+    $('#shopGold').textContent = `🧊 ${me.gold} Grêlons`;
+    $('#slotTabs').replaceChildren(...GD.SLOTS.map((s) => el('button', { class: 'small' + (s === shopSlot ? ' active' : ''), onclick: () => { shopSlot = s; renderGear(); } }, `${SLOT_ICONS[s]} ${GD.SLOT_NAMES[s]}`)));
+    const fam = GD.familyOf(me.cls);
+    const ids = Object.keys(GD.ITEMS).filter((id) => GD.ITEMS[id].slot === shopSlot && GD.canUse(id, me.cls))
+      .sort((x, y) => GD.ITEMS[x].tier - GD.ITEMS[y].tier || (GD.ITEMS[x].style === 'common' ? -1 : 1));
+    $('#shopHint').textContent = fam === 'habitant'
+      ? 'En tant qu’habitant, seul l’équipement commun est disponible : choisis une classe pour débloquer le sien.'
+      : `Équipement ${shopSlot === 'weapon' ? 'des ' + GD.CLASSES[fam].name.toLowerCase() + 's' : 'de style ' + Object.values(GD.ARMOR_STYLES).find((st) => st.families && st.families.includes(fam)).label.toLowerCase()} + équipement commun.`;
+    $('#shopList').replaceChildren(...ids.map((id) => {
+      const a = GD.ITEMS[id];
+      const owned = me.owned.includes(id);
+      const equipped = GD.effectiveEquip(me.cls, me.equip)[shopSlot] === id;
+      const col = a.slot === 'weapon' ? GD.WEAPON_METAL[a.tier] : (GD.itemColors(id) || {}).main;
+      return el('div', { class: 'item' + (equipped ? ' equipped' : '') },
+        itemCanvas(id),
+        el('div', { class: 'meta' },
+          el('div', {}, el('span', { class: 'tier-dot', style: `background:${col}` }), GD.itemName(id, me.cls)),
+          el('div', { class: 'muted small' }, (a.tier ? `Tier ${a.tier} · ` : '') + bonusText(a))),
+        equipped ? el('span', { class: 'chip small' }, 'Équipé')
+          : owned ? el('button', { class: 'small', onclick: () => equipItem(id) }, 'Équiper')
+          : el('button', { class: 'small primary', disabled: me.gold < a.price, onclick: () => buy(id) }, `🧊 ${a.price}`));
+    }));
   }
 
   async function buy(id) {
     $('#shopError').textContent = '';
-    try { setUser((await api('/api/shop/buy', { body: { item: id } })).user); toast(`${GD.ARMORS[id].name} acheté !`); }
+    try { setUser((await api('/api/shop/buy', { body: { item: id } })).user); toast(`${GD.itemName(id, me.cls)} : acheté !`); }
     catch (e) { $('#shopError').textContent = e.message; }
   }
   async function equipItem(id) {
@@ -356,7 +372,7 @@
 
   function renderStats() {
     const s = me.stats;
-    $('#myStats').replaceChildren(...[['Parties', s.runs], ['Meilleure manche', s.bestWave], ['Éliminations', s.kills], ['Boss vaincus', s.bossKills], ['Morts', s.deaths], ['Écus', me.gold]]
+    $('#myStats').replaceChildren(...[['Parties', s.runs], ['Meilleure manche', s.bestWave], ['Éliminations', s.kills], ['Boss vaincus', s.bossKills], ['Morts', s.deaths], ['Grêlons 🧊', me.gold]]
       .map(([k, v]) => el('div', { class: 'stat' }, el('b', {}, v), el('span', { class: 'small muted' }, k))));
   }
 
@@ -367,7 +383,7 @@
     catch (err) { $('#pwError').textContent = err.message; }
   });
 
-  // rafraîchit le profil (XP, écus) régulièrement pendant la bataille
+  // rafraîchit le profil (XP, Grêlons) régulièrement pendant la bataille
   setInterval(async () => {
     if (!me || document.hidden) return;
     try {
@@ -378,8 +394,8 @@
       if (goldChanged && !changed) renderGear();
       if (!changed) renderAttrs();
       $('#hdrLevel').textContent = `Niv. ${me.level}`;
-      $('#hdrGold').textContent = `${me.gold} écus`;
-      $('#shopGold').textContent = `${me.gold} écus`;
+      $('#hdrGold').textContent = `🧊 ${me.gold} Grêlons`;
+      $('#shopGold').textContent = `🧊 ${me.gold} Grêlons`;
       $('#xpBar').style.width = `${(100 * me.xp) / me.xpNext}%`;
       $('#xpLabel').textContent = `${me.xp} / ${me.xpNext} XP`;
       if (changed) renderAll();

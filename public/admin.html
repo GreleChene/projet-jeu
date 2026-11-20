@@ -43,7 +43,7 @@
           </div>
           <div class="row" style="margin-top:10px">
             <button data-act="healTower">🏰 Soigner la tour</button>
-            <input id="treasuryAmt" type="number" value="200" style="width:100px"><button data-act="treasury">💰 Ajouter richesse</button>
+            <input id="treasuryAmt" type="number" value="200" style="width:100px"><button data-act="treasury">🪙 Ajouter des écus (équipe)</button>
           </div>
         </div>
         <div class="panel">
@@ -65,7 +65,12 @@
           <div class="row" style="margin-top:10px"><button data-act="announce">📣 Afficher</button></div>
           <h2 style="margin-top:20px">Bots de test</h2>
           <p class="small muted">Ajoute des héros contrôlés par l’ordinateur pour tester l’équilibrage ou animer le stream.</p>
-          <div class="row"><input id="botCount" type="number" value="10" min="1" max="50" style="width:90px"><button data-act="bots">🤖 Ajouter</button><button class="danger" data-act="clearBots">Retirer tous les bots</button></div>
+          <div class="grid three" style="gap:4px 10px">
+            <div><label for="botCount">Nombre</label><input id="botCount" type="number" value="10" min="1" max="50"></div>
+            <div><label for="botCls">Classe</label><select id="botCls"></select></div>
+            <div><label for="botLevel">Niveau (vide = aléatoire)</label><input id="botLevel" type="number" min="1" max="60" placeholder="aléatoire"></div>
+          </div>
+          <div class="row" style="margin-top:10px"><button data-act="bots">🤖 Ajouter</button><button class="danger" data-act="clearBots">Retirer tous les bots</button></div>
           <h2 style="margin-top:20px">Journal</h2>
           <div id="feed" class="small"></div>
         </div>
