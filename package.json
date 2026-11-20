@@ -1,0 +1,21 @@
+{
+  "name": "tour-des-viewers",
+  "version": "0.1.0",
+  "description": "Jeu de défense de tour pour viewers Twitch : chaque viewer contrôle un héros autonome personnalisable.",
+  "main": "server/index.js",
+  "private": true,
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}

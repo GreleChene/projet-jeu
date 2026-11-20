@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tour des Viewers</title>
+  <meta name="theme-color" content="#15111c">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- ============ Connexion / inscription ============ -->
+  <section id="auth" class="auth wrap hidden">
+    <h1 style="text-align:center">Tour des Viewers</h1>
+    <canvas id="authArt" class="hero-art" width="240" height="150"></canvas>
+    <div class="panel">
+      <nav class="tabs">
+        <button data-auth="login" class="active">Connexion</button>
+        <button data-auth="register">Créer mon héros</button>
+      </nav>
+      <form id="authForm" autocomplete="on">
+        <label for="pseudo">Pseudo</label>
+        <input id="pseudo" name="username" autocomplete="username" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_\-]{3,20}">
+        <label for="password">Mot de passe</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required minlength="6">
+        <div class="error" id="authError"></div>
+        <button class="primary" type="submit" id="authSubmit" style="width:100%;margin-top:6px">Se connecter</button>
+      </form>
+      <p class="small muted">Ton héros combat seul grâce à son IA : tu choisis sa classe, son équipement, son comportement, et tu interviens pendant la bataille !</p>
+    </div>
+  </section>
+
+  <!-- ============ Application joueur ============ -->
+  <section id="app" class="hidden">
+    <header class="top">
+      <a class="brand" href="/">Tour des Viewers</a>
+      <span class="spacer"></span>
+      <span class="chip" id="hdrPseudo"></span>
+      <span class="chip" id="hdrLevel"></span>
+      <span class="chip gold" id="hdrGold"></span>
+      <a class="chip hidden" id="hdrAdmin" href="/admin">⚙️ Admin</a>
+      <button class="small" id="logout">Déconnexion</button>
+    </header>
+    <div class="wrap">
+      <nav class="tabs" id="tabs">
+        <button data-tab="battle" class="active">⚔️ Bataille</button>
+        <button data-tab="hero">🧬 Classe</button>
+        <button data-tab="gear">🛡️ Apparence & armures</button>
+        <button data-tab="ai">🧠 IA</button>
+        <button data-tab="ladder">🏆 Classement</button>
+        <button data-tab="account">👤 Compte</button>
+      </nav>
+
+      <!-- Bataille -->
+      <div data-view="battle">
+        <div class="panel choice-card hidden" id="choiceBox">
+          <div class="row"><h2 style="margin:0">⚡ Choix rapide !</h2><span class="spacer"></span><span class="chip" id="choiceTimer"></span></div>
+          <p class="small muted">Choisis un bonus avant la fin du compte à rebours.</p>
+          <div class="options" id="choiceOpts"></div>
+        </div>
+        <div class="panel hidden" id="voteBox">
+          <div class="row"><h2 style="margin:0">🗳️ Vote de l’équipe</h2><span class="spacer"></span><span class="chip" id="voteTimer"></span></div>
+          <p class="small muted">Dépensez la richesse de l’équipe ! L’option la plus votée est appliquée à la fin de l’entracte.</p>
+          <div class="options" id="voteOpts"></div>
+        </div>
+        <div class="grid two">
+          <div class="panel">
+            <div class="row"><h2 style="margin:0">Mon héros</h2><span class="spacer"></span><span class="chip" id="heroCls"></span></div>
+            <canvas id="battleArt" class="preview" width="260" height="200"></canvas>
+            <div id="notInRun" style="text-align:center;margin-top:12px">
+              <p class="muted">Ton héros attend aux portes de la tour.</p>
+              <button class="primary" id="joinBtn">⚔️ Rejoindre la bataille</button>
+              <div class="error" id="joinError"></div>
+            </div>
+            <div id="inRun" class="hidden" style="margin-top:12px">
+              <label>Points de vie</label>
+              <div class="bar"><span id="hpBar"></span><div class="label" id="hpLabel"></div></div>
+              <div id="ultWrap"><label>Ultime <span class="muted small" id="ultName"></span></label>
+              <div class="bar purple"><span id="ultBar"></span></div></div>
+              <p id="heroStatus" class="small" style="min-height:1.4em"></p>
+              <div class="stats3">
+                <div class="stat"><b id="sKills">0</b><span class="small muted">éliminations</span></div>
+                <div class="stat"><b id="sXp">0</b><span class="small muted">XP gagnée</span></div>
+                <div class="stat"><b id="sGold">0</b><span class="small muted">écus gagnés</span></div>
+              </div>
+              <div class="row" style="margin-top:12px"><span class="spacer"></span><button class="small" id="leaveBtn">Quitter la bataille</button></div>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>La bataille</h2>
+            <div id="runInfo"></div>
+            <p style="margin-top:14px"><a href="/stream" target="_blank" rel="noopener">📺 Ouvrir la vue du stream</a></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Classe -->
+      <div data-view="hero" class="hidden">
+        <div class="panel">
+          <div class="row"><h2 style="margin:0">Évolution</h2><span class="spacer"></span><span class="chip" id="lvlChip"></span></div>
+          <div class="bar gold" style="margin:10px 0"><span id="xpBar"></span><div class="label" id="xpLabel"></div></div>
+          <p class="small muted" id="evoHint"></p>
+          <div class="error" id="clsError"></div>
+        </div>
+        <div class="tree" id="classTree"></div>
+      </div>
+
+      <!-- Apparence & armures -->
+      <div data-view="gear" class="hidden">
+        <div class="grid two">
+          <div class="panel">
+            <h2>Apparence</h2>
+            <canvas id="gearArt" class="preview" width="260" height="200"></canvas>
+            <label>Cape</label><div class="swatches" id="swCape"></div>
+            <label>Peau</label><div class="swatches" id="swSkin"></div>
+            <label>Cheveux</label><div class="swatches" id="swHair"></div>
+          </div>
+          <div class="panel">
+            <div class="row"><h2 style="margin:0">Armurerie</h2><span class="spacer"></span><span class="chip gold" id="shopGold"></span></div>
+            <p class="small muted">Les écus se gagnent en combattant et restent d’une partie à l’autre.</p>
+            <h3>Casques</h3><div class="shop" id="shopHead"></div>
+            <h3 style="margin-top:14px">Armures</h3><div class="shop" id="shopBody"></div>
+            <div class="error" id="shopError"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- IA -->
+      <div data-view="ai" class="hidden">
+        <div class="panel">
+          <h2>Comportement de ton héros</h2>
+          <p class="small muted">Ton héros se bat tout seul. Règle son IA ici : les changements s’appliquent immédiatement, même en pleine bataille.</p>
+          <div class="grid two" id="aiForm"></div>
+          <div class="notice" id="aiNotice"></div>
+        </div>
+      </div>
+
+      <!-- Classement -->
+      <div data-view="ladder" class="hidden">
+        <div class="panel"><h2>Meilleurs défenseurs</h2><div class="table-wrap"><table id="ladder"></table></div></div>
+      </div>
+
+      <!-- Compte -->
+      <div data-view="account" class="hidden">
+        <div class="grid two">
+          <div class="panel"><h2>Statistiques</h2><div class="stats3" id="myStats"></div></div>
+          <div class="panel">
+            <h2>Changer de mot de passe</h2>
+            <form id="pwForm">
+              <label>Mot de passe actuel</label><input type="password" id="pwCur" autocomplete="current-password" required>
+              <label>Nouveau mot de passe</label><input type="password" id="pwNew" autocomplete="new-password" minlength="6" required>
+              <div class="error" id="pwError"></div><div class="notice" id="pwOk"></div>
+              <button class="primary" type="submit">Enregistrer</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="/shared/constants.js"></script>
+  <script src="/shared/terrain.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/art.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/player.js"></script>
+</body>
+</html>

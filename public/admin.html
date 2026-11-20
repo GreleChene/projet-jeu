@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tour des Viewers — Administration</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/">Tour des Viewers</a>
+    <span class="chip">⚙️ Administration</span>
+    <span class="spacer"></span>
+    <a class="chip" href="/stream" target="_blank" rel="noopener">📺 Vue stream (OBS)</a>
+    <a class="chip" href="/">👤 Espace joueur</a>
+  </header>
+  <div class="wrap">
+    <div id="denied" class="panel hidden">
+      <h2>Accès refusé</h2>
+      <p>Cette page est réservée aux administrateurs. <a href="/">Se connecter</a></p>
+    </div>
+    <div id="admin" class="hidden">
+      <div class="grid two">
+        <div class="panel">
+          <h2>Partie</h2>
+          <div id="runState"></div>
+          <div class="row" style="margin-top:12px">
+            <button class="primary" data-act="start">▶️ Lancer une partie</button>
+            <label style="margin:0">dès la manche</label><input id="startWave" type="number" min="1" max="100" value="1" style="width:80px">
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button data-act="pause">⏸ Pause</button>
+            <button data-act="resume">⏵ Reprendre</button>
+            <button data-act="next">⏭ Lancer la manche</button>
+            <button data-act="skip">🧹 Terminer la manche</button>
+            <button class="danger" data-act="stop">⏹ Arrêter</button>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <label style="margin:0">Aller à la manche</label><input id="gotoWave" type="number" min="1" max="100" value="5" style="width:80px">
+            <button data-act="wave">Aller</button>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button data-act="healTower">🏰 Soigner la tour</button>
+            <input id="treasuryAmt" type="number" value="200" style="width:100px"><button data-act="treasury">💰 Ajouter richesse</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Aperçu du stream</h2>
+          <iframe class="stream" src="/stream" title="Aperçu du stream"></iframe>
+        </div>
+      </div>
+
+      <div class="grid two">
+        <div class="panel">
+          <h2>Réglages</h2>
+          <form id="settings" class="grid two" style="gap:4px 14px"></form>
+          <div class="row" style="margin-top:10px"><button class="primary" id="saveSettings">Enregistrer</button><span class="notice" id="setNotice"></span></div>
+        </div>
+        <div class="panel">
+          <h2>Annonce sur le stream</h2>
+          <label>Titre</label><input id="annTitle" maxlength="80" placeholder="Merci pour le raid !">
+          <label>Sous-titre</label><input id="annSub" maxlength="120">
+          <div class="row" style="margin-top:10px"><button data-act="announce">📣 Afficher</button></div>
+          <h2 style="margin-top:20px">Bots de test</h2>
+          <p class="small muted">Ajoute des héros contrôlés par l’ordinateur pour tester l’équilibrage ou animer le stream.</p>
+          <div class="row"><input id="botCount" type="number" value="10" min="1" max="50" style="width:90px"><button data-act="bots">🤖 Ajouter</button><button class="danger" data-act="clearBots">Retirer tous les bots</button></div>
+          <h2 style="margin-top:20px">Journal</h2>
+          <div id="feed" class="small"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row"><h2 style="margin:0">Héros en jeu</h2><span class="spacer"></span><span class="chip" id="heroCount"></span></div>
+        <div class="table-wrap"><table id="heroes"></table></div>
+      </div>
+
+      <div class="panel">
+        <div class="row"><h2 style="margin:0">Comptes</h2><span class="spacer"></span><input id="userFilter" placeholder="Rechercher un pseudo…" style="max-width:260px"></div>
+        <div class="table-wrap"><table id="users"></table></div>
+      </div>
+    </div>
+  </div>
+  <script src="/shared/constants.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
