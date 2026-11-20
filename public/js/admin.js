@@ -71,8 +71,6 @@
     ['difficulty', 'Difficulté (×)', 'number', 0.1],
     ['intermission', 'Durée de l’entracte / vote (s)', 'number', 1],
     ['voteEvery', 'Vote des viewers toutes les N manches', 'number', 1],
-    ['choiceInterval', 'Choix personnel toutes les (s)', 'number', 1],
-    ['choiceDuration', 'Temps pour choisir (s)', 'number', 1],
     ['maxHeroes', 'Héros maximum', 'number', 1],
     ['maxAliveMobs', 'Monstres simultanés max', 'number', 10],
     ['autoNext', 'Enchaîner les manches automatiquement', 'checkbox'],

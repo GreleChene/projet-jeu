@@ -216,7 +216,7 @@ module.exports = {
       if (m.x < -10 || m.y < -10 || m.x > WORLD.W + 10 || m.y > WORLD.H + 10) continue;
       const dh = Math.sqrt((m.x - h.x) ** 2 + (m.y - h.y) ** 2);
       const dTower = Math.sqrt(dt2);
-      if (dh > hunt && dTower > defR && m.forcedTarget !== h.id) continue;
+      if (dh > hunt && dTower > defR) continue;
       let s;
       switch (pr) {
         case 'weakest': s = m.hp + dh * 0.15; break;
@@ -224,7 +224,6 @@ module.exports = {
         case 'tower': s = (m.targetId === 'tower' ? 0 : 5000) + dTower; break;
         default: s = dh;
       }
-      if (m.forcedTarget === h.id) s -= 1e8;
       if (s < bs) { bs = s; best = m; }
     }
     return best;

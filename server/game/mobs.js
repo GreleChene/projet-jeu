@@ -109,7 +109,7 @@ module.exports = {
       maxHp: Math.round(d.hp * hpMul), hp: 0,
       dmg: d.dmg * sc.dmg * (elite ? 1.5 : 1), speed: d.speed * U.rand(0.92, 1.08), range: d.range, cd: d.cd,
       size: d.size * (elite ? 1.3 : 1), atkT: U.rand(0, d.cd), facing: Math.atan2(WORLD.CY - y, WORLD.CX - x),
-      status: {}, target: null, targetId: 'tower', retargetT: 0, attackAnim: 0, auraT: 0, charging: null, forcedTarget: null,
+      status: {}, target: null, targetId: 'tower', retargetT: 0, attackAnim: 0, auraT: 0, charging: null,
       abil: (d.abilities || []).map((a) => ({ ...a, t: a.cd * 0.5 }))
     };
     m.hp = m.maxHp;
@@ -189,10 +189,6 @@ module.exports = {
   unitHidden(u) { return u.nid && this.heroes.get(u.id) === u && this.isInvisible(u); },
 
   mobChooseTarget(m, d) {
-    if (m.forcedTarget) {
-      const h = this.heroes.get(m.forcedTarget);
-      if (h && h.alive && !this.isInvisible(h)) return h;
-    }
     const aggro = m.boss ? 280 : d.ranged ? d.range + 60 : 150;
     let best = null, bd = aggro * aggro;
     for (const h of this.heroes.values()) {

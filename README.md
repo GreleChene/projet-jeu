@@ -14,7 +14,7 @@ npm start
 
 | Page | URL | Usage |
 |---|---|---|
-| Joueur | `http://localhost:3000/` | inscription (pseudo + mot de passe), classe, armures, IA, choix en bataille, votes |
+| Joueur | `http://localhost:3000/` | inscription (pseudo + mot de passe), classe, statistiques, armures, IA, votes |
 | Stream | `http://localhost:3000/stream` | **source Navigateur OBS en 1920×1080** (publique, en lecture seule) |
 | Admin | `http://localhost:3000/admin` | lancer, mettre en pause ou arrêter une partie, aller à une manche, régler, bots de test, comptes |
 
@@ -44,7 +44,6 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - Paysan (laisse de 500 px, récolte la richesse de l'équipe) → Agriculteur (soigne les alliés) / Bûcheron (soigne la tour) / Mineur (augmente les PV max de la tour)
 - **IA personnalisable.** Le joueur règle la posture, la cible prioritaire, le seuil de retraite et l'usage de l'ultime. Les changements s'appliquent en direct.
 - **Armures.** Casques et plastrons en 5 tiers (tissu → runique), achetés avec des écus gagnés en jeu et conservés d'une partie à l'autre. Elles sont visibles sur le personnage.
-- **Choix en bataille** (sur le site). Toutes les 40 s environ, chaque joueur reçoit une carte : Fureur, Potion, Concentration, Bouclier, Célérité, ou **Défi** (3 élites apparaissent, contre des récompenses doublées).
 - **Votes d'équipe.** Toutes les **2 manches** (réglable dans l'admin), pendant l'entracte, les joueurs votent pour dépenser la richesse (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus de richesse. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
 
 ### Progression du terrain

@@ -55,11 +55,6 @@
 
       <!-- Bataille -->
       <div data-view="battle">
-        <div class="panel choice-card hidden" id="choiceBox">
-          <div class="row"><h2 style="margin:0">⚡ Choix rapide !</h2><span class="spacer"></span><span class="chip" id="choiceTimer"></span></div>
-          <p class="small muted">Choisis un bonus avant la fin du compte à rebours.</p>
-          <div class="options" id="choiceOpts"></div>
-        </div>
         <div class="panel hidden" id="voteBox">
           <div class="row"><h2 style="margin:0">🗳️ Vote de l’équipe</h2><span class="spacer"></span><span class="chip" id="voteTimer"></span></div>
           <p class="small muted">Dépensez la richesse de l’équipe ! L’option la plus votée est appliquée à la fin de l’entracte.</p>
@@ -69,6 +64,8 @@
           <div class="panel">
             <div class="row"><h2 style="margin:0">Mon héros</h2><span class="spacer"></span><span class="chip" id="heroCls"></span></div>
             <canvas id="battleArt" class="preview" width="260" height="200"></canvas>
+            <label>Expérience — <span id="bXpLvl"></span></label>
+            <div class="bar gold"><span id="bXpBar"></span><div class="label" id="bXpLabel"></div></div>
             <div id="notInRun" style="text-align:center;margin-top:12px">
               <p class="muted">Ton héros attend aux portes de la tour.</p>
               <button class="primary" id="joinBtn">⚔️ Rejoindre la bataille</button>

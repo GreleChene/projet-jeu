@@ -265,7 +265,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
     case 'settings': {
       const s = game.settings;
       const num = (k, a, z) => { if (b[k] !== undefined && !isNaN(b[k])) s[k] = Math.min(z, Math.max(a, Number(b[k]))); };
-      num('difficulty', 0.2, 5); num('intermission', 5, 120); num('choiceInterval', 10, 300); num('choiceDuration', 5, 60);
+      num('difficulty', 0.2, 5); num('intermission', 5, 120);
       num('maxHeroes', 1, 500); num('maxAliveMobs', 20, 600); num('voteEvery', 1, 20);
       if (b.autoNext !== undefined) s.autoNext = !!b.autoNext;
       if (b.autoRestart !== undefined) s.autoRestart = !!b.autoRestart;
@@ -348,9 +348,6 @@ io.on('connection', (socket) => {
     if (typeof ack === 'function') ack(h ? { ok: true } : { error: 'La bataille est complète.' });
   });
   socket.on('leave', () => game.removeHero(socket.data.userId));
-  socket.on('choose', (msg) => {
-    if (msg && typeof msg === 'object') game.applyChoice(socket.data.userId, Number(msg.id), String(msg.option));
-  });
   socket.on('vote', (opt) => game.castVote(socket.data.userId, String(opt)));
 });
 

@@ -9,7 +9,7 @@ const Terrain = require('../../shared/terrain');
 const U = require('./util');
 const config = require('../config');
 
-const { WORLD, CLASSES, MOBS, MOB_IDS, ARMORS, UPGRADES, PERSONAL_CHOICES, PROGRESSION, BOSS_WAVES } = GD;
+const { WORLD, CLASSES, MOBS, MOB_IDS, ARMORS, UPGRADES, PROGRESSION, BOSS_WAVES } = GD;
 const MOB_INDEX = Object.fromEntries(MOB_IDS.map((id, i) => [id, i]));
 const { PROJ_KINDS, ZONE_KINDS, HF, MF } = GD.NET;
 const PROJ_INDEX = Object.fromEntries(PROJ_KINDS.map((k, i) => [k, i]));
@@ -21,8 +21,6 @@ const DEFAULT_SETTINGS = {
   voteEvery: 2, // vote des viewers toutes les N manches
   difficulty: 1, // multiplicateur global
   intermission: 20, // secondes d'entracte (vote)
-  choiceInterval: 40, // un choix personnel toutes les X secondes de combat
-  choiceDuration: 15,
   autoNext: true, // enchaîne les manches automatiquement
   autoRestart: false, // relance une partie après une défaite
   maxHeroes: 200,
@@ -69,7 +67,6 @@ class Game {
       spawnT: 0,
       bossPending: [],
       waveTime: 0,
-      choiceT: 0,
       timer: 0, // compte à rebours de l'entracte
       vote: null,
       startedAt: Date.now()
@@ -209,13 +206,13 @@ class Game {
       facing: a, alive: true, hp: 1, maxHp: 1, ult: 0, atkT: 0, retargetT: 0, target: null,
       buffs: {}, status: {}, timers: { stealth: 0, dash: 3, heal: 2, harvest: 0, summon: 0 },
       respawnT: 0, zombie: false, deathX: 0, deathY: 0, attackAnim: 0, retreating: false, harvesting: false,
-      runKills: 0, runGold: 0, runXp: 0, waveMult: 1, choice: null, idleAngle: a, dashing: null, chain: null
+      runKills: 0, runGold: 0, runXp: 0, idleAngle: a, dashing: null, chain: null
     };
   }
 
   resetHeroForRun(h) {
-    h.alive = true; h.zombie = false; h.buffs = {}; h.status = {}; h.ult = 0; h.choice = null; h.dashing = null; h.chain = null;
-    h.runKills = 0; h.runGold = 0; h.runXp = 0; h.waveMult = 1;
+    h.alive = true; h.zombie = false; h.buffs = {}; h.status = {}; h.ult = 0; h.dashing = null; h.chain = null;
+    h.runKills = 0; h.runGold = 0; h.runXp = 0;
     const a = Math.random() * Math.PI * 2;
     h.x = WORLD.CX + Math.cos(a) * 110; h.y = WORLD.CY + Math.sin(a) * 80;
     this.refreshHero(h);
@@ -251,7 +248,7 @@ class Game {
 
   // Gain d'XP / d'écus persistants
   reward(h, xp, gold) {
-    const mult = h.waveMult * (1 + 0.2 * this.run.upgrades.banner) * (this.run.pactActive ? 2 : 1);
+    const mult = (1 + 0.2 * this.run.upgrades.banner) * (this.run.pactActive ? 2 : 1);
     xp = Math.round(xp * mult); gold = Math.round(gold * mult);
     h.runXp += xp; h.runGold += gold;
     const p = this.heroProfile(h);
@@ -287,9 +284,7 @@ class Game {
     r.pactActive = r.pactNext;
     r.pactNext = false;
     r.waveTime = 0;
-    r.choiceT = Math.min(15, this.settings.choiceInterval);
     this.phase = 'wave';
-    for (const h of this.heroes.values()) { h.waveMult = 1; h.choice = null; }
     this.buildWave(n);
     const era = GD.eraOfWave(n);
     const boss = BOSS_WAVES[n];
@@ -418,51 +413,6 @@ class Game {
     for (const h of this.heroes.values()) this.refreshHero(h);
   }
 
-  /* ============================== Choix personnels ============================== */
-  offerChoices() {
-    const now = Date.now();
-    const keys = Object.keys(PERSONAL_CHOICES);
-    for (const h of this.heroes.values()) {
-      if (!h.alive) continue;
-      const opts = U.shuffle(keys.filter((k) => k !== 'challenge')).slice(0, 2);
-      opts.push('challenge');
-      h.choice = { id: now + h.nid, options: U.shuffle(opts), expires: now + this.settings.choiceDuration * 1000 };
-      if (h.isBot && Math.random() < 0.7) setTimeout(() => this.applyChoice(h.id, h.choice && h.choice.id, U.pick(opts)), 1000 + Math.random() * 6000);
-    }
-  }
-
-  applyChoice(heroId, choiceId, opt) {
-    const h = this.heroes.get(heroId);
-    if (!h || !h.choice || h.choice.id !== choiceId || !h.choice.options.includes(opt) || !h.alive) return false;
-    h.choice = null;
-    const P = GD.PALETTE.fx;
-    switch (opt) {
-      case 'fury': h.buffs.fury = 30; this.fx(['text', h.x, h.y - 40, 'FUREUR', P.burn]); break;
-      case 'potion':
-        this.healHero(h, h.maxHp * 0.7);
-        h.status = {};
-        break;
-      case 'focus': h.ult = 1; this.fx(['text', h.x, h.y - 40, 'ULTIME PRÊT', P.xp]); break;
-      case 'shield': h.buffs.shield = 20; this.fx(['text', h.x, h.y - 40, 'BOUCLIER', P.frost]); break;
-      case 'swift': h.buffs.swift = 25; this.fx(['text', h.x, h.y - 40, 'CÉLÉRITÉ', P.heal]); break;
-      case 'challenge': {
-        h.waveMult = 2;
-        const pool = this.mobPool(this.run.wave);
-        const a = Math.atan2(h.y - WORLD.CY, h.x - WORLD.CX);
-        for (let i = 0; i < 3; i++) {
-          const p = this.edgePoint(a + (i - 1) * 0.25);
-          const m = this.spawnMob(U.pick(pool), p.x, p.y, { elite: true });
-          m.forcedTarget = h.id;
-        }
-        this.fx(['text', h.x, h.y - 40, 'DÉFI ACCEPTÉ', GD.PALETTE.ui.danger]);
-        this.pushFeed(`💀 ${h.name} accepte un défi !`);
-        break;
-      }
-      default: return false;
-    }
-    return true;
-  }
-
   /* ============================== Boucle ============================== */
   start() {
     const dt = 1 / config.TICK_RATE;
@@ -512,8 +462,6 @@ class Game {
         this.updateProjectiles(dt);
         this.updateZones(dt);
         this.mobs = this.mobs.filter((m) => m.hp > 0);
-        r.choiceT -= dt;
-        if (r.choiceT <= 0) { r.choiceT = this.settings.choiceInterval; this.offerChoices(); }
         if (r.tower.hp <= 0) { r.tower.hp = 0; this.gameOver(); break; }
         if (!r.queue.length && !r.bossPending.length && !this.mobs.length) this.waveCleared();
         break;
@@ -527,9 +475,6 @@ class Game {
         }
         break;
     }
-    // expiration des choix personnels
-    const now = Date.now();
-    for (const h of this.heroes.values()) if (h.choice && h.choice.expires < now) h.choice = null;
   }
 
   updateTower(dt) {
@@ -792,7 +737,9 @@ class Game {
   playerState(userId) {
     const h = this.heroes.get(userId);
     const r = this.run;
-    const out = { run: this.publicRunInfo(), hero: null, choice: null, vote: null };
+    const out = { run: this.publicRunInfo(), hero: null, vote: null };
+    const u = this.db.userById(userId);
+    if (u) out.profile = { level: u.level, xp: u.xp, xpNext: PROGRESSION.xpForLevel(u.level), attrPoints: u.attrPoints || 0 };
     if (r.vote) {
       out.vote = {
         options: r.vote.options.map((o) => ({ id: o, cost: UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0, level: r.upgrades[o] || 0 })),
@@ -804,9 +751,8 @@ class Game {
         alive: h.alive, hp: Math.ceil(h.hp), maxHp: h.maxHp, ult: Math.min(1, h.ult), hasUlt: !!CLASSES[h.cls].ult,
         respawn: Math.ceil(h.respawnT), zombie: h.zombie, kills: h.runKills, xp: h.runXp, gold: h.runGold,
         buffs: Object.fromEntries(Object.entries(h.buffs).filter(([, v]) => v > 0).map(([k, v]) => [k, Math.ceil(v)])),
-        status: Object.keys(h.status), dmg: Math.round(h.dmg), armor: Math.round(h.armor * 100), challenge: h.waveMult > 1
+        status: Object.keys(h.status), dmg: Math.round(h.dmg), armor: Math.round(h.armor * 100)
       };
-      if (h.choice) out.choice = { id: h.choice.id, options: h.choice.options, expires: h.choice.expires };
     }
     return out;
   }

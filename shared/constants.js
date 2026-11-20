@@ -220,16 +220,8 @@
   };
 
   /* ------------------------------------------------------------------ */
-  /* Choix personnels en combat & améliorations d'équipe                 */
+  /* Améliorations d'équipe                 */
   /* ------------------------------------------------------------------ */
-  const PERSONAL_CHOICES = {
-    fury: { name: 'Fureur', icon: '⚔️', desc: '+40% de dégâts pendant 30 s' },
-    potion: { name: 'Potion', icon: '🧪', desc: 'Soigne 70% des PV et purifie' },
-    focus: { name: 'Concentration', icon: '✨', desc: 'Ultime chargé à 100%' },
-    shield: { name: 'Bouclier', icon: '🛡️', desc: '-50% de dégâts reçus pendant 20 s' },
-    swift: { name: 'Célérité', icon: '💨', desc: '+40% vitesse et cadence pendant 25 s' },
-    challenge: { name: 'Défi', icon: '💀', desc: '3 élites apparaissent près de toi. Récompense : +100% XP et écus pour la manche' }
-  };
 
   // Améliorations d'équipe (votées pendant l'entracte avec la richesse de la partie)
   const UPGRADES = {
@@ -263,5 +255,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128 }
   };
 
-  return { NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, ARMOR_TIERS, ARMORS, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, PERSONAL_CHOICES, UPGRADES, ERAS, eraOfWave };
+  return { NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, ARMOR_TIERS, ARMORS, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

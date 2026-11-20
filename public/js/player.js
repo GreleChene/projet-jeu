@@ -63,6 +63,7 @@
     heroCanvas($('#gearArt'), () => (me ? { cls: me.cls, look: me.look, equip: me.equip } : null));
     connect();
     renderAll();
+    renderXp({ level: me.level, xp: me.xp, xpNext: me.xpNext, attrPoints: me.attrPoints });
   }
 
   function setUser(u) { me = u; renderAll(); }
@@ -103,10 +104,11 @@
 
   const PHASES = { lobby: 'En attente du lancement', intermission: 'Entracte', wave: 'Combat en cours', gameover: 'Défaite', victory: 'Victoire !' };
 
-  let lastChoiceId = null, lastVoteSig = '';
+  let lastVoteSig = '';
   function renderLive() {
     if (!live || !me) return;
     const r = live.run, h = live.hero;
+    if (live.profile) renderXp(live.profile);
     // infos de partie
     const info = $('#runInfo');
     info.replaceChildren(
@@ -138,24 +140,8 @@
       for (const [k, v] of Object.entries(h.buffs)) if (BN[k]) st.push(`${BN[k]} ${v}s`);
       const SN = { poison: '🟢 Empoisonné', burn: '🔥 Brûlé', slow: '❄️ Ralenti', freeze: '🧊 Gelé' };
       for (const s of h.status) if (SN[s]) st.push(SN[s]);
-      if (h.challenge) st.push('💀 Défi en cours (récompenses ×2)');
       $('#heroStatus').textContent = st.join(' · ') || `Dégâts ${h.dmg} · Armure ${h.armor}%`;
       $('#sKills').textContent = h.kills; $('#sXp').textContent = h.xp; $('#sGold').textContent = h.gold;
-    }
-    // choix personnel
-    const ch = live.choice;
-    $('#choiceBox').classList.toggle('hidden', !ch);
-    if (ch) {
-      $('#choiceTimer').textContent = `${Math.max(0, Math.ceil((ch.expires - Date.now()) / 1000))} s`;
-      if (ch.id !== lastChoiceId) {
-        lastChoiceId = ch.id;
-        if (navigator.vibrate) navigator.vibrate(120);
-        $('#choiceOpts').replaceChildren(...ch.options.map((o) => {
-          const d = GD.PERSONAL_CHOICES[o];
-          return el('button', { class: 'option' + (o === 'challenge' ? ' challenge' : ''), onclick: () => { socket.emit('choose', { id: ch.id, option: o }); $('#choiceBox').classList.add('hidden'); toast(`${d.icon} ${d.name} !`); } },
-            el('span', { class: 'icon' }, d.icon), el('span', { class: 'name' }, d.name), el('span', { class: 'desc' }, d.desc));
-        }));
-      }
     }
     // vote d'équipe
     const v = live.vote;
@@ -179,6 +165,22 @@
     }
   }
   setInterval(() => { if (live) renderLive(); }, 1000);
+
+  // Barre d'XP de l'onglet Bataille (mise à jour en direct)
+  function renderXp(p) {
+    const pct = Math.min(100, (100 * p.xp) / p.xpNext);
+    $('#bXpBar').style.width = `${pct}%`;
+    $('#bXpLabel').textContent = `${p.xp} / ${p.xpNext} XP`;
+    $('#bXpLvl').textContent = `niveau ${p.level}` + (p.attrPoints ? ` · ${p.attrPoints} point(s) de stat à répartir` : '');
+    $('#xpBar').style.width = `${pct}%`;
+    $('#xpLabel').textContent = `${p.xp} / ${p.xpNext} XP`;
+    if (me && p.level !== me.level) {
+      me.level = p.level; me.xp = p.xp; me.xpNext = p.xpNext; me.attrPoints = p.attrPoints;
+      $('#hdrLevel').textContent = `Niv. ${me.level}`;
+      api('/api/me').then((d) => setUser(d.user)).catch(() => {});
+      toast(`Niveau ${p.level} ! +1 point de stat à répartir`);
+    }
+  }
 
   /* ============================== Classes ============================== */
   function miniHero(cls, size) {
@@ -380,7 +382,7 @@
       $('#shopGold').textContent = `${me.gold} écus`;
       $('#xpBar').style.width = `${(100 * me.xp) / me.xpNext}%`;
       $('#xpLabel').textContent = `${me.xp} / ${me.xpNext} XP`;
-      if (changed) { renderAll(); toast(`Niveau ${me.level} ! +1 point de stat à répartir`); }
+      if (changed) renderAll();
     } catch (e) { /* hors ligne */ }
   }, 5000);
 })();
