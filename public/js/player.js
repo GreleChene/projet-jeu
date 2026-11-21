@@ -150,6 +150,14 @@
     );
     // héros
     $('#notInRun').classList.toggle('hidden', !!h);
+    if (!h) {
+      // le bouton n'apparaît que lorsqu'une bataille est lancée et que les inscriptions sont ouvertes
+      $('#joinBtn').classList.toggle('hidden', !r.canJoin);
+      const left = r.joinEndsAt ? Math.max(0, Math.ceil((r.joinEndsAt - Date.now()) / 1000)) : null;
+      $('#joinMsg').textContent = r.phase === 'lobby' ? '⏳ Aucune bataille en cours : le bouton apparaîtra quand l’admin en lancera une.'
+        : r.canJoin ? `Les inscriptions sont ouvertes${left !== null ? ` encore ${left} s` : ''} ! (ou tape !join dans le chat Twitch)`
+        : r.phase === 'gameover' || r.phase === 'victory' ? 'La bataille est terminée.' : '🔒 Les inscriptions pour cette bataille sont fermées. Rendez-vous à la prochaine !';
+    }
     $('#inRun').classList.toggle('hidden', !h);
     if (h) {
       $('#hpBar').style.width = `${(100 * h.hp) / h.maxHp}%`;
@@ -688,7 +696,25 @@
     );
   }
 
+  /* ---------- Liaison Twitch ---------- */
+  let twitchChannel = 'hyoneko_';
+  fetch('/api/info').then((r) => r.json()).then((d) => { if (d.twitch) { twitchChannel = d.twitch; if (me) renderTwitch(); } }).catch(() => {});
+  let twitchCode = null;
+  function renderTwitch() {
+    $('#twitchLink').textContent = `twitch.tv/${twitchChannel}`;
+    $('#twitchLink').href = `https://twitch.tv/${twitchChannel}`;
+    if (me.twitchName) {
+      $('#twitchState').replaceChildren(el('p', {}, '✅ Lié au compte Twitch ', el('b', {}, me.twitchName), '. Tape ', el('b', {}, '!join'), ' dans le chat pour rejoindre une bataille.'),
+        el('button', { class: 'small', onclick: async () => { if (confirm('Délier ton compte Twitch ?')) setUser((await api('/api/me/twitch/unlink', { method: 'POST' })).user); } }, 'Délier'));
+      return;
+    }
+    $('#twitchState').replaceChildren(
+      twitchCode ? el('p', { class: 'twitch-code' }, 'Tape ', el('b', {}, `!lier ${twitchCode}`), ` dans le chat de `, el('a', { href: `https://twitch.tv/${twitchChannel}`, target: '_blank', rel: 'noopener' }, `twitch.tv/${twitchChannel}`), ' (code valable 10 minutes). Cette page se met à jour toute seule.') : '',
+      el('button', { class: 'primary', onclick: async () => { const d = await api('/api/me/twitch/code', { method: 'POST' }); twitchCode = d.code; twitchChannel = d.channel; renderTwitch(); } }, twitchCode ? 'Nouveau code' : '🔗 Lier mon compte Twitch'));
+  }
+
   function renderStats() {
+    renderTwitch();
     const s = me.stats;
     $('#myStats').replaceChildren(...[['Parties', s.runs], ['Meilleure manche', s.bestWave], ['Éliminations', s.kills], ['Boss vaincus', s.bossKills], ['Morts', s.deaths], ['Grêlons 🧊', me.gold]]
       .map(([k, v]) => el('div', { class: 'stat' }, el('b', {}, v), el('span', { class: 'small muted' }, k))));

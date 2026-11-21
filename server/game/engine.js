@@ -22,6 +22,8 @@ const DEFAULT_SETTINGS = {
   intermission: 20, // secondes d'entracte (vote)
   autoNext: true, // enchaîne les manches automatiquement
   autoRestart: false, // relance une partie après une défaite
+  joinWindow: 180, // secondes pendant lesquelles on peut rejoindre après le lancement (0 = toute la partie)
+  prepTime: 30, // secondes de préparation avant la 1re manche
   maxHeroes: 200,
   maxAliveMobs: 260
 };
@@ -68,6 +70,7 @@ class Game {
       waveTime: 0,
       timer: 0, // compte à rebours de l'entracte
       vote: null,
+      joinUntil: 0,
       startedAt: Date.now()
     };
     this.nodes = Terrain.resourceNodes(this.run.seed);
@@ -86,7 +89,26 @@ class Game {
     this.db.markDirty();
   }
 
+  // Seuls les héros présents au lancement (ou arrivés pendant la fenêtre d'inscription) participent
+  removePlayerHeroes() {
+    for (const h of [...this.heroes.values()]) if (!h.isBot) { this.heroes.delete(h.id); this.allies = this.allies.filter((a) => a.ownerId !== h.id); }
+    this.rosterVersion++;
+  }
+
+  canJoin() {
+    return (this.phase === 'intermission' || this.phase === 'wave') && Date.now() < this.run.joinUntil;
+  }
+
+  openJoin(seconds) {
+    const s = Number(seconds);
+    this.run.joinUntil = s > 0 ? Date.now() + s * 1000 : Infinity;
+    this.announce('Inscriptions ouvertes !', s > 0 ? `Tape !join dans le chat (${Math.round(s)} s)` : 'Tape !join dans le chat');
+  }
+
+  closeJoin() { this.run.joinUntil = 0; this.pushFeed('Les inscriptions à la bataille sont fermées.'); }
+
   startRun(fromWave = 1) {
+    this.removePlayerHeroes();
     this.resetRun();
     this.run.cleared = Math.max(0, Math.min(99, (fromWave | 0) - 1));
     this.run.wave = this.run.cleared;
@@ -94,13 +116,15 @@ class Game {
     if (this.run.cleared > 0) this.run.treasury = this.run.wealthEarned = this.run.cleared * 25;
     this.terrainChanged();
     this.phase = 'intermission';
-    this.run.timer = 8;
+    this.run.timer = Math.max(5, this.settings.prepTime);
     this.paused = false;
-    this.announce('La bataille va commencer !', 'Défendez la tour !');
+    this.openJoin(this.settings.joinWindow);
+    this.announce('La bataille va commencer !', 'Rejoins la défense : tape !join dans le chat');
   }
 
   stopRun() {
     this.finishRun(false, true);
+    this.removePlayerHeroes();
     this.phase = 'lobby';
     this.resetRun();
   }
@@ -153,9 +177,12 @@ class Game {
   /* ============================== Héros ============================== */
   heroCount() { return this.heroes.size; }
 
+  // Renvoie le héros, ou { error } si impossible
   joinUser(user) {
     if (this.heroes.has(user.id)) return this.heroes.get(user.id);
-    if (this.heroes.size >= this.settings.maxHeroes) return null;
+    if (this.phase === 'lobby' || this.phase === 'gameover' || this.phase === 'victory') return { error: 'Aucune bataille en cours : attends que l’admin en lance une.' };
+    if (!this.canJoin()) return { error: 'Les inscriptions pour cette bataille sont fermées.' };
+    if (this.heroes.size >= this.settings.maxHeroes) return { error: 'La bataille est complète.' };
     const h = this.makeHero({ id: user.id, userId: user.id, name: user.pseudo, isBot: false });
     this.refreshHero(h);
     h.hp = h.maxHp;
@@ -376,10 +403,11 @@ class Game {
     r.vote = { options: opts, votes: new Map(), endsAt: Date.now() + r.timer * 1000 };
   }
 
-  castVote(userId, opt) {
+  // fromChat : vote d'un spectateur du chat Twitch (sans héros)
+  castVote(userId, opt, fromChat) {
     const v = this.run.vote;
     if (!v || this.phase !== 'intermission' || !v.options.includes(opt)) return false;
-    if (!this.heroes.has(userId)) return false;
+    if (!fromChat && !this.heroes.has(userId)) return false;
     if (opt !== 'save' && opt !== 'pact' && this.upgradeCost(opt) > this.run.treasury) return false;
     v.votes.set(userId, opt);
     return true;
@@ -490,7 +518,7 @@ class Game {
         this.updateZones(dt);
         if (r.timer <= 0) {
           if (this.settings.autoRestart) this.startRun(1);
-          else { this.phase = 'lobby'; this.resetRun(); }
+          else { this.phase = 'lobby'; this.removePlayerHeroes(); this.resetRun(); }
         }
         break;
     }
@@ -729,6 +757,7 @@ class Game {
       timer: Math.ceil(r.timer), seed: r.seed, tv: this.terrainVersion, ter: this.terrain, rv: this.rosterVersion,
       vote: r.vote ? { o: r.vote.options, c: this.voteCounts(), cost: Object.fromEntries(r.vote.options.map((o) => [o, UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0])) } : null,
       pact: r.pactActive ? 1 : r.pactNext ? 2 : 0,
+      jn: this.canJoin() ? (Number.isFinite(r.joinUntil) ? Math.ceil((r.joinUntil - Date.now()) / 1000) : -1) : 0,
       bosses, h: heroes, m: mobs, a: allies, p: proj, z: zones, e: ev
     };
   }
@@ -748,6 +777,7 @@ class Game {
       phase: this.phase, paused: this.paused, wave: r.wave, cleared: r.cleared, timer: Math.ceil(r.timer),
       tower: { hp: Math.ceil(r.tower.hp), max: r.tower.max }, treasury: r.treasury, wealthEarned: r.wealthEarned,
       upgrades: r.upgrades, heroes: this.heroes.size, mobs: this.mobs.length + r.queue.length + r.bossPending.length,
+      canJoin: this.canJoin(), joinEndsAt: Number.isFinite(r.joinUntil) ? r.joinUntil : null,
       voting: !!r.vote, nextVote: this.nextVoteWave(), voteEvery: this.settings.voteEvery,
       pact: r.pactActive ? 'active' : r.pactNext ? 'next' : null, era: GD.eraOfWave(Math.max(1, r.wave)).name
     };

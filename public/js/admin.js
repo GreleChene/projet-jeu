@@ -22,8 +22,26 @@
     $('#userFilter').addEventListener('input', renderUsers);
     refresh();
     loadUsers();
+    loadTwitch();
+    setInterval(loadTwitch, 5000);
+    $('#twSave').addEventListener('click', async () => {
+      try { showTwitch(await api('/api/admin/twitch', { body: { channel: $('#twChannel').value, enabled: $('#twEnabled').checked, chatVoteAll: $('#twVoteAll').checked } })); toast('Twitch enregistré'); }
+      catch (e) { toast(e.message); }
+    });
+    $('#twTest').addEventListener('click', async () => {
+      try { showTwitch(await api('/api/admin/twitch/test', { body: { user: $('#twTestUser').value, text: $('#twTestMsg').value } })); refresh(); }
+      catch (e) { toast(e.message); }
+    });
     setInterval(refresh, 2000);
     setInterval(loadUsers, 15000);
+  }
+
+  let twLoaded = false;
+  async function loadTwitch() { try { showTwitch(await api('/api/admin/twitch')); } catch (e) { /* */ } }
+  function showTwitch(t) {
+    if (!twLoaded) { $('#twChannel').value = t.channel; $('#twEnabled').checked = t.enabled; $('#twVoteAll').checked = t.chatVoteAll; twLoaded = true; }
+    $('#twStatus').textContent = t.status;
+    $('#twLog').replaceChildren(...t.log.map((l) => el('div', {}, `${new Date(l.t).toLocaleTimeString()} · ${l.user} : ${l.text}`)));
   }
 
   async function act(action, extra) {
@@ -35,6 +53,7 @@
     if (action === 'stop' && !confirm('Arrêter la partie en cours ?')) return;
     if (action === 'wave') body.wave = Number($('#gotoWave').value) || 1;
     if (action === 'treasury') body.amount = Number($('#treasuryAmt').value) || 0;
+    if (action === 'openJoin') body.seconds = Number($('#joinSeconds').value) || 0;
     if (action === 'bots') { body.count = Number($('#botCount').value) || 1; body.cls = $('#botCls').value || null; body.level = Number($('#botLevel').value) || null; }
     if (action === 'announce') { body.text = $('#annTitle').value; body.sub = $('#annSub').value; }
     try { await api('/api/admin/game/' + action, { body }); refresh(); }
@@ -46,6 +65,8 @@
     let d;
     try { d = await api('/api/admin/state'); } catch (e) { return; }
     const r = d.run;
+    const jl = r.joinEndsAt ? Math.max(0, Math.ceil((r.joinEndsAt - Date.now()) / 1000)) : null;
+    $('#joinState').textContent = r.canJoin ? `🔓 Inscriptions ouvertes${jl !== null ? ` (${jl} s)` : ' (sans limite)'}` : '🔒 Inscriptions fermées';
     $('#runState').replaceChildren(
       el('div', { class: 'stats3' },
         el('div', { class: 'stat' }, el('b', {}, PHASES[r.phase] + (r.paused ? ' ⏸' : '')), el('span', { class: 'small muted' }, 'état')),
@@ -78,6 +99,8 @@
   const SETTINGS = [
     ['difficulty', 'Difficulté (×)', 'number', 0.1],
     ['intermission', 'Durée de l’entracte / vote (s)', 'number', 1],
+    ['joinWindow', 'Durée des inscriptions après le lancement (s, 0 = toute la partie)', 'number', 10],
+    ['prepTime', 'Préparation avant la 1re manche (s)', 'number', 5],
     ['voteEvery', 'Vote des viewers toutes les N manches', 'number', 1],
     ['maxHeroes', 'Héros maximum', 'number', 1],
     ['maxAliveMobs', 'Monstres simultanés max', 'number', 10],
@@ -107,7 +130,7 @@
     $('#users').replaceChildren(
       el('tr', {}, el('th', {}, 'Pseudo'), el('th', {}, 'Rôle'), el('th', {}, 'Classe'), el('th', {}, 'Niv.'), el('th', {}, 'Grêlons'), el('th', {}, 'Glaçons'), el('th', {}, 'Record'), el('th', {}, 'Actions')),
       ...list.map((u) => el('tr', {},
-        el('td', {}, u.pseudo, u.online ? ' 🟢' : '', u.banned ? ' 🚫' : ''),
+        el('td', {}, u.pseudo, u.online ? ' 🟢' : '', u.banned ? ' 🚫' : '', u.twitch ? el('div', { class: 'small muted' }, '🟣 ' + u.twitch) : ''),
         el('td', {}, u.role === 'admin' ? '⭐ admin' : 'joueur'),
         el('td', { style: `color:${GD.CLASSES[u.cls].color}` }, GD.CLASSES[u.cls].name),
         el('td', {}, u.level), el('td', {}, u.gold), el('td', {}, u.glacons || 0), el('td', {}, u.stats.bestWave),

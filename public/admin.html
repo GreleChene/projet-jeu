@@ -51,6 +51,12 @@
             <button class="danger" data-act="stop">⏹ Arrêter</button>
           </div>
           <div class="row" style="margin-top:10px">
+            <span class="chip" id="joinState">Inscriptions : —</span>
+            <input id="joinSeconds" type="number" min="0" value="120" style="width:80px" title="secondes (0 = jusqu’à la fin)">
+            <button data-act="openJoin">🔓 Ouvrir les inscriptions</button>
+            <button data-act="closeJoin">🔒 Fermer</button>
+          </div>
+          <div class="row" style="margin-top:10px">
             <label style="margin:0">Aller à la manche</label><input id="gotoWave" type="number" min="1" max="100" value="5" style="width:80px">
             <button data-act="wave">Aller</button>
           </div>
@@ -72,7 +78,14 @@
           <div class="row" style="margin-top:10px"><button class="primary" id="saveSettings">Enregistrer</button><span class="notice" id="setNotice"></span></div>
         </div>
         <div class="panel">
-          <h2>Annonce sur le stream</h2>
+          <h2>🟣 Twitch</h2>
+          <div class="row"><input id="twChannel" placeholder="chaîne (ex. hyoneko_)" style="flex:1"><label style="margin:0"><input type="checkbox" id="twEnabled" style="width:auto"> activé</label></div>
+          <label style="margin-top:6px"><input type="checkbox" id="twVoteAll" style="width:auto"> Tout le chat peut voter (!1, !2…), même sans héros</label>
+          <div class="row" style="margin-top:6px"><button id="twSave">Enregistrer</button><span class="chip" id="twStatus">—</span></div>
+          <p class="small muted">Commandes du chat : <b>!join</b> (rejoindre, compte lié requis), <b>!lier CODE</b> (lier son compte, code affiché sur le site), <b>!1</b> / <b>!2</b>… (votes d’équipe).</p>
+          <div class="row"><input id="twTestUser" placeholder="pseudo Twitch" style="flex:1"><input id="twTestMsg" placeholder="message, ex. !join" style="flex:1"><button id="twTest">Simuler</button></div>
+          <div id="twLog" class="small" style="margin-top:6px;max-height:140px;overflow:auto"></div>
+          <h2 style="margin-top:20px">Annonce sur le stream</h2>
           <label>Titre</label><input id="annTitle" maxlength="80" placeholder="Merci pour le raid !">
           <label>Sous-titre</label><input id="annSub" maxlength="120">
           <div class="row" style="margin-top:10px"><button data-act="announce">📣 Afficher</button></div>

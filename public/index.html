@@ -70,8 +70,8 @@
             <label>Expérience — <span id="bXpLvl"></span></label>
             <div class="bar gold"><span id="bXpBar"></span><div class="label" id="bXpLabel"></div></div>
             <div id="notInRun" style="text-align:center;margin-top:12px">
-              <p class="muted">Ton héros attend aux portes de la tour.</p>
-              <button class="primary" id="joinBtn">⚔️ Rejoindre la bataille</button>
+              <p class="muted" id="joinMsg">Ton héros attend aux portes de la tour.</p>
+              <button class="primary hidden" id="joinBtn">⚔️ Rejoindre la bataille</button>
               <div class="error" id="joinError"></div>
             </div>
             <div id="inRun" class="hidden" style="margin-top:12px">
@@ -225,6 +225,11 @@
 
       <!-- Compte -->
       <div data-view="account" class="hidden">
+        <div class="panel twitch-panel">
+          <div class="row"><h2 style="margin:0">🟣 Compte Twitch</h2><span class="spacer"></span><a id="twitchLink" class="chip" target="_blank" rel="noopener"></a></div>
+          <p class="small muted">Lie ton compte Twitch pour rejoindre la bataille avec <b>!join</b> et voter avec <b>!1</b>, <b>!2</b>… directement dans le chat du stream.</p>
+          <div id="twitchState"></div>
+        </div>
         <div class="grid two">
           <div class="panel"><h2>Statistiques</h2><div class="stats3" id="myStats"></div></div>
           <div class="panel">

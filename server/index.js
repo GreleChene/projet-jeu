@@ -91,7 +91,7 @@ function publicUser(u) {
   return {
     id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', cls: u.cls, level: u.level, xp: u.xp, xpNext: GD.PROGRESSION.xpForLevel(u.level),
     gold: u.gold, look: u.look, inventory: u.inventory, equip: u.equip, glacons: u.glacons, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id),
-    attrs: u.attrs, attrPoints: u.attrPoints, mysticFound: !!u.mysticFound,
+    attrs: u.attrs, attrPoints: u.attrPoints, twitchName: u.twitchName || null, mysticFound: !!u.mysticFound,
     locked: Object.fromEntries(u.inventory.map((it) => [it.uid, lockOf(u, it.uid)]).filter(([, l]) => l)),
     incomingTrades: db.data.trades.filter((t) => t.toId === u.id).length
   };
@@ -465,7 +465,25 @@ app.get('/api/leaderboard', (req, res) => {
   res.json({ top });
 });
 
-app.get('/api/info', (req, res) => res.json({ publicUrl: config.PUBLIC_URL, run: game.publicRunInfo() }));
+app.get('/api/info', (req, res) => res.json({ publicUrl: config.PUBLIC_URL, twitch: twitch.settings.channel, run: game.publicRunInfo() }));
+
+/* ============================== Twitch ============================== */
+app.post('/api/me/twitch/code', auth, (req, res) => res.json({ code: twitch.newCode(req.user.id), channel: twitch.settings.channel }));
+app.post('/api/me/twitch/unlink', auth, (req, res) => {
+  delete req.user.twitchLogin; delete req.user.twitchName;
+  db.markDirty();
+  res.json({ user: publicUser(req.user) });
+});
+app.get('/api/admin/twitch', admin, (req, res) => res.json(twitch.info()));
+app.post('/api/admin/twitch', admin, (req, res) => { twitch.configure(req.body || {}); res.json(twitch.info()); });
+// simule un message du chat (tests sans être en live)
+app.post('/api/admin/twitch/test', admin, (req, res) => {
+  const { user, text } = req.body || {};
+  const login = String(user || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 25);
+  if (!login || !text) return res.status(400).json({ error: 'Pseudo Twitch et message requis' });
+  twitch.onChat(login, String(user), String(text).slice(0, 200));
+  res.json(twitch.info());
+});
 
 /* ============================== Administration ============================== */
 app.get('/api/admin/state', admin, (req, res) => {
@@ -486,6 +504,8 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
     case 'skip': game.skipWave(); break;
     case 'wave': game.setWave(b.wave); break;
     case 'next': if (game.phase === 'intermission') game.run.timer = 0; break;
+    case 'openJoin': game.openJoin(b.seconds === undefined ? game.settings.joinWindow : b.seconds); break;
+    case 'closeJoin': game.closeJoin(); break;
     case 'treasury': game.addTreasury(Math.max(-game.run.treasury, Number(b.amount) || 0)); break;
     case 'healTower': game.run.tower.hp = game.run.tower.max; break;
     case 'bots': {
@@ -501,7 +521,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
       const s = game.settings;
       const num = (k, a, z) => { if (b[k] !== undefined && !isNaN(b[k])) s[k] = Math.min(z, Math.max(a, Number(b[k]))); };
       num('difficulty', 0.2, 5); num('intermission', 5, 120);
-      num('maxHeroes', 1, 500); num('maxAliveMobs', 20, 600); num('voteEvery', 1, 20);
+      num('maxHeroes', 1, 500); num('maxAliveMobs', 20, 600); num('voteEvery', 1, 20); num('joinWindow', 0, 7200); num('prepTime', 5, 600);
       if (b.autoNext !== undefined) s.autoNext = !!b.autoNext;
       if (b.autoRestart !== undefined) s.autoRestart = !!b.autoRestart;
       game.saveSettings();
@@ -514,7 +534,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
 
 app.get('/api/admin/users', admin, (req, res) => {
   res.json({
-    users: db.allUsers().map((u) => ({ id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', banned: !!u.banned, cls: u.cls, level: u.level, gold: u.gold, glacons: u.glacons, stats: u.stats, createdAt: u.createdAt, online: isOnline(u.id) }))
+    users: db.allUsers().map((u) => ({ id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', banned: !!u.banned, cls: u.cls, level: u.level, gold: u.gold, glacons: u.glacons, twitch: u.twitchName || null, stats: u.stats, createdAt: u.createdAt, online: isOnline(u.id) }))
   });
 });
 
@@ -600,13 +620,16 @@ io.on('connection', (socket) => {
     const user = db.userById(socket.data.userId);
     if (!user || user.banned) return;
     const h = game.joinUser(user);
-    if (typeof ack === 'function') ack(h ? { ok: true } : { error: 'La bataille est complète.' });
+    if (typeof ack === 'function') ack(h && !h.error ? { ok: true } : { error: (h && h.error) || 'Impossible de rejoindre.' });
   });
   socket.on('leave', () => game.removeHero(socket.data.userId));
   socket.on('vote', (opt) => game.castVote(socket.data.userId, String(opt)));
 });
 
 game.start();
+const Twitch = require('./twitch');
+const twitch = new Twitch(db, game, notify);
+twitch.start();
 server.listen(config.PORT, () => {
   console.log(`⚔️  Serveur prêt sur http://localhost:${config.PORT}`);
   console.log(`   Joueurs : /   ·   Stream (OBS) : /stream   ·   Admin : /admin`);

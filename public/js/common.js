@@ -56,5 +56,8 @@
   function onBalance(socket, cb) {
     socket.on('balance', (p) => { window.GameData.setPath(p.key.split('.'), p.value); if (cb) cb(p); });
   }
+  // Fond de l'interface (aperçu : ?fond=1..4)
+  const fond = new URLSearchParams(location.search).get('fond');
+  if (fond && /^[1-4]$/.test(fond)) document.body.classList.add('bg-' + fond);
   window.UI = { api, $, $$, el, toast, heroCanvas, balanceReady, onBalance };
 })();

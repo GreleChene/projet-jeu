@@ -476,9 +476,18 @@
     }
     ctx.globalAlpha = 1;
     // appel à rejoindre
-    panel(14, WORLD.H - 70, 470, 56);
-    text(`⚔️ Rejoins la défense : ${joinUrl}`, 32, WORLD.H - 44, 17, P.ui.text, 'left', 'b');
-    text(`${heroes.size} héros en jeu`, 32, WORLD.H - 24, 13, P.ui.muted, 'left', 'b');
+    if (s.jn) {
+      // inscriptions ouvertes : appel bien visible
+      const pulse = 0.5 + 0.5 * Math.sin(time * 4);
+      panel(14, WORLD.H - 92, 560, 78);
+      ctx.save(); ctx.globalAlpha = 0.25 + 0.25 * pulse; A.rrect(ctx, 14, WORLD.H - 92, 560, 78, 12, P.ui.gold, 0.01); ctx.restore();
+      text('⚔️ Tape !join dans le chat pour rejoindre !', 32, WORLD.H - 60, 21, P.ui.gold, 'left', 'b');
+      text(`${s.jn > 0 ? `Inscriptions ouvertes encore ${s.jn} s` : 'Inscriptions ouvertes'} · compte à lier sur ${joinUrl} · ${heroes.size} héros`, 32, WORLD.H - 32, 14, P.ui.text, 'left', 'b');
+    } else {
+      panel(14, WORLD.H - 70, 470, 56);
+      text(s.ph === 'lobby' ? `⚔️ Crée ton héros : ${joinUrl}` : '🔒 Inscriptions fermées', 32, WORLD.H - 44, 17, P.ui.text, 'left', 'b');
+      text(`${heroes.size} héros en jeu`, 32, WORLD.H - 24, 13, P.ui.muted, 'left', 'b');
+    }
     // boss
     if (s.bosses.length) {
       const w = 520, n = s.bosses.length;
@@ -519,7 +528,7 @@
     const w = 230, gap = 14, W = opts.length * (w + gap) - gap;
     const x0 = WORLD.CX - W / 2, y0 = WORLD.H - 230;
     panel(x0 - 20, y0 - 56, W + 40, 196);
-    text(`VOTE DE L’ÉQUIPE · ${s.timer}s`, WORLD.CX, y0 - 22, 22, P.ui.gold, 'center');
+    text(`VOTE · tape !1, !2… dans le chat · ${s.timer}s`, WORLD.CX, y0 - 22, 22, P.ui.gold, 'center');
     opts.forEach((o, i) => {
       const x = x0 + i * (w + gap);
       const up = UPGRADES[o];
@@ -531,6 +540,7 @@
       A.rrect(ctx, x, y0, w, 120, 10, o === 'pact' ? '#3a1f2a' : P.ui.panel2, 2);
       ctx.font = `32px ${FONT_B}`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(icon, x + 34, y0 + 48);
       text(name, x + 64, y0 + 34, 17, '#ffffff', 'left', 'b');
+      text(`!${i + 1}`, x + w - 12, y0 + 24, 16, '#bf94ff', 'right', 'b');
       text(cost ? `🪙 ${cost} écus` : o === 'pact' ? 'Récompenses ×2' : 'Garder les écus', x + 64, y0 + 56, 13, cost ? P.ui.gold : P.ui.muted, 'left', 'b');
       const n = s.vote.c[o] || 0;
       bar(x + 14, y0 + 84, w - 28, 12, n / total, o === 'pact' ? P.ui.danger : P.ui.accent);
