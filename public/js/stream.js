@@ -151,6 +151,7 @@
       case 'summon': add({ k: 'ring', x: e[1], y: e[2], r: e[3], color: '#b14cff', dur: 0.6, w: 8 }); break;
       case 'uproot': burst(e[1], e[2], P.wood[1], 10, 180, 4); add({ k: 'puff', x: e[1], y: e[2], dur: 0.6, r: 26 }); shake = Math.max(shake, 6); break;
       case 'bdestroy': burst(e[1], e[2] - 20, P.stone[1], 30, 220, 5); burst(e[1], e[2] - 20, P.biome.fire.accent[0], 16, 160, 4); add({ k: 'puff', x: e[1], y: e[2] - 20, dur: 0.9, r: 50 }); shake = Math.max(shake, 10); break;
+      case 'bbuild': burst(e[1], e[2] - 10, P.wood[0], 18, 140, 4); add({ k: 'puff', x: e[1], y: e[2], dur: 0.7, r: 40 }); break;
       case 'bossin': shake = Math.max(shake, 16); add({ k: 'flash', dur: 0.6, color: '#ff3d5a' }); break;
       case 'announce': announce = { title: e[1], sub: e[2], t: 0 }; break;
       case 'feed': feed.push({ text: e[1], t: 0 }); if (feed.length > 7) feed.shift(); break;
@@ -222,6 +223,7 @@
     const list = [];
     list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, hp: snap.tw[0] / snap.tw[1] }) });
     if (snap.bd) GD.BUILDINGS.forEach((b, i) => {
+      if (snap.bd[i] < 0) return; // aucun héros de cette classe : pas de bâtiment
       const p = GD.buildingPos(b);
       const fam = GD.CLASSES[b.family];
       list.push({ y: p.y + 4, d: () => A.drawBuilding(ctx, b.family, p.x, p.y, { hp: snap.bd[i] / 100, t: time, color: fam ? fam.color : P.ui.gold }) });
@@ -303,6 +305,7 @@
     if (!snap || !snap.bd) return;
     GD.BUILDINGS.forEach((b, i) => {
       const hp = snap.bd[i], p = GD.buildingPos(b);
+      if (hp < 0) return;
       if (hp >= 100 && snap.ph !== 'intermission') return;
       ctx.textAlign = 'center'; ctx.font = `800 12px ${FONT_B}`; ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
       const label = hp > 0 ? b.name : `${b.name} (détruite)`;
@@ -343,6 +346,7 @@
     for (const z of snap.z) {
       const kind = NET.ZONE_KINDS[z[0]];
       const [, x, y, r, t10, x2, y2] = z;
+      if (layer === 0 && (kind === 'ice' || kind === 'toxic' || kind === 'lava')) { drawHazard(kind, x, y, r); continue; }
       if (layer === 0 && kind === 'telegraph') {
         ctx.save();
         ctx.globalAlpha = 0.18 + 0.12 * Math.sin(time * 20);
@@ -372,6 +376,44 @@
     }
   }
 
+  // Zones dangereuses du biome (ellipses posées au sol)
+  function drawHazard(kind, x, y, r) {
+    const ry = r * 0.6;
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(x, y, r, ry, 0, 0, Math.PI * 2);
+    if (kind === 'ice') {
+      const g = ctx.createRadialGradient(x - r * 0.3, y - ry * 0.3, 4, x, y, r);
+      g.addColorStop(0, 'rgba(240,250,255,.85)'); g.addColorStop(1, 'rgba(150,205,240,.75)');
+      ctx.fillStyle = g; ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(29,22,38,.55)'; ctx.stroke();
+      ctx.clip();
+      ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 5; i++) { const a = i * 1.3 + x; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * ry); ctx.stroke(); }
+      ctx.fillStyle = `rgba(255,255,255,${0.5 + 0.4 * Math.sin(time * 3 + x)})`;
+      for (let i = 0; i < 4; i++) ctx.fillRect(x + Math.cos(i * 2.1 + x) * r * 0.6, y + Math.sin(i * 2.1 + x) * ry * 0.6, 3, 3);
+    } else if (kind === 'toxic') {
+      ctx.fillStyle = 'rgba(88,224,31,.42)'; ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(29,22,38,.55)'; ctx.stroke();
+      ctx.clip();
+      for (let i = 0; i < 6; i++) {
+        const ph = (time * 0.6 + i * 0.37 + x * 0.01) % 1;
+        const bx = x + Math.cos(i * 2.4 + x) * r * 0.55, by = y + Math.sin(i * 2.4 + x) * ry * 0.55;
+        ctx.globalAlpha = 1 - ph; ctx.strokeStyle = P.biome.poison.accent[1]; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(bx, by, 3 + ph * 7, 0, Math.PI * 2); ctx.stroke();
+      }
+    } else {
+      const k = 0.5 + 0.5 * Math.sin(time * 2 + x * 0.02);
+      const g = ctx.createRadialGradient(x, y, 4, x, y, r);
+      g.addColorStop(0, `rgba(255,${200 + 40 * k},90,.95)`); g.addColorStop(0.6, 'rgba(255,110,26,.9)'); g.addColorStop(1, 'rgba(120,30,10,.9)');
+      ctx.fillStyle = g; ctx.fill();
+      ctx.lineWidth = 4; ctx.strokeStyle = '#1c1210'; ctx.stroke();
+      ctx.clip();
+      ctx.fillStyle = 'rgba(28,18,16,.55)';
+      for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.ellipse(x + Math.cos(i * 1.9 + x) * r * 0.5, y + Math.sin(i * 1.9 + x) * ry * 0.5, r * 0.18, ry * 0.14, i, 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.restore();
+  }
+
   function drawFx() {
     for (const f of fx) {
       const k = f.t / f.dur;
@@ -384,9 +426,9 @@
           const size = f.c === 1 ? 22 : f.c === 2 ? 16 : 14;
           ctx.font = `900 ${size}px ${FONT_B}`; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
           const y = f.y - k * 30;
-          const s = (f.c === 2 ? '+' : '') + f.v;
+          const s = (f.c === 2 ? '+' : f.c >= 3 ? '-' : '') + f.v;
           ctx.strokeText(s, f.x, y);
-          ctx.fillStyle = f.c === 1 ? P.fx.crit : f.c === 2 ? P.fx.heal : '#ffffff';
+          ctx.fillStyle = f.c === 1 ? P.fx.crit : f.c === 2 ? P.fx.heal : f.c === 3 ? P.fx.burn : f.c === 4 ? P.fx.poison : '#ffffff';
           ctx.fillText(s, f.x, y); break;
         }
         case 'text': {

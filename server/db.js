@@ -78,13 +78,15 @@ function migrateUser(u) {
   // arbres de compétences : un compte déjà spécialisé reçoit sa branche si ses points le permettent
   u.skills ||= {};
   u.skillLost ||= 0;
-  if (!u.skillsV1) {
+  // v2 : branche de 5 compétences + ultime au niveau ULT_LEVEL ; une spécialisation déjà acquise est conservée si le niveau le permet
+  if (!u.skillsV2) {
     const c = CLASSES[u.cls];
+    u.skills = {};
     if (c && c.tier === 2) {
-      if (Math.floor(u.level / PROGRESSION.SKILL_EVERY) >= 4) u.skills = { [`${u.cls}_1`]: 1, [`${u.cls}_2`]: 1, [`${u.cls}_3`]: 1, [`${u.cls}_ult`]: 1 };
+      if (u.level >= PROGRESSION.ULT_LEVEL) { for (let i = 1; i <= 5; i++) u.skills[`${u.cls}_${i}`] = 1; u.skills[`${u.cls}_ult`] = 1; }
       else u.cls = c.parent;
     }
-    u.skillsV1 = true;
+    u.skillsV1 = u.skillsV2 = true;
   }
   return u;
 }

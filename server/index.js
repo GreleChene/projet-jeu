@@ -177,6 +177,8 @@ app.post('/api/me/class', auth, (req, res) => {
   if (GD.CLASSES[u.cls].tier !== 0) return res.status(400).json({ error: 'Tu as déjà une classe : utilise la reconversion.' });
   if (u.level < GD.PROGRESSION.CLASS_LEVEL) return res.status(400).json({ error: `Niveau ${GD.PROGRESSION.CLASS_LEVEL} requis.` });
   u.cls = id;
+  // les points placés dans les initiations des autres classes sont rendus
+  for (const k of Object.keys(u.skills || {})) if (GD.SKILLS[k] && GD.SKILLS[k].init && GD.SKILLS[k].base !== id) delete u.skills[k];
   afterProfileChange(u);
   res.json({ user: publicUser(u) });
 });
@@ -187,12 +189,21 @@ app.post('/api/me/skill', auth, (req, res) => {
   const n = GD.SKILLS[(req.body || {}).id];
   if (!n) return res.status(400).json({ error: 'Compétence inconnue' });
   const base = GD.familyOf(u.cls);
-  if (GD.CLASSES[n.spec].parent !== base) return res.status(400).json({ error: 'Cette compétence n’est pas dans ton arbre.' });
+  const habitant = GD.CLASSES[u.cls].tier === 0;
   u.skills ||= {};
+  if (n.init) {
+    // initiation : librement avant le choix de classe, puis seulement celle de sa classe
+    if (!habitant && n.base !== base) return res.status(400).json({ error: 'Cette initiation n’est pas celle de ta classe.' });
+  } else {
+    if (habitant) return res.status(400).json({ error: `Choisis d’abord ta classe (niveau ${GD.PROGRESSION.CLASS_LEVEL}).` });
+    if (n.base !== base) return res.status(400).json({ error: 'Cette compétence n’est pas dans ton arbre.' });
+    const started = GD.startedBranch(u.skills);
+    if (started && started !== n.spec) return res.status(400).json({ error: `Tu as choisi la voie ${GD.CLASSES[started].name} : les autres branches sont bloquées (reconversion possible).` });
+    if (n.ult && u.level < GD.PROGRESSION.ULT_LEVEL) return res.status(400).json({ error: `L’ultime se débloque au niveau ${GD.PROGRESSION.ULT_LEVEL}.` });
+  }
   const rank = u.skills[n.id] || 0;
   if (rank >= n.max) return res.status(400).json({ error: 'Rang maximum atteint.' });
   if (n.requires && !u.skills[n.requires]) return res.status(400).json({ error: 'Débloque d’abord la compétence précédente.' });
-  if (n.ult && Object.keys(u.skills).some((k) => GD.SKILLS[k] && GD.SKILLS[k].ult)) return res.status(400).json({ error: 'Tu as déjà un ultime : reconvertis-toi pour en changer.' });
   if (GD.skillPoints(u).free < 1) return res.status(400).json({ error: 'Pas assez de points de compétence.' });
   u.skills[n.id] = rank + 1;
   if (n.ult) u.cls = n.spec; // l'ultime fait devenir la spécialisation

@@ -69,3 +69,25 @@ test('la tour a 200 PV et le vote a lieu toutes les deux manches', () => {
   g.setWave(2); g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
   assert.ok(g.run.vote, 'vote après la manche 2');
 });
+
+test('arbres de compétences : une seule branche, ultime au niveau 30', () => {
+  const GD = require('../shared/constants');
+  assert.strictEqual(GD.PROGRESSION.CLASS_LEVEL, 7);
+  assert.strictEqual(GD.startedBranch({ init_soldat: 2 }), null);
+  assert.strictEqual(GD.startedBranch({ paladin_1: 1 }), 'paladin');
+  assert.ok(GD.SKILLS.paladin_ult.requires === 'paladin_5');
+  assert.deepStrictEqual(GD.skillPoints({ level: 30, skills: { paladin_1: 2 } }).free, 13);
+});
+
+test('zones de biome : uniquement sur le biome correspondant, sans chevauchement', () => {
+  const g = makeGame();
+  g.startRun(1);
+  g.setWave(95);
+  const hz = g.zones.filter((z) => ['ice', 'toxic', 'lava'].includes(z.kind));
+  assert.ok(hz.length >= 2);
+  for (let i = 0; i < hz.length; i++) for (let j = i + 1; j < hz.length; j++) {
+    assert.ok(Math.hypot(hz[i].x - hz[j].x, hz[i].y - hz[j].y) >= hz[i].r + hz[j].r, 'zones superposées');
+  }
+  g.setWave(2); // prairie : aucune zone
+  assert.strictEqual(g.zones.filter((z) => ['ice', 'toxic', 'lava'].includes(z.kind)).length, 0);
+});

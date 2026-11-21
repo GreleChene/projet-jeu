@@ -74,30 +74,50 @@
    * (débloquer l'ultime = devenir la spécialisation ; un seul ultime à la fois).
    */
   const SKILL_TREE = {
-    paladin: [['Foi inébranlable', { hp: 0.05 }], ['Aura de protection', { armor: 0.03 }], ['Bouclier sacré', { hp: 0.06 }]],
-    chevalier: [['Entraînement martial', { dmg: 0.05 }], ['Galop', { speed: 0.05 }], ['Lance affûtée', { dmg: 0.06 }]],
-    glace: [['Froid mordant', { dmg: 0.04 }], ['Armure de givre', { armor: 0.03 }], ['Concentration', { ult: 0.08 }]],
-    feu: [['Étincelle', { dmg: 0.05 }], ['Combustion', { crit: 0.03 }], ['Pyromancie', { dmg: 0.06 }]],
-    soin: [['Prière', { hp: 0.05 }], ['Méditation', { ult: 0.08 }], ['Lumière bénie', { armor: 0.02, hp: 0.03 }]],
-    dompteur: [['Complicité', { hp: 0.05 }], ['Instinct sauvage', { dmg: 0.05 }], ['Chef de meute', { ult: 0.08 }]],
-    necromancien: [['Rites sombres', { dmg: 0.05 }], ['Peau morte', { armor: 0.03 }], ['Moisson d’âmes', { ult: 0.08 }]],
-    arbaletrier: [['Mécanisme huilé', { atkspd: 0.05 }], ['Carreaux lourds', { dmg: 0.05 }], ['Visée', { crit: 0.03 }]],
-    arclong: [['Œil perçant', { crit: 0.03 }], ['Tension de la corde', { dmg: 0.05 }], ['Pas léger', { speed: 0.05 }]],
-    ombre: [['Discrétion', { speed: 0.05 }], ['Lames empoisonnées', { dmg: 0.05 }], ['Fumigènes', { ult: 0.08 }]],
-    fleche: [['Précision', { crit: 0.03 }], ['Vivacité', { atkspd: 0.05 }], ['Exécution', { dmg: 0.06 }]],
-    agriculteur: [['Semailles', { harvest: 0.1 }], ['Robustesse', { hp: 0.05 }], ['Abondance', { harvest: 0.12 }]],
-    bucheron: [['Bras solides', { dmg: 0.05 }], ['Coupe franche', { harvest: 0.1 }], ['Charpentier', { armor: 0.03 }]],
-    mineur: [['Endurance', { hp: 0.06 }], ['Filons', { harvest: 0.1 }], ['Peau de pierre', { armor: 0.03 }]]
+    paladin: [['Foi inébranlable', { hp: 0.05 }], ['Aura de protection', { armor: 0.03 }], ['Bouclier sacré', { hp: 0.06 }], ['Ferveur', { dmg: 0.04 }], ['Rempart vivant', { armor: 0.03 }]],
+    chevalier: [['Entraînement martial', { dmg: 0.05 }], ['Galop', { speed: 0.05 }], ['Lance affûtée', { dmg: 0.06 }], ['Armure de joute', { armor: 0.03 }], ['Fougue', { atkspd: 0.04 }]],
+    glace: [['Froid mordant', { dmg: 0.04 }], ['Armure de givre', { armor: 0.03 }], ['Concentration', { ult: 0.08 }], ['Cœur de glace', { hp: 0.05 }], ['Blizzard', { dmg: 0.05 }]],
+    feu: [['Étincelle', { dmg: 0.05 }], ['Combustion', { crit: 0.03 }], ['Pyromancie', { dmg: 0.06 }], ['Brasier', { ult: 0.06 }], ['Âme ardente', { dmg: 0.05 }]],
+    soin: [['Prière', { hp: 0.05 }], ['Méditation', { ult: 0.08 }], ['Lumière bénie', { armor: 0.02, hp: 0.03 }], ['Grâce', { ult: 0.06 }], ['Sanctuaire', { hp: 0.05 }]],
+    dompteur: [['Complicité', { hp: 0.05 }], ['Instinct sauvage', { dmg: 0.05 }], ['Chef de meute', { ult: 0.08 }], ['Peau de bête', { armor: 0.03 }], ['Rage animale', { dmg: 0.05 }]],
+    necromancien: [['Rites sombres', { dmg: 0.05 }], ['Peau morte', { armor: 0.03 }], ['Moisson d’âmes', { ult: 0.08 }], ['Pacte funèbre', { hp: 0.05 }], ['Faucheuse', { dmg: 0.05 }]],
+    arbaletrier: [['Mécanisme huilé', { atkspd: 0.05 }], ['Carreaux lourds', { dmg: 0.05 }], ['Visée', { crit: 0.03 }], ['Cadence', { atkspd: 0.05 }], ['Perforation', { dmg: 0.05 }]],
+    arclong: [['Œil perçant', { crit: 0.03 }], ['Tension de la corde', { dmg: 0.05 }], ['Pas léger', { speed: 0.05 }], ['Archerie royale', { dmg: 0.05 }], ['Sang-froid', { crit: 0.03 }]],
+    ombre: [['Discrétion', { speed: 0.05 }], ['Lames empoisonnées', { dmg: 0.05 }], ['Fumigènes', { ult: 0.08 }], ['Danse des ombres', { crit: 0.03 }], ['Assassinat', { dmg: 0.06 }]],
+    fleche: [['Précision', { crit: 0.03 }], ['Vivacité', { atkspd: 0.05 }], ['Exécution', { dmg: 0.06 }], ['Course', { speed: 0.05 }], ['Lame fatale', { crit: 0.03 }]],
+    agriculteur: [['Semailles', { harvest: 0.1 }], ['Robustesse', { hp: 0.05 }], ['Abondance', { harvest: 0.12 }], ['Grenier plein', { harvest: 0.12 }], ['Bonne santé', { hp: 0.06 }]],
+    bucheron: [['Bras solides', { dmg: 0.05 }], ['Coupe franche', { harvest: 0.1 }], ['Charpentier', { armor: 0.03 }], ['Endurance du bûcheron', { hp: 0.06 }], ['Hache lourde', { dmg: 0.06 }]],
+    mineur: [['Endurance', { hp: 0.06 }], ['Filons', { harvest: 0.1 }], ['Peau de pierre', { armor: 0.03 }], ['Veine d’or', { harvest: 0.12 }], ['Mineur aguerri', { dmg: 0.05 }]]
+  };
+  // Arbre d'initiation (avant le choix de classe) : une compétence liée à chaque classe.
+  // En choisissant sa classe, les points des autres initiations sont rendus.
+  const INITIATION = {
+    soldat: ['Entraînement de recrue', { hp: 0.04 }],
+    mage: ['Lecture des grimoires', { dmg: 0.03, ult: 0.03 }],
+    eleveur: ['Ami des bêtes', { hp: 0.02, dmg: 0.02 }],
+    archer: ['Tir à la cible', { crit: 0.02 }],
+    assassin: ['Pas de velours', { speed: 0.03, crit: 0.01 }],
+    paysan: ['Travaux des champs', { hp: 0.03, harvest: 0.05 }]
   };
   const SKILL_MAX_RANK = 3;
   const SKILLS = {};
-  for (const [spec, nodes] of Object.entries(SKILL_TREE)) {
-    nodes.forEach(([name, bonus], i) => {
-      SKILLS[`${spec}_${i + 1}`] = { id: `${spec}_${i + 1}`, spec, step: i + 1, name, bonus, max: SKILL_MAX_RANK, requires: i ? `${spec}_${i}` : null };
-    });
-    SKILLS[`${spec}_ult`] = { id: `${spec}_ult`, spec, step: 4, ult: true, max: 1, requires: `${spec}_3` };
+  for (const [base, [name, bonus]] of Object.entries(INITIATION)) {
+    SKILLS[`init_${base}`] = { id: `init_${base}`, init: true, base, name, bonus, max: SKILL_MAX_RANK, requires: null };
   }
-  const skillsOfFamily = (base) => Object.values(SKILLS).filter((n) => CLASSES[n.spec].parent === base);
+  for (const [spec, nodes] of Object.entries(SKILL_TREE)) {
+    const base = CLASSES[spec].parent;
+    nodes.forEach(([name, bonus], i) => {
+      SKILLS[`${spec}_${i + 1}`] = { id: `${spec}_${i + 1}`, base, spec, step: i + 1, name, bonus, max: SKILL_MAX_RANK, requires: i ? `${spec}_${i}` : null };
+    });
+    SKILLS[`${spec}_ult`] = { id: `${spec}_ult`, base, spec, step: nodes.length + 1, ult: true, max: 1, requires: `${spec}_${nodes.length}` };
+    SKILLS[`${spec}_mastery`] = { id: `${spec}_mastery`, base, spec, step: nodes.length + 2, mastery: true, name: `Maîtrise : ${CLASSES[spec].name}`, bonus: { hp: 0.02, dmg: 0.02 }, max: 5, requires: `${spec}_ult` };
+  }
+  // Branche (spécialisation) déjà entamée : les autres branches sont alors bloquées
+  const startedBranch = (skills) => {
+    for (const [id, r] of Object.entries(skills || {})) if (r > 0 && SKILLS[id] && SKILLS[id].spec) return SKILLS[id].spec;
+    return null;
+  };
+  const skillsOfFamily = (base) => Object.values(SKILLS).filter((n) => n.base === base);
   function skillPoints(u) {
     const earned = Math.floor((u.level || 1) / PROGRESSION.SKILL_EVERY);
     const spent = Object.values(u.skills || {}).reduce((a, b) => a + b, 0);
@@ -122,7 +142,8 @@
   // Le niveau n'augmente PAS les statistiques : seuls les points de stat (et l'équipement) le font.
   // Chaque niveau rapporte des points de stat et des glaçons.
   const PROGRESSION = {
-    CLASS_LEVEL: 3, // niveau pour quitter « habitant »
+    CLASS_LEVEL: 7, // niveau pour quitter « habitant » (et choisir sa classe)
+    ULT_LEVEL: 30, // niveau requis pour débloquer l'ultime (bout de branche)
     MAX_LEVEL: 60,
     POINTS_PER_LEVEL: 1,
     GLACONS_PER_LEVEL: 1,
@@ -171,6 +192,14 @@
     HARVEST_INTERVAL: 3, // paysans : une récolte toutes les X secondes
     HARVEST_BASE: 1.5,
     HARVEST_PER_LEVEL: 0.15,
+    HAZARD_BASE: 2, // zones dangereuses du biome par manche = BASE + PAR_MANCHE×m (max HAZARD_MAX)
+    HAZARD_PER_WAVE: 0.08,
+    HAZARD_MAX: 9,
+    HAZARD_ICE_SLOW: 0.35, // zone de glace : ralentissement des héros
+    HAZARD_POISON_PCT: 0.01, // zone de poison : % des PV max perdus…
+    HAZARD_POISON_EVERY: 3, // …toutes les X secondes
+    HAZARD_LAVA_PCT: 0.01, // zone de lave : % des PV max perdus…
+    HAZARD_LAVA_EVERY: 2, // …toutes les X secondes
     BUILDING_HP: 100, // PV de chaque bâtiment de classe
     BUILDING_HEAL: 0.25 // soin par seconde (part des PV max) dans son bâtiment pendant l'entracte
   };
@@ -475,7 +504,7 @@
   /* Codes réseau compacts (instantanés serveur -> écran) */
   const NET = {
     PROJ_KINDS: ['arrow', 'bolt', 'orb', 'ice', 'fire', 'holy', 'frost', 'poison', 'fireball', 'rock', 'ballista'],
-    ZONE_KINDS: ['smoke', 'poison', 'telegraph', 'tline', 'fire'],
+    ZONE_KINDS: ['smoke', 'poison', 'telegraph', 'tline', 'fire', 'ice', 'toxic', 'lava'],
     HF: { DEAD: 1, STEALTH: 2, ZOMBIE: 4, ATTACK: 8, FURY: 16, SHIELD: 32, SLOW: 64, POISON: 128, BURN: 256, HARVEST: 512, ULT: 1024, RETREAT: 2048, DASH: 4096 },
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128 }
   };
@@ -496,5 +525,5 @@
     for (const [k, v] of Object.entries(overrides || {})) { try { setPath(k.split('.'), v); } catch (e) { /* chemin obsolète */ } }
   }
 
-  return { SKILLS, SKILL_TREE, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

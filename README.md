@@ -41,8 +41,15 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
 
   L'admin dispose d'un simulateur de messages pour tester sans être en live.
 - **Mode défense de tour.** Les monstres arrivent de tous les bords. La tour commence avec **200 PV** ; si elle tombe, la partie est perdue. Il y a 100 manches.
-- **Arbres de compétences.** Chaque classe a un arbre dont chaque branche correspond à une spécialisation : 3 compétences passives (3 rangs chacune), puis l'ultime au bout de la branche, qui fait devenir cette spécialisation. On gagne 1 point de compétence tous les 2 niveaux. La **reconversion** remet l'arbre à zéro et permet de changer de classe, mais fait perdre définitivement un quart des points attribués.
-- **Bâtiments de classe.** Ferme, chaumière, tour des mages, étable, tour de guet, repaire et caserne entourent la tour, les classes de soutien au plus près. Chaque bâtiment a 100 PV. Les monstres frappent ceux qui se trouvent sur leur trajet vers la tour, sans faire de détour. Pendant l'entracte, les héros rentrent se soigner dans le bâtiment de leur classe ; s'il est détruit, ils ne peuvent plus s'y soigner. Les ultimes du bûcheron réparent aussi les bâtiments.
+- **Arbres de compétences.**
+  - Tout le monde commence Habitant, avec un **arbre d'initiation** : une compétence liée à chaque classe.
+  - Le **choix de la classe se fait au niveau 7**. L'initiation de la classe choisie est conservée et les points des autres sont rendus.
+  - L'arbre de la classe a une branche par spécialisation : 5 compétences passives (3 rangs chacune), l'**ultime au bout (niveau 30 requis)**, qui fait devenir la spécialisation, puis une maîtrise (5 rangs).
+  - **Une seule spécialisation** : dès qu'un point est placé dans une branche, les autres sont bloquées.
+  - On gagne 1 point de compétence tous les 2 niveaux.
+  - La reconversion remet tout à zéro (changement de classe possible) mais fait perdre un quart des points attribués.
+- **Bâtiments de classe.** Un bâtiment n'existe que si au moins un héros de cette classe participe : sans archer, pas de tour de guet. Il y en a sept possibles autour de la tour (ferme, chaumière, tour des mages, étable, tour de guet, repaire, caserne), les classes de soutien au plus près. Chaque bâtiment a 100 PV. Les monstres frappent ceux qui se trouvent sur leur trajet vers la tour, sans détour. Pendant l'entracte, les héros rentrent se soigner dans le leur, ce qui devient impossible s'il est détruit.
+- **Zones de biome.** À chaque manche, de petites zones apparaissent au hasard, sur des tuiles du biome correspondant et sans se chevaucher : glace (ralentit les héros), poison (−1 % des PV max toutes les 3 s), lave (−1 % toutes les 2 s). Pendant les manches 91 à 100, les trois types coexistent. Tout est réglable dans l'onglet Équilibrage.
 - **Adaptation au nombre de joueurs.** La puissance des monstres (PV et dégâts), leur nombre et la durée des manches augmentent avec le nombre de héros. Tout est réglable dans l'onglet Équilibrage.
 - **Niveaux et statistiques.** Monter de niveau n'augmente pas les statistiques. Chaque niveau rapporte **1 point de stat** (Vie, Force, Défense, Agilité, Vitesse, Critique), réinitialisable gratuitement, et **1 glaçon**. Seuls les points de stat et l'équipement renforcent un héros. Les comptes existants ont reçu rétroactivement 1 glaçon par niveau déjà gagné.
 - **Classes évolutives.** Tout le monde commence *Habitant*. Au niveau 3, le joueur choisit une classe. Au niveau 8, il choisit une spécialisation, qui donne un **ultime** :

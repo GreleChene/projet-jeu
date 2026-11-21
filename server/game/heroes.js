@@ -494,7 +494,7 @@ module.exports = {
         const tw = this.run.tower;
         tw.hp = Math.min(tw.max, tw.hp + tw.max * 0.12);
         // le bûcheron répare aussi les bâtiments encore debout
-        for (const b of this.run.buildings) if (b.hp > 0) b.hp = Math.min(b.max, b.hp + b.max * 0.3);
+        for (const b of this.run.buildings) if (b.active && b.hp > 0) b.hp = Math.min(b.max, b.hp + b.max * 0.3);
         this.fx(['towerheal', WORLD.CX, WORLD.CY]);
         break;
       }

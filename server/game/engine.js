@@ -14,6 +14,7 @@ const MOB_INDEX = Object.fromEntries(MOB_IDS.map((id, i) => [id, i]));
 const { PROJ_KINDS, ZONE_KINDS, HF, MF } = GD.NET;
 const PROJ_INDEX = Object.fromEntries(PROJ_KINDS.map((k, i) => [k, i]));
 const ZONE_INDEX = Object.fromEntries(ZONE_KINDS.map((k, i) => [k, i]));
+const HAZARD_KINDS = ['ice', 'toxic', 'lava'];
 
 
 const DEFAULT_SETTINGS = {
@@ -60,7 +61,7 @@ class Game {
       uprooted: false,
       tower: { hp: GD.BALANCE.TOWER_BASE_HP, max: GD.BALANCE.TOWER_BASE_HP, ballistaT: 0, catapultT: 0 },
       // bâtiments de classe : refuge et soin des héros entre les manches
-      buildings: GD.BUILDINGS.map((b, i) => ({ idx: i, family: b.family, name: b.name, ...GD.buildingPos(b), hp: GD.BALANCE.BUILDING_HP, max: GD.BALANCE.BUILDING_HP, size: 34, isBuilding: true })),
+      buildings: GD.BUILDINGS.map((b, i) => ({ idx: i, family: b.family, name: b.name, ...GD.buildingPos(b), hp: GD.BALANCE.BUILDING_HP, max: GD.BALANCE.BUILDING_HP, size: 34, isBuilding: true, active: false })),
       treasury: 0,
       wealthEarned: 0,
       upgrades: Object.fromEntries(Object.keys(UPGRADES).map((k) => [k, 0])),
@@ -215,13 +216,15 @@ class Game {
       look: { cape: (Math.random() * 10) | 0, skin: (Math.random() * 5) | 0, hair: (Math.random() * 6) | 0 },
       gear,
       skills: (() => {
-        // spécialisation : branche + ultime, puis points restants au hasard dans la branche
+        // bots : initiation, puis la branche de leur spécialisation (ultime compris)
         const sk = {};
         const c = CLASSES[cls];
-        if (c.tier !== 2) return sk;
         let pts = Math.floor(lvl / PROGRESSION.SKILL_EVERY);
-        for (const id of [`${cls}_1`, `${cls}_2`, `${cls}_3`, `${cls}_ult`]) if (pts > 0) { sk[id] = 1; pts--; }
-        for (let i = 0; i < 20 && pts > 0; i++) { const id = `${cls}_${1 + (i % 3)}`; if (sk[id] < GD.SKILL_MAX_RANK) { sk[id]++; pts--; } }
+        const base = c.tier === 0 ? null : c.tier === 1 ? cls : c.parent;
+        if (base && pts > 0) { sk[`init_${base}`] = Math.min(GD.SKILL_MAX_RANK, pts); pts -= sk[`init_${base}`]; }
+        if (c.tier !== 2) return sk;
+        for (const id of [1, 2, 3, 4, 5, 'ult'].map((i) => `${cls}_${i}`)) { sk[id] = 1; pts--; }
+        for (let i = 0; i < 30 && pts > 0; i++) { const id = `${cls}_${1 + (i % 5)}`; if (sk[id] < GD.SKILL_MAX_RANK) { sk[id]++; pts--; } }
         return sk;
       })(),
       attrs: (() => { const a = GD.emptyAttrs(); for (let i = 1; i < lvl; i++) a[U.pick(GD.ATTR_IDS)]++; return a; })(),
@@ -340,6 +343,7 @@ class Game {
     r.waveTime = 0;
     this.phase = 'wave';
     this.buildWave(n);
+    this.spawnHazards(n);
     const era = GD.eraOfWave(n);
     const boss = BOSS_WAVES[n];
     if (n === 100) this.announce('MANCHE 100', 'Les trois fléaux se lèvent ensemble…');
@@ -353,6 +357,7 @@ class Game {
 
   waveCleared() {
     const r = this.run;
+    this.zones = this.zones.filter((z) => !HAZARD_KINDS.includes(z.kind));
     r.cleared = Math.max(r.cleared, r.wave);
     const wasBoss = !!BOSS_WAVES[r.wave];
     if (wasBoss) this.terrainChanged();
@@ -494,6 +499,7 @@ class Game {
     if (this.paused) return;
     this.time += dt;
     const r = this.run;
+    this.updateBuildingPresence();
     this.mobHash.build(this.mobs);
     switch (this.phase) {
       case 'lobby':
@@ -644,7 +650,7 @@ class Game {
           this.damageAlly(a, p.dmg); done = true; break;
         }
         if (!done) for (const b of this.run.buildings) {
-          if (b.hp <= 0 || (b.x - p.x) ** 2 + (b.y - p.y) ** 2 > b.size ** 2) continue;
+          if (!b.active || b.hp <= 0 || (b.x - p.x) ** 2 + (b.y - p.y) ** 2 > b.size ** 2) continue;
           this.damageBuilding(b, p.dmg); done = true; break;
         }
         if (!done && (p.x - WORLD.CX) ** 2 + (p.y - WORLD.CY) ** 2 < WORLD.TOWER_R ** 2) {
@@ -672,10 +678,51 @@ class Game {
           for (const h of this.heroes.values()) if (h.alive && (h.x - z.x) ** 2 + (h.y - z.y) ** 2 < z.r * z.r) this.applyStatus(h, { poison: z.dps, dur: 2 });
         }
       }
+      if (HAZARD_KINDS.includes(z.kind)) this.hazardTick(z, dt);
       if (z.kind === 'telegraph' && z.t <= 0 && z.onEnd) z.onEnd();
       if (z.kind === 'tline' && z.t <= 0 && z.onEnd) z.onEnd();
     }
     this.zones = this.zones.filter((z) => z.t > 0);
+  }
+
+  /*
+   * Zones dangereuses du biome : apparaissent au hasard sur les tuiles du biome correspondant
+   * (glace = ralentit, poison et lave = perte de PV périodique), sans se chevaucher.
+   */
+  spawnHazards(w) {
+    this.zones = this.zones.filter((z) => !HAZARD_KINDS.includes(z.kind));
+    const B = GD.BALANCE;
+    const want = Math.min(B.HAZARD_MAX, Math.floor(B.HAZARD_BASE + w * B.HAZARD_PER_WAVE));
+    const KIND = { frost: 'ice', poison: 'toxic', fire: 'lava' };
+    const placed = [];
+    const avoid = [{ x: WORLD.CX, y: WORLD.CY, r: 190 }, ...this.run.buildings.filter((b) => b.active).map((b) => ({ x: b.x, y: b.y, r: 70 }))];
+    for (let tries = 0; tries < 400 && placed.length < want; tries++) {
+      const r = U.rand(55, 105);
+      const x = U.rand(70 + r, WORLD.W - 70 - r), y = U.rand(60 + r, WORLD.H - 60 - r);
+      const biome = Terrain.tileBiome(Math.floor(x / WORLD.TILE), Math.floor(y / WORLD.TILE), this.terrain, this.run.seed);
+      const kind = KIND[biome];
+      if (!kind) continue;
+      if ([...avoid, ...placed].some((o) => (o.x - x) ** 2 + (o.y - y) ** 2 < (o.r + r + 20) ** 2)) continue;
+      placed.push({ kind, x, y, r, t: 999, tick: kind === 'toxic' ? B.HAZARD_POISON_EVERY : B.HAZARD_LAVA_EVERY });
+    }
+    this.zones.push(...placed);
+  }
+
+  hazardTick(z, dt) {
+    const B = GD.BALANCE;
+    z.t = 999;
+    const inside = [];
+    for (const h of this.heroes.values()) if (h.alive && (h.x - z.x) ** 2 + ((h.y - z.y) / 0.6) ** 2 < z.r * z.r) inside.push(h);
+    if (z.kind === 'ice') { for (const h of inside) this.applyStatus(h, { slow: B.HAZARD_ICE_SLOW, dur: 0.3 }); return; }
+    z.tick -= dt;
+    if (z.tick > 0) return;
+    const lava = z.kind === 'lava';
+    z.tick = lava ? B.HAZARD_LAVA_EVERY : B.HAZARD_POISON_EVERY;
+    for (const h of inside) {
+      const n = h.maxHp * (lava ? B.HAZARD_LAVA_PCT : B.HAZARD_POISON_PCT);
+      this.damageHero(h, n, null, true);
+      this.fx(['num', Math.round(h.x), Math.round(h.y - 30), Math.max(1, Math.round(n)), lava ? 3 : 4]);
+    }
   }
 
   inSmoke(x, y) {
@@ -703,7 +750,20 @@ class Game {
     return speed;
   }
 
-  buildingOf(family) { return this.run.buildings.find((b) => b.family === family) || null; }
+  buildingOf(family) { return this.run.buildings.find((b) => b.family === family && b.active) || null; }
+
+  // Un bâtiment n'existe que si au moins un héros de cette famille de classes participe
+  updateBuildingPresence() {
+    const fams = new Set();
+    for (const h of this.heroes.values()) fams.add(GD.familyOf(h.cls));
+    for (const b of this.run.buildings) {
+      const want = fams.has(b.family);
+      if (want && !b.active) {
+        b.active = true;
+        if (this.phase !== 'lobby') { this.fx(['bbuild', Math.round(b.x), Math.round(b.y)]); }
+      } else if (!want && b.active) b.active = false;
+    }
+  }
 
   damageBuilding(b, n) {
     if (b.hp <= 0) return;
@@ -786,7 +846,7 @@ class Game {
       timer: Math.ceil(r.timer), seed: r.seed, tv: this.terrainVersion, ter: this.terrain, rv: this.rosterVersion,
       vote: r.vote ? { o: r.vote.options, c: this.voteCounts(), cost: Object.fromEntries(r.vote.options.map((o) => [o, UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0])) } : null,
       pact: r.pactActive ? 1 : r.pactNext ? 2 : 0,
-      bd: r.buildings.map((b) => Math.ceil((100 * b.hp) / b.max)),
+      bd: r.buildings.map((b) => (b.active ? Math.ceil((100 * b.hp) / b.max) : -1)),
       jn: this.canJoin() ? (Number.isFinite(r.joinUntil) ? Math.ceil((r.joinUntil - Date.now()) / 1000) : -1) : 0,
       bosses, h: heroes, m: mobs, a: allies, p: proj, z: zones, e: ev
     };

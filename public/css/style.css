@@ -269,3 +269,5 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 .skill.ult .skill-name { font-family: var(--font-title); color: var(--gold); }
 #skillBadge:empty { display: none; }
 #skillBadge { background: var(--danger); color: #fff; border-radius: 999px; padding: 0 7px; font-size: .75rem; margin-left: 4px; }
+.branch-locked { opacity: .55; filter: grayscale(.5); }
+.skill.mastery { border-style: dashed; }
