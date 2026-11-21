@@ -214,6 +214,16 @@ class Game {
       cls, level: lvl,
       look: { cape: (Math.random() * 10) | 0, skin: (Math.random() * 5) | 0, hair: (Math.random() * 6) | 0 },
       gear,
+      skills: (() => {
+        // spécialisation : branche + ultime, puis points restants au hasard dans la branche
+        const sk = {};
+        const c = CLASSES[cls];
+        if (c.tier !== 2) return sk;
+        let pts = Math.floor(lvl / PROGRESSION.SKILL_EVERY);
+        for (const id of [`${cls}_1`, `${cls}_2`, `${cls}_3`, `${cls}_ult`]) if (pts > 0) { sk[id] = 1; pts--; }
+        for (let i = 0; i < 20 && pts > 0; i++) { const id = `${cls}_${1 + (i % 3)}`; if (sk[id] < GD.SKILL_MAX_RANK) { sk[id]++; pts--; } }
+        return sk;
+      })(),
       attrs: (() => { const a = GD.emptyAttrs(); for (let i = 1; i < lvl; i++) a[U.pick(GD.ATTR_IDS)]++; return a; })(),
       ai: { stance: U.pick(['offensive', 'balanced', 'defensive']), target: U.pick(['nearest', 'weakest', 'strongest', 'tower']), retreat: U.pick([0, 25, 50]), ult: U.pick(['asap', 'smart', 'boss']) }
     };
@@ -269,7 +279,7 @@ class Game {
     h.attrs = p.attrs;
     const c = CLASSES[h.cls] || CLASSES.habitant;
     const ratio = h.maxHp > 1 ? h.hp / h.maxHp : 1;
-    const st = GD.computeStats({ cls: h.cls, level: h.level, gear: h.gear, attrs: p.attrs, upgrades: this.run.upgrades });
+    const st = GD.computeStats({ cls: h.cls, level: h.level, gear: h.gear, skills: p.skills, attrs: p.attrs, upgrades: this.run.upgrades });
     Object.assign(h, st);
     h.hp = Math.max(1, Math.min(h.maxHp, Math.round(h.maxHp * ratio)));
     if (prevCls && prevCls !== h.cls) {
@@ -310,7 +320,7 @@ class Game {
       this.refreshHero(h);
       this.fx(['lvl', h.x, h.y, p.level]);
       this.fx(['text', h.x, h.y - 70, `+${gained} point${gained > 1 ? 's' : ''} de stat · +${gained * PROGRESSION.GLACONS_PER_LEVEL} 🧊`, GD.PALETTE.fx.xp]);
-      if (before < PROGRESSION.CLASS_LEVEL && p.level >= PROGRESSION.CLASS_LEVEL || before < PROGRESSION.SPEC_LEVEL && p.level >= PROGRESSION.SPEC_LEVEL) this.pushFeed(`${h.name} peut faire évoluer sa classe !`);
+      if (before < PROGRESSION.CLASS_LEVEL && p.level >= PROGRESSION.CLASS_LEVEL) this.pushFeed(`${h.name} peut choisir sa classe !`);
     }
     return gained;
   }
@@ -820,7 +830,9 @@ class Game {
         alive: h.alive, hp: Math.ceil(h.hp), maxHp: h.maxHp, ult: Math.min(1, h.ult), hasUlt: !!CLASSES[h.cls].ult,
         respawn: Math.ceil(h.respawnT), zombie: h.zombie, kills: h.runKills, xp: h.runXp, gold: h.runGold,
         buffs: Object.fromEntries(Object.entries(h.buffs).filter(([, v]) => v > 0).map(([k, v]) => [k, Math.ceil(v)])),
-        status: Object.keys(h.status), dmg: Math.round(h.dmg), armor: Math.round(h.armor * 100)
+        status: Object.keys(h.status), dmg: Math.round(h.dmg), armor: Math.round(h.armor * 100),
+        resting: !!h.resting,
+        building: (() => { const b = this.buildingOf(GD.familyOf(h.cls)); return b ? { name: b.name, hp: Math.ceil(b.hp), max: b.max } : null; })()
       };
     }
     return out;

@@ -17,7 +17,7 @@ const L = {
   WAVE_ECUS_PER_WAVE: 'Fin de manche : écus par manche', KILL_ECUS: 'Écus par élimination (part de la valeur du monstre)', HARVEST_INTERVAL: 'Paysans : secondes entre deux récoltes',
   BUILDING_HP: 'PV des bâtiments de classe', BUILDING_HEAL: 'Soin dans son bâtiment pendant l’entracte (part des PV max / s)',
   HARVEST_BASE: 'Paysans : écus par récolte (base)', HARVEST_PER_LEVEL: 'Paysans : écus par récolte par niveau',
-  CLASS_LEVEL: 'Niveau pour choisir une classe', SPEC_LEVEL: 'Niveau pour la spécialisation', MAX_LEVEL: 'Niveau maximum', POINTS_PER_LEVEL: 'Points de stat par niveau',
+  CLASS_LEVEL: 'Niveau pour choisir une classe', SKILL_EVERY: 'Un point de compétence tous les X niveaux', SKILL_RESPEC_LOSS: 'Reconversion : part des points perdue (0,25 = un quart)', MAX_LEVEL: 'Niveau maximum', POINTS_PER_LEVEL: 'Points de stat par niveau',
   GLACONS_PER_LEVEL: 'Glaçons par niveau', XP_BASE: 'XP requise : base', XP_EXP: 'XP requise : exposant',
   PRICE: 'Prix d’un glaçon (Grêlons)', PER_WAVE: 'Glaçons par manche passée', START: 'Glaçons offerts à l’inscription', UNIVERSAL_CHANCE: 'Chance d’objet universel', OTHER_CLASS_CHANCE: 'Chance d’objet d’une autre classe'
 };

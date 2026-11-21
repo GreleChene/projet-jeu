@@ -91,7 +91,7 @@ function publicUser(u) {
   return {
     id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', cls: u.cls, level: u.level, xp: u.xp, xpNext: GD.PROGRESSION.xpForLevel(u.level),
     gold: u.gold, look: u.look, inventory: u.inventory, equip: u.equip, glacons: u.glacons, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id),
-    attrs: u.attrs, attrPoints: u.attrPoints, twitchName: u.twitchName || null, mysticFound: !!u.mysticFound,
+    attrs: u.attrs, attrPoints: u.attrPoints, skills: u.skills || {}, skillLost: u.skillLost || 0, twitchName: u.twitchName || null, mysticFound: !!u.mysticFound,
     locked: Object.fromEntries(u.inventory.map((it) => [it.uid, lockOf(u, it.uid)]).filter(([, l]) => l)),
     incomingTrades: db.data.trades.filter((t) => t.toId === u.id).length
   };
@@ -168,22 +168,51 @@ app.put('/api/me/ai', auth, (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
 
+// Habitant → classe de base (les spécialisations se débloquent par l'ultime de l'arbre de compétences)
 app.post('/api/me/class', auth, (req, res) => {
   const u = req.user;
   const id = (req.body || {}).cls;
   const c = GD.CLASSES[id];
-  if (!c || c.tier === 0) return res.status(400).json({ error: 'Classe inconnue' });
-  const cur = GD.CLASSES[u.cls];
-  if (c.tier === 1) {
-    if (cur.tier !== 0) return res.status(400).json({ error: 'Tu as déjà une classe.' });
-    if (u.level < GD.PROGRESSION.CLASS_LEVEL) return res.status(400).json({ error: `Niveau ${GD.PROGRESSION.CLASS_LEVEL} requis.` });
-  } else {
-    if (cur.tier !== 1 || c.parent !== u.cls) return res.status(400).json({ error: 'Spécialisation impossible depuis ta classe.' });
-    if (u.level < GD.PROGRESSION.SPEC_LEVEL) return res.status(400).json({ error: `Niveau ${GD.PROGRESSION.SPEC_LEVEL} requis.` });
-  }
+  if (!c || c.tier !== 1) return res.status(400).json({ error: 'Classe inconnue' });
+  if (GD.CLASSES[u.cls].tier !== 0) return res.status(400).json({ error: 'Tu as déjà une classe : utilise la reconversion.' });
+  if (u.level < GD.PROGRESSION.CLASS_LEVEL) return res.status(400).json({ error: `Niveau ${GD.PROGRESSION.CLASS_LEVEL} requis.` });
   u.cls = id;
   afterProfileChange(u);
   res.json({ user: publicUser(u) });
+});
+
+/* ============================== Arbre de compétences ============================== */
+app.post('/api/me/skill', auth, (req, res) => {
+  const u = req.user;
+  const n = GD.SKILLS[(req.body || {}).id];
+  if (!n) return res.status(400).json({ error: 'Compétence inconnue' });
+  const base = GD.familyOf(u.cls);
+  if (GD.CLASSES[n.spec].parent !== base) return res.status(400).json({ error: 'Cette compétence n’est pas dans ton arbre.' });
+  u.skills ||= {};
+  const rank = u.skills[n.id] || 0;
+  if (rank >= n.max) return res.status(400).json({ error: 'Rang maximum atteint.' });
+  if (n.requires && !u.skills[n.requires]) return res.status(400).json({ error: 'Débloque d’abord la compétence précédente.' });
+  if (n.ult && Object.keys(u.skills).some((k) => GD.SKILLS[k] && GD.SKILLS[k].ult)) return res.status(400).json({ error: 'Tu as déjà un ultime : reconvertis-toi pour en changer.' });
+  if (GD.skillPoints(u).free < 1) return res.status(400).json({ error: 'Pas assez de points de compétence.' });
+  u.skills[n.id] = rank + 1;
+  if (n.ult) u.cls = n.spec; // l'ultime fait devenir la spécialisation
+  afterProfileChange(u);
+  res.json({ user: publicUser(u) });
+});
+
+// Reconversion : remise à zéro de l'arbre (et changement de classe possible), en perdant un quart des points attribués
+app.post('/api/me/respec', auth, (req, res) => {
+  const u = req.user;
+  const target = (req.body || {}).cls;
+  if (GD.CLASSES[u.cls].tier === 0) return res.status(400).json({ error: 'Choisis d’abord une classe.' });
+  if (target && !(GD.CLASSES[target] && GD.CLASSES[target].tier === 1)) return res.status(400).json({ error: 'Classe inconnue' });
+  const { spent } = GD.skillPoints(u);
+  const lost = Math.floor(spent * GD.PROGRESSION.SKILL_RESPEC_LOSS);
+  u.skillLost = (u.skillLost || 0) + lost;
+  u.skills = {};
+  u.cls = target || GD.familyOf(u.cls);
+  afterProfileChange(u);
+  res.json({ user: publicUser(u), lost });
 });
 
 /* ============================== Points de statistiques ============================== */
@@ -556,7 +585,7 @@ app.post('/api/admin/users/:id', admin, async (req, res) => {
     game.grantXp(u, n);
   }
   if (b.level !== undefined) { u.level = Math.min(GD.PROGRESSION.MAX_LEVEL, Math.max(1, Math.floor(Number(b.level) || 1))); u.xp = 0; db.syncAttrPoints(u); }
-  if (b.resetClass) u.cls = 'habitant';
+  if (b.resetClass) { u.cls = 'habitant'; u.skills = {}; u.skillLost = 0; }
   if (b.password) {
     if (String(b.password).length < 6) return res.status(400).json({ error: 'Mot de passe : 6 caractères minimum.' });
     u.passHash = await bcrypt.hash(String(b.password), 10);

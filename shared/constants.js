@@ -67,6 +67,52 @@
     mineur: { name: 'Mineur', tier: 2, parent: 'paysan', color: '#95a5a6', weapon: 'pickaxe', hp: 145, dmg: 10, range: 40, cd: 1.0, speed: 78, armor: 0.08, leash: 500, harvest: 'rock', ult: 'fortify', ultName: 'Fortification', ultDesc: 'Augmente les PV max de la tour de 6%.', desc: 'La pierre rend la tour plus solide.' }
   };
   const BASE_CLASSES = ['soldat', 'mage', 'eleveur', 'archer', 'assassin', 'paysan'];
+
+  /*
+   * Arbres de compétences : une branche par spécialisation.
+   * 3 compétences passives (3 rangs chacune), puis l'ultime en bout de branche
+   * (débloquer l'ultime = devenir la spécialisation ; un seul ultime à la fois).
+   */
+  const SKILL_TREE = {
+    paladin: [['Foi inébranlable', { hp: 0.05 }], ['Aura de protection', { armor: 0.03 }], ['Bouclier sacré', { hp: 0.06 }]],
+    chevalier: [['Entraînement martial', { dmg: 0.05 }], ['Galop', { speed: 0.05 }], ['Lance affûtée', { dmg: 0.06 }]],
+    glace: [['Froid mordant', { dmg: 0.04 }], ['Armure de givre', { armor: 0.03 }], ['Concentration', { ult: 0.08 }]],
+    feu: [['Étincelle', { dmg: 0.05 }], ['Combustion', { crit: 0.03 }], ['Pyromancie', { dmg: 0.06 }]],
+    soin: [['Prière', { hp: 0.05 }], ['Méditation', { ult: 0.08 }], ['Lumière bénie', { armor: 0.02, hp: 0.03 }]],
+    dompteur: [['Complicité', { hp: 0.05 }], ['Instinct sauvage', { dmg: 0.05 }], ['Chef de meute', { ult: 0.08 }]],
+    necromancien: [['Rites sombres', { dmg: 0.05 }], ['Peau morte', { armor: 0.03 }], ['Moisson d’âmes', { ult: 0.08 }]],
+    arbaletrier: [['Mécanisme huilé', { atkspd: 0.05 }], ['Carreaux lourds', { dmg: 0.05 }], ['Visée', { crit: 0.03 }]],
+    arclong: [['Œil perçant', { crit: 0.03 }], ['Tension de la corde', { dmg: 0.05 }], ['Pas léger', { speed: 0.05 }]],
+    ombre: [['Discrétion', { speed: 0.05 }], ['Lames empoisonnées', { dmg: 0.05 }], ['Fumigènes', { ult: 0.08 }]],
+    fleche: [['Précision', { crit: 0.03 }], ['Vivacité', { atkspd: 0.05 }], ['Exécution', { dmg: 0.06 }]],
+    agriculteur: [['Semailles', { harvest: 0.1 }], ['Robustesse', { hp: 0.05 }], ['Abondance', { harvest: 0.12 }]],
+    bucheron: [['Bras solides', { dmg: 0.05 }], ['Coupe franche', { harvest: 0.1 }], ['Charpentier', { armor: 0.03 }]],
+    mineur: [['Endurance', { hp: 0.06 }], ['Filons', { harvest: 0.1 }], ['Peau de pierre', { armor: 0.03 }]]
+  };
+  const SKILL_MAX_RANK = 3;
+  const SKILLS = {};
+  for (const [spec, nodes] of Object.entries(SKILL_TREE)) {
+    nodes.forEach(([name, bonus], i) => {
+      SKILLS[`${spec}_${i + 1}`] = { id: `${spec}_${i + 1}`, spec, step: i + 1, name, bonus, max: SKILL_MAX_RANK, requires: i ? `${spec}_${i}` : null };
+    });
+    SKILLS[`${spec}_ult`] = { id: `${spec}_ult`, spec, step: 4, ult: true, max: 1, requires: `${spec}_3` };
+  }
+  const skillsOfFamily = (base) => Object.values(SKILLS).filter((n) => CLASSES[n.spec].parent === base);
+  function skillPoints(u) {
+    const earned = Math.floor((u.level || 1) / PROGRESSION.SKILL_EVERY);
+    const spent = Object.values(u.skills || {}).reduce((a, b) => a + b, 0);
+    return { earned, spent, lost: u.skillLost || 0, free: Math.max(0, earned - spent - (u.skillLost || 0)) };
+  }
+  // Bonus cumulés des compétences
+  function skillBonus(skills) {
+    const out = {};
+    for (const [id, rank] of Object.entries(skills || {})) {
+      const n = SKILLS[id];
+      if (!n || !n.bonus) continue;
+      for (const [k, v] of Object.entries(n.bonus)) out[k] = (out[k] || 0) + v * rank;
+    }
+    return out;
+  }
   const CLASS_IDS = Object.keys(CLASSES);
   const specsOf = (base) => CLASS_IDS.filter((id) => CLASSES[id].parent === base && CLASSES[id].tier === 2);
 
@@ -77,10 +123,11 @@
   // Chaque niveau rapporte des points de stat et des glaçons.
   const PROGRESSION = {
     CLASS_LEVEL: 3, // niveau pour quitter « habitant »
-    SPEC_LEVEL: 8, // niveau pour choisir une spécialisation
     MAX_LEVEL: 60,
     POINTS_PER_LEVEL: 1,
     GLACONS_PER_LEVEL: 1,
+    SKILL_EVERY: 2, // 1 point de compétence tous les X niveaux
+    SKILL_RESPEC_LOSS: 0.25, // reconversion : part des points attribués définitivement perdue
     XP_BASE: 60, // XP pour passer de lvl à lvl+1 = XP_BASE × lvl^XP_EXP
     XP_EXP: 1.45,
     xpForLevel: (lvl) => Math.round(PROGRESSION.XP_BASE * Math.pow(lvl, PROGRESSION.XP_EXP))
@@ -139,7 +186,7 @@
     { family: 'eleveur', name: 'Étable', angle: 350, dist: 215 },
     { family: 'archer', name: 'Tour de guet', angle: 212, dist: 280 },
     { family: 'assassin', name: 'Repaire', angle: 318, dist: 275 },
-    { family: 'soldat', name: 'Caserne', angle: 90, dist: 285 }
+    { family: 'soldat', name: 'Caserne', angle: 75, dist: 250 }
   ];
   const buildingPos = (b) => ({ x: WORLD.CX + Math.cos((b.angle * Math.PI) / 180) * b.dist * 1.35, y: WORLD.CY + Math.sin((b.angle * Math.PI) / 180) * b.dist * 0.85 });
 
@@ -167,7 +214,8 @@
     const gear = gearFor(o.cls, o.gear);
     let ihp = 0, iarmor = 0, idmg = 0, ispeed = 0;
     for (const s of SLOTS) if (gear[s]) { const st = itemStats(gear[s]); ihp += st.hp || 0; iarmor += st.armor || 0; idmg += st.dmg || 0; ispeed += st.speed || 0; }
-    const sb = setBonuses(gear).bonus;
+    const sb = { ...setBonuses(gear).bonus };
+    for (const [k, v] of Object.entries(skillBonus(o.skills))) sb[k] = (sb[k] || 0) + v;
     const A = ATTRIBUTES;
     const baseDmg = c.dmg * (1 + A.force.per * a.force + idmg + (sb.dmg || 0));
     return {
@@ -448,5 +496,5 @@
     for (const [k, v] of Object.entries(overrides || {})) { try { setPath(k.split('.'), v); } catch (e) { /* chemin obsolète */ } }
   }
 
-  return { BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { SKILLS, SKILL_TREE, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

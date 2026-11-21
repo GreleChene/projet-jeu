@@ -173,6 +173,7 @@
       for (const [k, v] of Object.entries(h.buffs)) if (BN[k]) st.push(`${BN[k]} ${v}s`);
       const SN = { poison: '🟢 Empoisonné', burn: '🔥 Brûlé', slow: '❄️ Ralenti', freeze: '🧊 Gelé' };
       for (const s of h.status) if (SN[s]) st.push(SN[s]);
+      if (h.building) st.push(h.building.hp > 0 ? `🏠 ${h.building.name} : ${h.building.hp}/${h.building.max} PV${h.resting ? ' (repos, soin en cours)' : ''}` : `🔥 ${h.building.name} détruite : plus de soin entre les manches`);
       $('#heroStatus').textContent = st.join(' · ') || `Dégâts ${h.dmg} · Armure ${h.armor}%`;
       $('#sKills').textContent = h.kills; $('#sXp').textContent = h.xp; $('#sGold').textContent = h.gold;
     }
@@ -234,39 +235,83 @@
     $('#lvlChip').textContent = `Niveau ${me.level}`;
     $('#xpBar').style.width = `${(100 * me.xp) / need}%`;
     $('#xpLabel').textContent = `${me.xp} / ${need} XP`;
-    $('#evoHint').textContent = cur.tier === 0
-      ? `Tu es « Habitant ». Au niveau ${PR.CLASS_LEVEL}, choisis une classe. Au niveau ${PR.SPEC_LEVEL}, une spécialisation avec un ultime.`
-      : cur.tier === 1 ? `Classe : ${cur.name}. Spécialisation possible au niveau ${PR.SPEC_LEVEL}.` : `Spécialisation : ${cur.name}. Ultime : ${cur.ultName}.`;
     const tree = $('#classTree');
-    tree.replaceChildren(...GD.BASE_CLASSES.map((base) => {
-      const b = GD.CLASSES[base];
-      const isCur = me.cls === base || GD.CLASSES[me.cls].parent === base;
-      const canBase = cur.tier === 0 && me.level >= PR.CLASS_LEVEL;
-      const card = el('div', { class: 'branch' + (isCur ? ' current' : '') },
-        el('div', { class: 'cls' + (me.cls === base || GD.CLASSES[me.cls].parent === base ? ' owned' : '') },
-          miniHero(base),
-          el('div', {},
-            el('div', { class: 'title', style: `color:${b.color}` }, b.name),
-            el('div', { class: 'small muted' }, b.desc),
-            b.leash ? el('div', { class: 'small muted' }, `Reste à moins de ${b.leash} px de la tour.`) : '',
-            cur.tier === 0 ? el('button', { class: 'small primary', style: 'margin-top:6px', disabled: !canBase, onclick: () => pickClass(base) }, canBase ? 'Devenir ' + b.name : `Niveau ${PR.CLASS_LEVEL}`) : ''
-          )
-        ),
-        el('div', { class: 'specs' }, ...GD.specsOf(base).map((sid) => {
-          const s = GD.CLASSES[sid];
-          const can = me.cls === base && me.level >= PR.SPEC_LEVEL;
-          return el('div', { class: 'cls' + (me.cls === sid ? ' owned' : '') },
-            miniHero(sid, 48),
+    $('#skillBadge').textContent = '';
+
+    // Habitant : choix de la classe de base
+    if (cur.tier === 0) {
+      const can = me.level >= PR.CLASS_LEVEL;
+      $('#evoHint').textContent = `Tu es « Habitant ». Au niveau ${PR.CLASS_LEVEL}, choisis une classe : tu débloqueras ensuite son arbre de compétences (1 point tous les ${PR.SKILL_EVERY} niveaux), avec un ultime au bout de chaque branche.`;
+      tree.className = 'tree';
+      tree.replaceChildren(...GD.BASE_CLASSES.map((base) => {
+        const b = GD.CLASSES[base];
+        return el('div', { class: 'branch' },
+          el('div', { class: 'cls' }, miniHero(base),
             el('div', {},
-              el('div', { class: 'title', style: `color:${s.color}` }, s.name, me.cls === sid ? ' ✓' : ''),
-              el('div', { class: 'small muted' }, s.desc),
-              el('div', { class: 'ult' }, `Ultime — ${s.ultName} : ${s.ultDesc}`),
-              me.cls === base ? el('button', { class: 'small primary', style: 'margin-top:6px', disabled: !can, onclick: () => pickClass(sid) }, can ? 'Se spécialiser' : `Niveau ${PR.SPEC_LEVEL}`) : ''
-            ));
-        }))
-      );
-      return card;
+              el('div', { class: 'title', style: `color:${b.color}` }, b.name),
+              el('div', { class: 'small muted' }, b.desc),
+              el('div', { class: 'small muted' }, 'Spécialisations : ' + GD.specsOf(base).map((s) => GD.CLASSES[s].name).join(', ')),
+              b.leash ? el('div', { class: 'small muted' }, `Reste à moins de ${b.leash} px de la tour.`) : '',
+              el('button', { class: 'small primary', style: 'margin-top:6px', disabled: !can, onclick: () => pickClass(base) }, can ? 'Devenir ' + b.name : `Niveau ${PR.CLASS_LEVEL}`))));
+      }));
+      return;
+    }
+
+    // Arbre de compétences de la famille
+    const base = GD.familyOf(me.cls);
+    const pts = GD.skillPoints(me);
+    const sk = me.skills || {};
+    const hasUlt = Object.keys(sk).some((k) => GD.SKILLS[k] && GD.SKILLS[k].ult);
+    const lossNow = Math.floor(pts.spent * PR.SKILL_RESPEC_LOSS);
+    $('#evoHint').replaceChildren(
+      el('span', {}, `Classe : `, el('b', { style: `color:${cur.color}` }, cur.name), ` · `),
+      el('b', { style: 'color:var(--gold)' }, `${pts.free} point(s) de compétence`), ` à dépenser (1 point tous les ${PR.SKILL_EVERY} niveaux · ${pts.spent} attribué(s)${pts.lost ? ` · ${pts.lost} perdu(s) en reconversion` : ''}).`,
+      el('div', { class: 'row', style: 'margin-top:8px' },
+        el('button', { class: 'small danger', onclick: () => respec(lossNow) }, `🔄 Se reconvertir (perte de ${lossNow} point${lossNow > 1 ? 's' : ''})`)));
+    $('#skillBadge').textContent = pts.free || '';
+    tree.className = 'tree skilltree';
+    tree.replaceChildren(...GD.specsOf(base).map((spec) => {
+      const S = GD.CLASSES[spec];
+      const nodes = [1, 2, 3, 'ult'].map((i) => GD.SKILLS[`${spec}_${i}`]);
+      const isMine = me.cls === spec;
+      return el('div', { class: 'branch' + (isMine ? ' current' : ''), style: `--bc:${S.color}` },
+        el('div', { class: 'cls' }, miniHero(spec, 48), el('div', {}, el('div', { class: 'title', style: `color:${S.color}` }, S.name, isMine ? ' ✓' : ''), el('div', { class: 'small muted' }, S.desc))),
+        el('div', { class: 'skill-col' }, ...nodes.map((n) => {
+          const rank = sk[n.id] || 0;
+          const unlocked = !n.requires || sk[n.requires];
+          const canBuy = pts.free > 0 && unlocked && rank < n.max && !(n.ult && hasUlt);
+          if (n.ult) {
+            return el('div', { class: 'skill ult' + (rank ? ' owned' : '') + (unlocked ? '' : ' locked') },
+              el('div', { class: 'skill-name' }, `✨ ${S.ultName}`),
+              el('div', { class: 'small' }, S.ultDesc),
+              el('div', { class: 'small muted' }, `Débloquer l’ultime fait devenir ${S.name}.`),
+              rank ? el('span', { class: 'chip small' }, 'Débloqué') : el('button', { class: 'small primary', disabled: !canBuy, onclick: () => learn(n, S) }, unlocked ? (hasUlt ? 'Un seul ultime' : 'Débloquer (1 pt)') : '🔒'));
+          }
+          return el('div', { class: 'skill' + (rank ? ' owned' : '') + (unlocked ? '' : ' locked') },
+            el('div', { class: 'row', style: 'gap:6px' }, el('span', { class: 'skill-name' }, n.name), el('span', { class: 'spacer' }), el('span', { class: 'chip small' }, `${rank}/${n.max}`)),
+            el('div', { class: 'small muted' }, `${bonusLine(n.bonus)} par rang`),
+            el('button', { class: 'small' + (canBuy ? ' primary' : ''), disabled: !canBuy, onclick: () => learn(n) }, unlocked ? (rank >= n.max ? 'Max' : '+1') : '🔒'));
+        })));
     }));
+  }
+
+  async function learn(n, S) {
+    $('#clsError').textContent = '';
+    if (n.ult && !confirm(`Débloquer « ${S.ultName} » et devenir ${S.name} ?`)) return;
+    try { setUser((await api('/api/me/skill', { body: { id: n.id } })).user); if (n.ult) toast(`Tu es maintenant ${S.name} !`); }
+    catch (e) { $('#clsError').textContent = e.message; }
+  }
+
+  async function respec(loss) {
+    $('#clsError').textContent = '';
+    const choices = GD.BASE_CLASSES.map((b, i) => `${i + 1}. ${GD.CLASSES[b].name}`).join('\n');
+    const ans = prompt(`Reconversion : ton arbre est remis à zéro et tu perds définitivement ${loss} point(s) de compétence (le quart de tes points attribués).\n\nNouvelle classe (laisse vide pour garder ${GD.CLASSES[GD.familyOf(me.cls)].name}) :\n${choices}`, '');
+    if (ans === null) return;
+    const idx = Number(ans) - 1;
+    const cls = GD.BASE_CLASSES[idx] || null;
+    if (ans.trim() && !cls) { $('#clsError').textContent = 'Choix invalide.'; return; }
+    try { const d = await api('/api/me/respec', { body: { cls } }); setUser(d.user); toast(`Reconversion effectuée (−${d.lost} point${d.lost > 1 ? 's' : ''}).`); }
+    catch (e) { $('#clsError').textContent = e.message; }
   }
 
   async function pickClass(cls) {
@@ -637,7 +682,7 @@
     $('#rules').replaceChildren(
       sec('🏰 Le but du jeu', el('p', {}, 'Une tour se dresse au centre de l’écran. Des vagues de monstres arrivent de tous les bords : si la tour (200 PV au départ) tombe, la partie est perdue. Il y a 100 manches à survivre.'),
         el('p', {}, 'Ton héros se bat tout seul grâce à son IA. Toi, tu choisis sa classe, ses statistiques, son équipement et son comportement depuis ce site, et tu votes avec l’équipe.')),
-      sec('🧬 Classes', el('p', {}, `Tout le monde commence Habitant. Au niveau ${PR.CLASS_LEVEL}, choisis une classe. Au niveau ${PR.SPEC_LEVEL}, choisis une spécialisation qui débloque un ultime. Ces choix sont définitifs.`),
+      sec('🧬 Classes', el('p', {}, `Tout le monde commence Habitant. Au niveau ${PR.CLASS_LEVEL}, choisis une classe : tu débloques son arbre de compétences. Tu gagnes 1 point de compétence tous les ${PR.SKILL_EVERY} niveaux. Chaque branche de l’arbre correspond à une spécialisation : 3 compétences passives (3 rangs chacune), puis l’ultime au bout, qui te fait devenir cette spécialisation (un seul ultime à la fois). Tu peux te reconvertir (remise à zéro, changement de classe possible), mais tu perds définitivement ${Math.round(PR.SKILL_RESPEC_LOSS * 100)}% des points attribués.`),
         ul(GD.BASE_CLASSES.map((b) => [el('b', { style: `color:${GD.CLASSES[b].color}` }, GD.CLASSES[b].name), ` → ${GD.specsOf(b).map((s) => `${GD.CLASSES[s].name} (${GD.CLASSES[s].ultName})`).join(' / ')}${GD.CLASSES[b].leash ? ` · reste à moins de ${GD.CLASSES[b].leash} px de la tour` : ''}`]))),
       sec('📊 Niveaux & statistiques', el('p', {}, `Les éliminations et les manches passées rapportent de l’XP. Monter de niveau n’augmente pas directement les statistiques : chaque niveau donne ${PR.POINTS_PER_LEVEL} point de stat à répartir librement (réinitialisation gratuite) et ${PR.GLACONS_PER_LEVEL} glaçon 🧊. Seuls les points de stat et l’équipement renforcent ton héros :`),
         ul(GD.ATTR_IDS.map((a) => `${GD.ATTRIBUTES[a].icon} ${GD.ATTRIBUTES[a].name} : ${GD.ATTRIBUTES[a].desc}`))),

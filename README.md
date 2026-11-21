@@ -33,7 +33,17 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
 
 ## Le jeu
 
+- **Lancement par l'admin et inscriptions limitées.** Le bouton « Rejoindre la bataille » n'apparaît que lorsque l'admin a lancé une bataille, et seulement pendant la durée d'inscription qu'il a choisie (180 s par défaut, réglable ; l'admin peut aussi rouvrir ou fermer les inscriptions). Ensuite, plus personne ne peut rejoindre. Chaque nouvelle bataille demande de rejoindre à nouveau.
+- **Twitch** (chaîne `hyoneko_` par défaut, réglable dans l'admin). Le serveur lit le chat en anonyme, sans identifiants, et reconnaît trois commandes :
+  - `!lier CODE` : lie le compte Twitch au compte du site (le code est affiché dans l'onglet Compte) ;
+  - `!join` : fait rejoindre la bataille au héros du compte lié ;
+  - `!1`, `!2`… : votes d'équipe (ouverts à tout le chat ou aux seuls héros, au choix).
+
+  L'admin dispose d'un simulateur de messages pour tester sans être en live.
 - **Mode défense de tour.** Les monstres arrivent de tous les bords. La tour commence avec **200 PV** ; si elle tombe, la partie est perdue. Il y a 100 manches.
+- **Arbres de compétences.** Chaque classe a un arbre dont chaque branche correspond à une spécialisation : 3 compétences passives (3 rangs chacune), puis l'ultime au bout de la branche, qui fait devenir cette spécialisation. On gagne 1 point de compétence tous les 2 niveaux. La **reconversion** remet l'arbre à zéro et permet de changer de classe, mais fait perdre définitivement un quart des points attribués.
+- **Bâtiments de classe.** Ferme, chaumière, tour des mages, étable, tour de guet, repaire et caserne entourent la tour, les classes de soutien au plus près. Chaque bâtiment a 100 PV. Les monstres frappent ceux qui se trouvent sur leur trajet vers la tour, sans faire de détour. Pendant l'entracte, les héros rentrent se soigner dans le bâtiment de leur classe ; s'il est détruit, ils ne peuvent plus s'y soigner. Les ultimes du bûcheron réparent aussi les bâtiments.
+- **Adaptation au nombre de joueurs.** La puissance des monstres (PV et dégâts), leur nombre et la durée des manches augmentent avec le nombre de héros. Tout est réglable dans l'onglet Équilibrage.
 - **Niveaux et statistiques.** Monter de niveau n'augmente pas les statistiques. Chaque niveau rapporte **1 point de stat** (Vie, Force, Défense, Agilité, Vitesse, Critique), réinitialisable gratuitement, et **1 glaçon**. Seuls les points de stat et l'équipement renforcent un héros. Les comptes existants ont reçu rétroactivement 1 glaçon par niveau déjà gagné.
 - **Classes évolutives.** Tout le monde commence *Habitant*. Au niveau 3, le joueur choisit une classe. Au niveau 8, il choisit une spécialisation, qui donne un **ultime** :
   - Soldat → Paladin (tourbillon en cercle) / Chevalier (charge à 200 %)
@@ -96,6 +106,7 @@ Chaque modification est enregistrée dans la base et appliquée **immédiatement
 server/             Node.js (Express + Socket.IO)
   index.js          API comptes / joueur / admin, sessions, temps réel
   balance.js        équilibrage modifiable en direct depuis l'admin
+  twitch.js         lecture du chat Twitch (!join, !lier, votes)
   db.js             stockage JSON (écriture atomique)
   game/engine.js    boucle de jeu autoritaire (20 Hz), manches, votes, réseau
   game/heroes.js    IA des héros, passifs, ultimes, invocations

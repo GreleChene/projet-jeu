@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const config = require('./config');
-const { DEFAULT_AI, PALETTE, emptyAttrs, PROGRESSION, TEMPLATES, SLOTS, GLACONS } = require('../shared/constants');
+const { DEFAULT_AI, PALETTE, emptyAttrs, PROGRESSION, TEMPLATES, SLOTS, GLACONS, CLASSES } = require('../shared/constants');
 
 // Anciennes armures (v1) : remboursées en Grêlons
 const LEGACY_ITEMS = { head_hood: 30, head_leather: 90, head_iron: 250, head_great: 600, head_rune: 1500, body_leather: 140, body_mail: 380, body_plate: 900, body_rune: 2200 };
@@ -75,6 +75,17 @@ function migrateUser(u) {
   u.cls ||= 'habitant';
   u.level ||= 1; u.xp ||= 0; u.gold ||= 0;
   syncAttrPoints(u);
+  // arbres de compétences : un compte déjà spécialisé reçoit sa branche si ses points le permettent
+  u.skills ||= {};
+  u.skillLost ||= 0;
+  if (!u.skillsV1) {
+    const c = CLASSES[u.cls];
+    if (c && c.tier === 2) {
+      if (Math.floor(u.level / PROGRESSION.SKILL_EVERY) >= 4) u.skills = { [`${u.cls}_1`]: 1, [`${u.cls}_2`]: 1, [`${u.cls}_3`]: 1, [`${u.cls}_ult`]: 1 };
+      else u.cls = c.parent;
+    }
+    u.skillsV1 = true;
+  }
   return u;
 }
 
