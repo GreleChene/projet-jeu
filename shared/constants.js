@@ -194,7 +194,7 @@
     HARVEST_PER_LEVEL: 0.15,
     HAZARD_BASE: 2, // zones dangereuses du biome par manche = BASE + PAR_MANCHE×m (max HAZARD_MAX)
     HAZARD_PER_WAVE: 0.08,
-    HAZARD_MAX: 9,
+    HAZARD_MAX: 4,
     HAZARD_ICE_SLOW: 0.35, // zone de glace : ralentissement des héros
     HAZARD_POISON_PCT: 0.01, // zone de poison : % des PV max perdus…
     HAZARD_POISON_EVERY: 3, // …toutes les X secondes
