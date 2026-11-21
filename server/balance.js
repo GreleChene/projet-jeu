@@ -6,7 +6,7 @@
 const GD = require('../shared/constants');
 
 const L = {
-  TOWER_BASE_HP: 'PV de la tour au départ', ULT_TIME: 'Temps de charge d’un ultime (s)', RESPAWN_TIME: 'Temps de réapparition d’un héros (s)',
+  TOWER_BASE_HP: 'PV de la tour au départ', ULT_TIME: 'Temps de charge d’un ultime (s)', REVIVE_HP: 'Résurrection (vote) : part des PV max rendus',
   WAVE_HP_LINEAR: 'PV monstres : hausse linéaire par manche', WAVE_HP_QUAD: 'PV monstres : hausse quadratique par manche', WAVE_DMG: 'Dégâts monstres : hausse par manche',
   HP_PER_HERO: 'PV monstres : bonus par héros présent', DMG_PER_HERO: 'Dégâts monstres : bonus par héros présent',
   WAVE_DURATION_BASE: 'Durée d’apparition des monstres : base (s)', WAVE_DURATION_PER_WAVE: 'Durée : en plus par manche (s)', WAVE_DURATION_PER_HERO: 'Durée : en plus par héros (s)', WAVE_DURATION_MAX: 'Durée : maximum (s)', MOB_COUNT_BASE: 'Nombre de monstres : base', MOB_COUNT_PER_WAVE: 'Nombre de monstres : en plus par manche',

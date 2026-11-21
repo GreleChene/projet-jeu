@@ -134,3 +134,21 @@ test('héros mort : récompenses de toutes les manches jusqu’à la fin ; atten
   assert.strictEqual(u.glacons, 3);
   assert.strictEqual(u.pending, undefined);
 });
+
+test('pas de réapparition ; vote « Résurrection » proposé s’il y a un mort', () => {
+  const g = makeGame();
+  for (let i = 0; i < 3; i++) g.addBot({ cls: 'soldat', level: 10 });
+  g.startRun(1);
+  g.setWave(2);
+  const [a] = [...g.heroes.values()];
+  g.heroDie(a);
+  for (let i = 0; i < 200; i++) g.tick(0.05);
+  assert.strictEqual(a.alive, false, 'reste mort');
+  g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
+  assert.strictEqual(a.alive, false, 'toujours mort après la manche');
+  assert.ok(g.run.vote && g.run.vote.options.includes('revive'), 'résurrection proposée');
+  g.run.treasury = 1000;
+  g.applyUpgrade('revive');
+  assert.strictEqual(a.alive, true);
+  assert.strictEqual(a.hp, Math.round(a.maxHp * 0.6));
+});

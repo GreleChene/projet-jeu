@@ -19,9 +19,7 @@ module.exports = {
       for (const k in h.buffs) if (h.buffs[k] > 0) h.buffs[k] -= dt;
 
       if (!h.alive) {
-        h.respawnT -= dt;
-        if (h.respawnT <= 0) this.respawnHero(h);
-        continue;
+        continue; // pas de réapparition : seul un vote « Résurrection » (ou un nécromancien) peut le relever
       }
       if (!combat) { this.heroIdle(h, dt, 1); continue; }
 
@@ -46,13 +44,6 @@ module.exports = {
       if (!h.alive) continue;
       this.heroAI(h, c, dt, speedMul);
     }
-  },
-
-  respawnHero(h) {
-    h.alive = true; h.zombie = false; h.status = {}; h.hp = h.maxHp; h.retreating = false;
-    const a = Math.random() * Math.PI * 2;
-    h.x = WORLD.CX + Math.cos(a) * 80; h.y = WORLD.CY + Math.sin(a) * 60;
-    this.fx(['heal', h.x, h.y, 40]);
   },
 
   heroIdle(h, dt, speedMul) {
@@ -294,7 +285,7 @@ module.exports = {
   heroDie(h) {
     h.alive = false; h.hp = 0;
     h.deathX = h.x; h.deathY = h.y;
-    h.respawnT = Math.max(2, GD.BALANCE.RESPAWN_TIME - 1.5 * this.run.upgrades.infirmary);
+    h.deadAt = this.time;
     h.zombie = false; h.dashing = null; h.chain = null; h.target = null; h.status = {};
     this.fx(['hdeath', Math.round(h.x), Math.round(h.y), h.nid]);
     const u = h.userId && this.db.userById(h.userId);
@@ -409,7 +400,7 @@ module.exports = {
       case 'fortify': return this.phase === 'wave';
       case 'beastcall': return this.allies.some((a) => a.ownerId === h.id) && near(300) >= (asap ? 1 : 2);
       case 'revive': {
-        for (const o of this.heroes.values()) if (!o.alive && o.respawnT > 3) return true;
+        for (const o of this.heroes.values()) if (!o.alive) return true;
         return asap && near(300) >= 2;
       }
     }
@@ -463,7 +454,7 @@ module.exports = {
         break;
       case 'revive': {
         let best = null;
-        for (const o of this.heroes.values()) if (!o.alive && (!best || o.respawnT > best.respawnT)) best = o;
+        for (const o of this.heroes.values()) if (!o.alive && (!best || o.deadAt < best.deadAt)) best = o;
         if (best) {
           best.alive = true; best.zombie = true; best.status = {};
           best.hp = best.maxHp * 0.75; best.x = best.deathX; best.y = best.deathY;

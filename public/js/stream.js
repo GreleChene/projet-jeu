@@ -521,7 +521,7 @@
     text('Trésor de l’équipe', 34, 70, 12, P.ui.muted, 'left', 'b');
     let ux = 34;
     for (const [id, lvl] of Object.entries(s.up)) {
-      if (!lvl || id === 'pact') continue;
+      if (!lvl || id === 'pact' || id === 'revive') continue;
       ctx.font = `18px ${FONT_B}`; ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.fillText(UPGRADES[id].icon, ux, 102);
       text(String(lvl), ux + 22, 104, 12, P.ui.gold, 'left', 'b');
       ux += 36;

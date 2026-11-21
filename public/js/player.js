@@ -168,7 +168,7 @@
       $('#ultBar').style.width = `${h.ult * 100}%`;
       $('#ultName').textContent = GD.CLASSES[me.cls].ultName ? `— ${GD.CLASSES[me.cls].ultName}${h.ult >= 1 ? ' (PRÊT)' : ''}` : '';
       const st = [];
-      if (!h.alive) st.push(`☠️ Mort — retour dans ${h.respawn}s`);
+      if (!h.alive) st.push('☠️ Mort — seul un vote « Résurrection » de l’équipe peut te relever (tu gagnes quand même les récompenses jusqu’à la fin)');
       if (h.zombie) st.push('🧟 Zombie (perd 1% PV/s)');
       const BN = { fury: '⚔️ Fureur', shield: '🛡️ Bouclier', swift: '💨 Célérité', rapid: '🏹 Rafale', stealth: '👻 Invisible', beast: '🐺 Meute' };
       for (const [k, v] of Object.entries(h.buffs)) if (BN[k]) st.push(`${BN[k]} ${v}s`);
@@ -192,7 +192,7 @@
           const afford = isSave || !o.cost || o.cost <= r.treasury;
           return el('button', { class: 'option' + (o.id === 'pact' ? ' challenge' : '') + (v.mine === o.id ? ' voted' : ''), disabled: !afford, onclick: () => socket.emit('vote', o.id) },
             el('span', { class: 'icon' }, isSave ? '🪙' : up.icon),
-            el('span', { class: 'name' }, isSave ? 'Économiser' : `${up.name}${o.level ? ` (niv. ${o.level + 1})` : ''}`),
+            el('span', { class: 'name' }, isSave ? 'Économiser' : `${up.name}${o.level && !up.revive ? ` (niv. ${o.level + 1})` : ''}`),
             el('span', { class: 'desc' }, isSave ? 'Garder les écus pour plus tard' : up.desc),
             el('span', { class: 'desc', style: 'display:block;margin-top:6px;color:var(--gold)' }, `${o.cost ? '🪙 ' + o.cost + ' écus · ' : ''}${v.counts[o.id] || 0} vote(s)`));
         }));
@@ -783,6 +783,7 @@
         table(['Set', 'Classes', 'Bonus'], Object.values(GD.SETS).map((s) => [el('b', {}, s.name), s.families ? s.families.map((f) => GD.CLASSES[f].name).join(', ') : 'Toutes',
           el('div', {}, ...Object.entries(s.bonus).map(([n, b]) => el('div', {}, `${n} pièces : ${bonusLine(b)}`)))]))),
       sec('🏠 Habitations', ul([
+        'Un héros mort ne réapparaît pas : seul un vote « Résurrection » de l’équipe (proposé quand il y a au moins un mort) relève un héros mort au hasard, à 60 % de ses PV. Il continue de gagner les récompenses jusqu’à la fin de la partie.',
         `En bataille, chaque héros a son habitation, du type de sa classe (${GD.BALANCE.BUILDINGS_PER_CLASS} par classe au maximum ; au-delà, elle est partagée et les PV s’additionnent).`,
         'Entre les manches, chaque héros s’y soigne. Si elle est détruite, plus de soin jusqu’à la fin de la partie.',
         `Une reconversion remet les améliorations d’habitation à zéro et rembourse ${Math.round(GD.HOUSE_RESPEC_REFUND * 100)} % des Grêlons dépensés.`,

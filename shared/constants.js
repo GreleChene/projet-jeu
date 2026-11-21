@@ -160,7 +160,7 @@
   const BALANCE = {
     TOWER_BASE_HP: 200,
     ULT_TIME: 28, // secondes pour charger un ultime
-    RESPAWN_TIME: 12, // secondes avant la réapparition d'un héros
+    REVIVE_HP: 0.6, // vote « Résurrection » : part des PV max rendus au héros réanimé
     WAVE_HP_LINEAR: 0.1, // PV des monstres : × (1 + LIN×(m-1) + QUAD×(m-1)²)
     WAVE_HP_QUAD: 0.0025,
     WAVE_DMG: 0.045, // dégâts des monstres : × (1 + DMG×(m-1))
@@ -539,11 +539,13 @@
     walls: { name: 'Remparts', icon: '🧱', desc: '+15% PV max de la tour (et soin équivalent)', cost: 60, growth: 1.5, max: 10, unlock: 0 },
     ballista: { name: 'Baliste', icon: '🏹', desc: 'La tour tire sur les ennemis (+1 niveau de baliste)', cost: 80, growth: 1.6, max: 8, unlock: 0 },
     forge: { name: 'Forge', icon: '🔨', desc: '+10% dégâts pour tous les héros', cost: 100, growth: 1.55, max: 10, unlock: 0 },
-    infirmary: { name: 'Infirmerie', icon: '⛑️', desc: 'Régénération près de la tour, réapparition plus rapide', cost: 90, growth: 1.6, max: 6, unlock: 0 },
+    infirmary: { name: 'Infirmerie', icon: '⛑️', desc: 'Régénération des héros près de la tour', cost: 90, growth: 1.6, max: 6, unlock: 0 },
     armory: { name: 'Armurerie', icon: '🛡️', desc: '+8% de réduction de dégâts pour les héros', cost: 150, growth: 1.6, max: 5, unlock: 250 },
     shrine: { name: 'Autel arcanique', icon: '🔮', desc: 'Les ultimes se chargent 20% plus vite', cost: 220, growth: 1.7, max: 5, unlock: 400 },
     catapult: { name: 'Catapulte', icon: '☄️', desc: 'La tour lance des rochers explosifs', cost: 400, growth: 1.7, max: 5, unlock: 800 },
     banner: { name: 'Étendard royal', icon: '🚩', desc: '+20% d’XP et de Grêlons gagnés', cost: 350, growth: 1.8, max: 5, unlock: 600 },
+    // proposée seulement s'il y a au moins un héros mort (les héros ne réapparaissent pas d'eux-mêmes)
+    revive: { name: 'Résurrection', icon: '💖', desc: 'Réanime un héros mort au hasard à 60% de ses PV', cost: 40, growth: 1.3, max: 999, unlock: 0, revive: true },
     pact: { name: 'Pacte de sang', icon: '💀', desc: 'Manche suivante : ennemis +50% PV et nombre, récompenses ×2', cost: 0, growth: 1, max: 999, unlock: 0, challenge: true }
   };
 

@@ -257,7 +257,7 @@ class Game {
       x: WORLD.CX + Math.cos(a) * 110, y: WORLD.CY + Math.sin(a) * 80,
       facing: a, alive: true, hp: 1, maxHp: 1, ult: 0, atkT: 0, retargetT: 0, target: null,
       buffs: {}, status: {}, timers: { stealth: 0, dash: 3, heal: 2, harvest: 0, summon: 0 },
-      respawnT: 0, zombie: false, deathX: 0, deathY: 0, attackAnim: 0, retreating: false, harvesting: false,
+      zombie: false, deathX: 0, deathY: 0, attackAnim: 0, retreating: false, harvesting: false,
       runKills: 0, runGold: 0, runXp: 0, idleAngle: a, dashing: null, chain: null
     };
   }
@@ -428,7 +428,6 @@ class Game {
       // un glaçon (coffre) par manche passée
       const pu = !h.isBot && this.db.userById(h.userId);
       if (pu) { h.runGlacons = (h.runGlacons || 0) + GD.GLACONS.PER_WAVE; this.savePending(h); this.fx(['text', Math.round(h.x), Math.round(h.y) - 80, '+1 🧊', '#bfe6ff']); }
-      if (!h.alive) { h.alive = true; h.zombie = false; h.hp = Math.round(h.maxHp * 0.5); h.x = WORLD.CX; h.y = WORLD.CY + 90; }
       if (h.zombie) { h.zombie = false; this.rosterVersion++; }
       const u = h.userId && this.db.userById(h.userId);
       if (u) u.stats.bestWave = Math.max(u.stats.bestWave, r.cleared);
@@ -470,12 +469,14 @@ class Game {
     const r = this.run;
     const avail = Object.keys(UPGRADES).filter((id) => {
       const u = UPGRADES[id];
-      return !u.challenge && r.upgrades[id] < u.max && r.wealthEarned >= u.unlock;
+      return !u.challenge && !u.revive && r.upgrades[id] < u.max && r.wealthEarned >= u.unlock;
     });
     // priorité aux améliorations abordables, puis les autres pour faire rêver
     const affordable = U.shuffle(avail.filter((id) => this.upgradeCost(id) <= r.treasury));
     const others = U.shuffle(avail.filter((id) => this.upgradeCost(id) > r.treasury));
     const opts = [...affordable, ...others].slice(0, 3);
+    // un héros est mort : l'équipe peut voter sa résurrection
+    if ([...this.heroes.values()].some((h) => !h.alive)) opts.push('revive');
     opts.push('pact', 'save');
     r.vote = { options: opts, votes: new Map(), endsAt: Date.now() + r.timer * 1000 };
   }
@@ -526,6 +527,20 @@ class Game {
     }
     const cost = this.upgradeCost(id);
     if (cost > r.treasury) return;
+    if (id === 'revive') {
+      const dead = [...this.heroes.values()].filter((h) => !h.alive);
+      if (!dead.length) return;
+      r.treasury -= cost;
+      r.upgrades.revive++;
+      const h = U.pick(dead);
+      h.alive = true; h.zombie = false; h.status = {};
+      h.hp = Math.round(h.maxHp * GD.BALANCE.REVIVE_HP);
+      const a = Math.random() * Math.PI * 2;
+      h.x = WORLD.CX + Math.cos(a) * 90; h.y = WORLD.CY + 70 + Math.sin(a) * 30;
+      this.fx(['revive', Math.round(h.x), Math.round(h.y)]);
+      this.pushFeed(`💖 L’équipe réanime ${h.name} !`);
+      return;
+    }
     r.treasury -= cost;
     r.upgrades[id]++;
     const u = UPGRADES[id];
@@ -1036,7 +1051,7 @@ class Game {
     if (h) {
       out.hero = {
         alive: h.alive, hp: Math.ceil(h.hp), maxHp: h.maxHp, ult: Math.min(1, h.ult), hasUlt: !!CLASSES[h.cls].ult,
-        respawn: Math.ceil(h.respawnT), zombie: h.zombie, kills: h.runKills, xp: h.runXp, gold: h.runGold,
+        zombie: h.zombie, kills: h.runKills, xp: h.runXp, gold: h.runGold,
         buffs: Object.fromEntries(Object.entries(h.buffs).filter(([, v]) => v > 0).map(([k, v]) => [k, Math.ceil(v)])),
         status: Object.keys(h.status), dmg: Math.round(h.dmg), armor: Math.round(h.armor * 100), glacons: h.runGlacons || 0,
         resting: !!h.resting,
