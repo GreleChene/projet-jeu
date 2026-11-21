@@ -43,6 +43,7 @@
       <button class="small" id="logout">Déconnexion</button>
     </header>
     <div class="wrap">
+      <div class="lock-banner hidden" id="lockBanner">🔒 Ton héros est en bataille : sa classe, ses statistiques, ses compétences, son équipement et son habitation sont <b>figés jusqu’à la fin de la partie</b>. Tes changements s’appliqueront à la prochaine bataille. Les récompenses (XP, Grêlons, glaçons) sont versées à la fin de la partie.</div>
       <nav class="tabs" id="tabs">
         <button data-tab="battle" class="active">⚔️ Bataille</button>
         <button data-tab="hero">🧬 Classe & compétences <span class="badge" id="skillBadge"></span></button>
@@ -83,8 +84,8 @@
               <p id="heroStatus" class="small" style="min-height:1.4em"></p>
               <div class="stats3">
                 <div class="stat"><b id="sKills">0</b><span class="small muted">éliminations</span></div>
-                <div class="stat"><b id="sXp">0</b><span class="small muted">XP gagnée</span></div>
-                <div class="stat"><b id="sGold">0</b><span class="small muted">Grêlons gagnés</span></div>
+                <div class="stat"><b id="sXp">0</b><span class="small muted">XP en attente</span></div>
+                <div class="stat"><b id="sGold">0</b><span class="small muted">Grêlons en attente</span></div>
               </div>
               <div class="row" style="margin-top:12px"><span class="spacer"></span><button class="small" id="leaveBtn">Quitter la bataille</button></div>
             </div>

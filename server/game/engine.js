@@ -149,6 +149,7 @@ class Game {
 
   // Statistiques de fin de partie (persistantes)
   finishRun(won, silent) {
+    for (const h of this.heroes.values()) this.payout(h);
     for (const h of this.heroes.values()) {
       const u = h.userId && this.db.userById(h.userId);
       if (!u) continue;
@@ -188,6 +189,7 @@ class Game {
     if (!this.canJoin()) return { error: 'Les inscriptions pour cette bataille sont fermées.' };
     if (this.heroes.size >= this.settings.maxHeroes) return { error: 'La bataille est complète.' };
     const h = this.makeHero({ id: user.id, userId: user.id, name: user.pseudo, isBot: false });
+    this.lockProfile(h, user);
     this.refreshHero(h);
     h.hp = h.maxHp;
     this.heroes.set(h.id, h);
@@ -241,6 +243,7 @@ class Game {
   removeHero(id) {
     const h = this.heroes.get(id);
     if (!h) return;
+    this.payout(h);
     this.heroes.delete(id);
     this.allies = this.allies.filter((a) => a.ownerId !== id);
     this.rosterVersion++;
@@ -261,7 +264,7 @@ class Game {
 
   resetHeroForRun(h) {
     h.alive = true; h.zombie = false; h.buffs = {}; h.status = {}; h.ult = 0; h.dashing = null; h.chain = null;
-    h.runKills = 0; h.runGold = 0; h.runXp = 0;
+    h.runKills = 0; h.runGold = 0; h.runXp = 0; h.runGlacons = 0; h.paid = false;
     const a = Math.random() * Math.PI * 2;
     h.x = WORLD.CX + Math.cos(a) * 110; h.y = WORLD.CY + Math.sin(a) * 80;
     this.refreshHero(h);
@@ -274,12 +277,26 @@ class Game {
     return this.db.userById(h.userId);
   }
 
+  // Profil utilisé pour les statistiques : figé au moment où le joueur rejoint la bataille
+  statsProfile(h) {
+    if (h.isBot) return h.bot;
+    return h.lock || this.db.userById(h.userId);
+  }
+
+  lockProfile(h, u) {
+    const clone = (o) => JSON.parse(JSON.stringify(o || {}));
+    h.lock = { cls: u.cls, level: u.level, attrs: clone(u.attrs), skills: clone(u.skills), house: clone(GD.houseOf(u)), gear: this.db.gearOf(u) };
+  }
+
   // Recalcule les statistiques à partir du profil (classe, niveau, armures, améliorations)
   refreshHero(h) {
-    const p = this.heroProfile(h);
-    if (!p) return;
+    const p = this.statsProfile(h);
+    const live = this.heroProfile(h);
+    if (!p || !live) return;
     const prevCls = h.cls;
-    h.cls = p.cls; h.level = p.level; h.look = p.look; h.gear = GD.gearFor(p.cls, h.isBot ? p.gear : this.db.gearOf(p)); h.ai = p.ai;
+    // apparence et comportement (IA) restent modifiables ; classe, niveau, stats, équipement et habitation sont figés
+    h.cls = p.cls; h.level = p.level; h.look = live.look; h.ai = live.ai;
+    h.gear = GD.gearFor(p.cls, h.isBot ? p.gear : h.lock ? h.lock.gear : this.db.gearOf(p));
     h.attrs = p.attrs;
     const c = CLASSES[h.cls] || CLASSES.habitant;
     const ratio = h.maxHp > 1 ? h.hp / h.maxHp : 1;
@@ -309,11 +326,21 @@ class Game {
   reward(h, xp, gold) {
     const mult = (1 + 0.2 * this.run.upgrades.banner) * (this.run.pactActive ? 2 : 1);
     xp = Math.round(xp * mult * (h.xpMult || 1)); gold = Math.round(gold * mult);
+    // tout est mis de côté et versé à la fin de la partie (payout)
     h.runXp += xp; h.runGold += gold;
-    const p = this.heroProfile(h);
-    if (!p || h.isBot) return;
-    p.gold += gold;
-    this.grantXp(p, xp);
+  }
+
+  // Versement des récompenses de la partie (fin de partie, ou départ du héros)
+  payout(h) {
+    if (h.isBot || h.paid) return;
+    h.paid = true;
+    const p = this.db.userById(h.userId);
+    if (!p) return;
+    p.gold += h.runGold;
+    p.glacons = (p.glacons || 0) + (h.runGlacons || 0);
+    const levels = this.grantXp(p, h.runXp);
+    this.db.markDirty();
+    if (this.onPayout) this.onPayout(p, { xp: h.runXp, gold: h.runGold, glacons: (h.runGlacons || 0) + levels * PROGRESSION.GLACONS_PER_LEVEL, levels });
   }
 
   // Ajoute de l'XP à un profil joueur (montées de niveau + points de stat). Utilisé aussi par l'admin.
@@ -378,7 +405,7 @@ class Game {
       this.reward(h, B.WAVE_XP_BASE + r.wave * B.WAVE_XP_PER_WAVE, B.WAVE_GRELONS_BASE + Math.ceil(r.wave * B.WAVE_GRELONS_PER_WAVE));
       // un glaçon (coffre) par manche passée
       const pu = !h.isBot && this.db.userById(h.userId);
-      if (pu) { pu.glacons = (pu.glacons || 0) + GD.GLACONS.PER_WAVE; this.fx(['text', Math.round(h.x), Math.round(h.y) - 80, '+1 🧊', '#bfe6ff']); }
+      if (pu) { h.runGlacons = (h.runGlacons || 0) + GD.GLACONS.PER_WAVE; this.fx(['text', Math.round(h.x), Math.round(h.y) - 80, '+1 🧊', '#bfe6ff']); }
       if (!h.alive) { h.alive = true; h.zombie = false; h.hp = Math.round(h.maxHp * 0.5); h.x = WORLD.CX; h.y = WORLD.CY + 90; }
       if (h.zombie) { h.zombie = false; this.rosterVersion++; }
       const u = h.userId && this.db.userById(h.userId);
@@ -817,7 +844,7 @@ class Game {
    * sinon les PV restent proportionnels (départ d'un occupant). Une habitation détruite le reste.
    */
   recomputeBuilding(b, gain) {
-    const profiles = b.owners.map((id) => this.heroProfile(this.heroes.get(id)));
+    const profiles = b.owners.map((id) => this.statsProfile(this.heroes.get(id)));
     const newMax = profiles.reduce((a, p) => a + GD.houseHp(p), 0);
     if (gain) { if (b.hp > 0 || b.max === 0) b.hp = Math.min(newMax, b.hp + Math.max(0, newMax - b.max)); }
     else b.hp = b.max > 0 ? (b.hp * newMax) / b.max : newMax;
@@ -837,9 +864,9 @@ class Game {
         if (b.fireT > 0) continue;
         const t = this.nearestMob(b.x, b.y, 340);
         if (!t) continue;
-        b.fireT = Math.max(0.7, 2.4 - 0.3 * b.special);
+        b.fireT = Math.max(1.2, 2.6 - 0.25 * b.special);
         const owner = this.heroes.get(b.owners[0]);
-        this.shoot({ kind: 'arrow', side: 'hero', x: b.x, y: b.y - 40, target: t, dmg: 5 * b.special * (1 + 0.08 * (this.run.wave - 1)), speed: 700, owner });
+        this.shoot({ kind: 'arrow', side: 'hero', x: b.x, y: b.y - 40, target: t, dmg: 3 * b.special * (1 + 0.08 * (this.run.wave - 1)), speed: 700, owner });
       } else if (b.family === 'assassin') {
         b.trapT -= dt;
         if (b.trapT > 0) continue;
@@ -980,7 +1007,7 @@ class Game {
         alive: h.alive, hp: Math.ceil(h.hp), maxHp: h.maxHp, ult: Math.min(1, h.ult), hasUlt: !!CLASSES[h.cls].ult,
         respawn: Math.ceil(h.respawnT), zombie: h.zombie, kills: h.runKills, xp: h.runXp, gold: h.runGold,
         buffs: Object.fromEntries(Object.entries(h.buffs).filter(([, v]) => v > 0).map(([k, v]) => [k, Math.ceil(v)])),
-        status: Object.keys(h.status), dmg: Math.round(h.dmg), armor: Math.round(h.armor * 100),
+        status: Object.keys(h.status), dmg: Math.round(h.dmg), armor: Math.round(h.armor * 100), glacons: h.runGlacons || 0,
         resting: !!h.resting,
         building: (() => { const b = this.buildingOfHero(h); return b ? { name: b.name, hp: Math.ceil(b.hp), max: b.max, shared: b.owners.length } : null; })()
       };

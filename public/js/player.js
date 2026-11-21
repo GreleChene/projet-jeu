@@ -151,6 +151,7 @@
     );
     // héros
     $('#notInRun').classList.toggle('hidden', !!h);
+    $('#lockBanner').classList.toggle('hidden', !h);
     if (!h) {
       // le bouton n'apparaît que lorsqu'une bataille est lancée et que les inscriptions sont ouvertes
       $('#joinBtn').classList.toggle('hidden', !r.canJoin);
@@ -176,7 +177,7 @@
       for (const s of h.status) if (SN[s]) st.push(SN[s]);
       if (h.building) st.push(h.building.hp > 0 ? `🏠 ${h.building.name}${h.building.shared > 1 ? ` (partagée à ${h.building.shared})` : ''} : ${h.building.hp}/${h.building.max} PV${h.resting ? ' (repos, soin en cours)' : ''}` : `🔥 ${h.building.name} détruite : plus de soin entre les manches`);
       $('#heroStatus').textContent = st.join(' · ') || `Dégâts ${h.dmg} · Armure ${h.armor}%`;
-      $('#sKills').textContent = h.kills; $('#sXp').textContent = h.xp; $('#sGold').textContent = h.gold;
+      $('#sKills').textContent = h.kills; $('#sXp').textContent = h.xp; $('#sGold').textContent = h.gold + (h.glacons ? ` · ${h.glacons} 🧊` : '');
     }
     // vote d'équipe
     const v = live.vote;
@@ -322,12 +323,12 @@
   async function respec(loss) {
     $('#clsError').textContent = '';
     const choices = GD.BASE_CLASSES.map((b, i) => `${i + 1}. ${GD.CLASSES[b].name}`).join('\n');
-    const ans = prompt(`Reconversion : ton arbre est remis à zéro et tu perds définitivement ${loss} point(s) de compétence (le quart de tes points attribués).\n\nNouvelle classe (laisse vide pour garder ${GD.CLASSES[GD.familyOf(me.cls)].name}) :\n${choices}`, '');
+    const ans = prompt(`Reconversion : ton arbre est remis à zéro et tu perds définitivement ${loss} point(s) de compétence (le quart de tes points attribués).\nTes améliorations d’habitation sont aussi remises à zéro : ${Math.floor(GD.houseSpent(me) * GD.HOUSE_RESPEC_REFUND)} Grêlons te sont remboursés (75 %).\n\nNouvelle classe (laisse vide pour garder ${GD.CLASSES[GD.familyOf(me.cls)].name}) :\n${choices}`, '');
     if (ans === null) return;
     const idx = Number(ans) - 1;
     const cls = GD.BASE_CLASSES[idx] || null;
     if (ans.trim() && !cls) { $('#clsError').textContent = 'Choix invalide.'; return; }
-    try { const d = await api('/api/me/respec', { body: { cls } }); setUser(d.user); toast(`Reconversion effectuée (−${d.lost} point${d.lost > 1 ? 's' : ''}).`); }
+    try { const d = await api('/api/me/respec', { body: { cls } }); setUser(d.user); toast(`Reconversion effectuée (−${d.lost} point${d.lost > 1 ? 's' : ''}${d.refund ? `, +${d.refund} Grêlons remboursés` : ''}).`); }
     catch (e) { $('#clsError').textContent = e.message; }
   }
 
@@ -758,6 +759,7 @@
     const visible = GD.RARITIES.filter((r) => !r.hidden);
     $('#rules').replaceChildren(
       sec('🏰 Le but du jeu', el('p', {}, 'Une tour se dresse au centre de l’écran. Des vagues de monstres arrivent de tous les bords : si la tour (200 PV au départ) tombe, la partie est perdue. Il y a 100 manches à survivre.'),
+        el('p', {}, 'Quand tu rejoins une bataille, la classe, les statistiques, les compétences, l’équipement et l’habitation de ton héros sont figés jusqu’à la fin de la partie (l’apparence et l’IA restent modifiables). Toutes les récompenses de la partie (XP, Grêlons, glaçons) sont versées à la fin de la partie, ou quand ton héros la quitte.'),
         el('p', {}, 'Ton héros se bat tout seul grâce à son IA. Toi, tu choisis sa classe, ses statistiques, son équipement et son comportement depuis ce site, et tu votes avec l’équipe.')),
       sec('🧬 Classes', el('p', {}, `Tout le monde commence Habitant, avec un arbre d’initiation (une compétence liée à chaque classe). Au niveau ${PR.CLASS_LEVEL}, choisis ta classe : son initiation est conservée, les points des autres te sont rendus. Tu gagnes 1 point de compétence tous les ${PR.SKILL_EVERY} niveaux. L’arbre de ta classe a une branche par spécialisation : 5 compétences passives (3 rangs), l’ultime au bout (niveau ${PR.ULT_LEVEL} requis, il te fait devenir la spécialisation), puis une maîtrise. Dès que tu places un point dans une branche, les autres se bloquent. La reconversion remet tout à zéro (changement de classe possible) mais fait perdre ${Math.round(PR.SKILL_RESPEC_LOSS * 100)}% des points attribués.`),
         ul(GD.BASE_CLASSES.map((b) => [el('b', { style: `color:${GD.CLASSES[b].color}` }, GD.CLASSES[b].name), ` → ${GD.specsOf(b).map((s) => `${GD.CLASSES[s].name} (${GD.CLASSES[s].ultName})`).join(' / ')}${GD.CLASSES[b].leash ? ` · reste à moins de ${GD.CLASSES[b].leash} px de la tour` : ''}`]))),
@@ -784,6 +786,7 @@
       sec('🏠 Habitations', ul([
         `En bataille, chaque héros a son habitation, du type de sa classe (${GD.BALANCE.BUILDINGS_PER_CLASS} par classe au maximum ; au-delà, elle est partagée et les PV s’additionnent).`,
         'Entre les manches, chaque héros s’y soigne. Si elle est détruite, plus de soin jusqu’à la fin de la partie.',
+        `Une reconversion remet les améliorations d’habitation à zéro et rembourse ${Math.round(GD.HOUSE_RESPEC_REFUND * 100)} % des Grêlons dépensés.`,
         'Onglet « Amélioration de bâtiment » : PV, puissance de soin (moyenne des occupants si partagée) et une amélioration spéciale par classe : ' + Object.entries(GD.HOUSE_SPECIALS).map(([f, sp]) => `${sp.icon} ${sp.name} (${GD.CLASSES[f].name})`).join(', ') + '.'])),
       sec('🗳️ Votes d’équipe', el('p', {}, `Toutes les ${voteEvery} manches, pendant l’entracte, les héros votent pour dépenser les écus de l’équipe. L’option la plus votée l’emporte :`),
         ul(Object.values(GD.UPGRADES).map((u) => `${u.icon} ${u.name} : ${u.desc}${u.unlock ? ` (débloqué quand l’équipe a gagné ${u.unlock} écus)` : ''}`).concat(['🪙 Économiser : garder les écus pour plus tard']))),

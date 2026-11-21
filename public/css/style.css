@@ -273,3 +273,4 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 .skill.mastery { border-style: dashed; }
 .house-preview { background: radial-gradient(circle at 50% 75%, #4b8f3a 0%, #2b5a22 55%, #1e3d18 100%); }
 .chip { white-space: nowrap; }
+.lock-banner { background: rgba(47, 111, 209, .18); border: 2px solid #2f6fd1; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-size: .9rem; }

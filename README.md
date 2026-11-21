@@ -40,6 +40,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - `!1`, `!2`… : votes d'équipe (ouverts à tout le chat ou aux seuls héros, au choix).
 
   L'admin dispose d'un simulateur de messages pour tester sans être en live.
+- **Stats figées et récompenses de fin de partie.** Dès qu'un joueur rejoint une bataille, la classe, les statistiques, les compétences, l'équipement et l'habitation de son héros sont figés jusqu'à la fin de la partie. L'apparence et l'IA restent modifiables. Toutes les récompenses (XP, Grêlons, glaçons de manche et de niveau) sont mises de côté et versées à la fin de la partie, ou quand le héros la quitte.
 - **Mode défense de tour.** Les monstres arrivent de tous les bords. La tour commence avec **200 PV** ; si elle tombe, la partie est perdue. Il y a 100 manches.
 - **Arbres de compétences.**
   - Tout le monde commence Habitant, avec un **arbre d'initiation** : une compétence liée à chaque classe.
@@ -50,8 +51,8 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - La reconversion remet tout à zéro (changement de classe possible) mais fait perdre un quart des points attribués.
 - **Habitations.** Chaque héros a la sienne, du type de sa classe, dans la limite de **5 par classe** (réglable). Au-delà, le joueur partage l'habitation la moins occupée de sa classe, et leurs **PV fusionnent** : 100 PV par occupant. Quand une place se libère, un occupant récupère sa propre habitation. Les habitations sont placées au hasard autour de la tour, classes mélangées, y compris au nord (la tour peut les cacher en partie). Les monstres frappent celles qui se trouvent sur leur trajet vers la tour. Pendant l'entracte, chaque héros rentre se soigner dans la sienne, ce qui devient impossible si elle est détruite.
 - **Amélioration de bâtiment** (onglet dédié, achats en Grêlons, conservés d'une partie à l'autre) :
-  - *Murs renforcés* : +25 % de PV par niveau. Quand une habitation est partagée, les PV des occupants s'additionnent.
-  - *Lits douillets* : +20 % de puissance de soin par niveau. Une habitation partagée applique la **moyenne** des occupants, pas un double soin.
+  - *Murs renforcés* : +12 % de PV par niveau. Quand une habitation est partagée, les PV des occupants s'additionnent.
+  - *Lits douillets* : +10 % de puissance de soin par niveau. Une habitation partagée applique la **moyenne** des occupants, pas un double soin.
   - Une amélioration **spéciale par classe** :
 
     | Classe | Amélioration | Effet |
@@ -65,6 +66,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
     | Soldat | Râtelier | plus de défense |
 
     Pour les effets de bâtiment (Vigie, Pièges), c'est le meilleur niveau des occupants qui compte.
+  - Une **reconversion** remet ces améliorations à zéro et rembourse 75 % des Grêlons dépensés.
   - Coûts et effets sont réglables dans l'onglet Équilibrage.
 - **Zones de biome.** À chaque manche, de petites zones apparaissent au hasard, sur des tuiles du biome correspondant et sans se chevaucher : glace (ralentit les héros), poison (−1 % des PV max toutes les 3 s), lave (−1 % toutes les 2 s). Pendant les manches 91 à 100, les trois types coexistent. Tout est réglable dans l'onglet Équilibrage.
 - **Adaptation au nombre de joueurs.** La puissance des monstres (PV et dégâts), leur nombre et la durée des manches augmentent avec le nombre de héros. Tout est réglable dans l'onglet Équilibrage.

@@ -91,3 +91,31 @@ test('zones de biome : uniquement sur le biome correspondant, sans chevauchement
   g.setWave(2); // prairie : aucune zone
   assert.strictEqual(g.zones.filter((z) => ['ice', 'toxic', 'lava'].includes(z.kind)).length, 0);
 });
+
+test('stats figées pendant la bataille et récompenses versées à la fin', () => {
+  const GD = require('../shared/constants');
+  const u = { id: 'u1', pseudo: 'Lock', cls: 'soldat', level: 10, xp: 0, gold: 0, glacons: 0, look: { cape: 0, skin: 0, hair: 0 }, ai: { stance: 'balanced', target: 'nearest', retreat: 0, ult: 'asap' }, attrs: GD.emptyAttrs(), skills: {}, house: {}, inventory: [], equip: {}, stats: { kills: 0, bossKills: 0, deaths: 0, runs: 0, bestWave: 0 } };
+  const db = { data: { settings: {} }, markDirty() {}, userById: (id) => (id === 'u1' ? u : null), syncAttrPoints() {}, gearOf() { return {}; } };
+  const io = { to: () => ({ emit() {} }), sockets: { sockets: new Map() } };
+  const g = new Game(db, io);
+  g.startRun(1);
+  const h = g.joinUser(u);
+  const hp = h.maxHp;
+  u.attrs.vie = 20; u.cls = 'mage';
+  g.refreshHero(h);
+  assert.strictEqual(h.maxHp, hp, 'stats figées');
+  assert.strictEqual(h.cls, 'soldat', 'classe figée');
+  g.reward(h, 500, 40);
+  assert.strictEqual(u.gold, 0, 'rien versé pendant la partie');
+  g.stopRun();
+  assert.strictEqual(u.gold, 40, 'Grêlons versés à la fin');
+  assert.ok(u.xp > 0 || u.level > 10, 'XP versée à la fin');
+});
+
+test('reconversion : 75 % des Grêlons d’amélioration remboursés', () => {
+  const GD = require('../shared/constants');
+  const u = { house: { hp: 2, heal: 0, special: { archer: 1 } } };
+  const spent = GD.HOUSE_UPGRADES.hp.cost + GD.houseCost(GD.HOUSE_UPGRADES.hp, 1) + GD.HOUSE_SPECIALS.archer.cost;
+  assert.strictEqual(GD.houseSpent(u), spent);
+  assert.strictEqual(Math.floor(GD.houseSpent(u) * GD.HOUSE_RESPEC_REFUND), Math.floor(spent * 0.75));
+});

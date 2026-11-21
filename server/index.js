@@ -240,9 +240,13 @@ app.post('/api/me/respec', auth, (req, res) => {
   const lost = Math.floor(spent * GD.PROGRESSION.SKILL_RESPEC_LOSS);
   u.skillLost = (u.skillLost || 0) + lost;
   u.skills = {};
+  // les améliorations d'habitation sont remises à zéro, 75 % des Grêlons dépensés sont remboursés
+  const refund = Math.floor(GD.houseSpent(u) * GD.HOUSE_RESPEC_REFUND);
+  u.gold += refund;
+  u.house = { hp: 0, heal: 0, special: {} };
   u.cls = target || GD.familyOf(u.cls);
   afterProfileChange(u);
-  res.json({ user: publicUser(u), lost });
+  res.json({ user: publicUser(u), lost, refund });
 });
 
 /* ============================== Points de statistiques ============================== */
@@ -685,6 +689,8 @@ io.on('connection', (socket) => {
   socket.on('vote', (opt) => game.castVote(socket.data.userId, String(opt)));
 });
 
+// récompenses de fin de partie : notification au joueur
+game.onPayout = (u, r) => notify(u.id, `🎁 Fin de partie : +${r.xp} XP, +${r.gold} Grêlons, +${r.glacons} glaçon(s)${r.levels ? ` · +${r.levels} niveau(x) !` : ''}`);
 game.start();
 const Twitch = require('./twitch');
 const twitch = new Twitch(db, game, notify);

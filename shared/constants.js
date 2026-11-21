@@ -245,19 +245,29 @@
    * Spéciale : propre au type de bâtiment (donc à la classe actuelle du joueur).
    */
   const HOUSE_UPGRADES = {
-    hp: { name: 'Murs renforcés', icon: '🧱', per: 0.25, max: 10, cost: 80, growth: 1.45, desc: (v) => `+${Math.round(v * 100)}% de PV pour ton habitation` },
-    heal: { name: 'Lits douillets', icon: '🛏️', per: 0.2, max: 10, cost: 100, growth: 1.45, desc: (v) => `+${Math.round(v * 100)}% de puissance de soin` }
+    hp: { name: 'Murs renforcés', icon: '🧱', per: 0.12, max: 10, cost: 80, growth: 1.45, desc: (v) => `+${Math.round(v * 100)}% de PV pour ton habitation` },
+    heal: { name: 'Lits douillets', icon: '🛏️', per: 0.1, max: 10, cost: 100, growth: 1.45, desc: (v) => `+${Math.round(v * 100)}% de puissance de soin` }
   };
   const HOUSE_SPECIALS = {
-    paysan: { name: 'Grenier', icon: '🌾', per: 0.08, max: 5, cost: 180, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% d’écus récoltés` },
-    habitant: { name: 'Foyer chaleureux', icon: '🔥', per: 0.05, max: 5, cost: 150, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% d’XP gagnée` },
-    mage: { name: 'Bibliothèque', icon: '📚', per: 0.06, max: 5, cost: 200, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% de charge de l’ultime` },
-    eleveur: { name: 'Enclos', icon: '🐺', per: 0.12, max: 5, cost: 200, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% de PV et dégâts des invocations` },
+    paysan: { name: 'Grenier', icon: '🌾', per: 0.04, max: 5, cost: 180, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% d’écus récoltés` },
+    habitant: { name: 'Foyer chaleureux', icon: '🔥', per: 0.03, max: 5, cost: 150, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% d’XP gagnée` },
+    mage: { name: 'Bibliothèque', icon: '📚', per: 0.03, max: 5, cost: 200, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% de charge de l’ultime` },
+    eleveur: { name: 'Enclos', icon: '🐺', per: 0.06, max: 5, cost: 200, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% de PV et dégâts des invocations` },
     archer: { name: 'Vigie', icon: '🏹', per: 1, max: 5, cost: 220, growth: 1.7, desc: (v) => (v ? `la tour de guet tire sur les ennemis proches (niveau ${v})` : 'la tour de guet tire sur les ennemis proches') },
-    assassin: { name: 'Pièges', icon: '🪤', per: 0.08, max: 5, cost: 200, growth: 1.7, desc: (v) => `les ennemis proches du repaire sont ralentis de ${Math.round(v * 100)}%` },
-    soldat: { name: 'Râtelier d’armes', icon: '🛡️', per: 0.02, max: 5, cost: 200, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% de défense` }
+    assassin: { name: 'Pièges', icon: '🪤', per: 0.05, max: 5, cost: 200, growth: 1.7, desc: (v) => `les ennemis proches du repaire sont ralentis de ${Math.round(v * 100)}%` },
+    soldat: { name: 'Râtelier d’armes', icon: '🛡️', per: 0.01, max: 5, cost: 200, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% de défense` }
   };
   const houseCost = (def, lvl) => Math.round(def.cost * Math.pow(def.growth, lvl));
+  const HOUSE_RESPEC_REFUND = 0.75; // reconversion : part des Grêlons dépensés remboursée
+  // Grêlons dépensés en améliorations d'habitation
+  function houseSpent(u) {
+    const h = houseOf(u);
+    let total = 0;
+    const sum = (def, lvl) => { for (let i = 0; i < lvl; i++) total += houseCost(def, i); };
+    sum(HOUSE_UPGRADES.hp, h.hp); sum(HOUSE_UPGRADES.heal, h.heal);
+    for (const [f, lvl] of Object.entries(h.special)) if (HOUSE_SPECIALS[f]) sum(HOUSE_SPECIALS[f], lvl);
+    return total;
+  }
   // Niveaux d'amélioration d'un profil : { hp, heal, special: { famille: niveau } }
   const houseOf = (u) => ({ hp: 0, heal: 0, ...(u && u.house), special: { ...((u && u.house && u.house.special) || {}) } });
   const houseHp = (u) => BALANCE.BUILDING_HP * (1 + HOUSE_UPGRADES.hp.per * houseOf(u).hp);
@@ -572,5 +582,5 @@
     for (const [k, v] of Object.entries(overrides || {})) { try { setPath(k.split('.'), v); } catch (e) { /* chemin obsolète */ } }
   }
 
-  return { HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });
