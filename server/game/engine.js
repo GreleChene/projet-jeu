@@ -15,7 +15,6 @@ const { PROJ_KINDS, ZONE_KINDS, HF, MF } = GD.NET;
 const PROJ_INDEX = Object.fromEntries(PROJ_KINDS.map((k, i) => [k, i]));
 const ZONE_INDEX = Object.fromEntries(ZONE_KINDS.map((k, i) => [k, i]));
 
-const TOWER_BASE_HP = 200;
 
 const DEFAULT_SETTINGS = {
   voteEvery: 2, // vote des viewers toutes les N manches
@@ -57,7 +56,7 @@ class Game {
       wave: 0,
       cleared: 0,
       uprooted: false,
-      tower: { hp: TOWER_BASE_HP, max: TOWER_BASE_HP, ballistaT: 0, catapultT: 0 },
+      tower: { hp: GD.BALANCE.TOWER_BASE_HP, max: GD.BALANCE.TOWER_BASE_HP, ballistaT: 0, catapultT: 0 },
       treasury: 0,
       wealthEarned: 0,
       upgrades: Object.fromEntries(Object.keys(UPGRADES).map((k) => [k, 0])),
@@ -274,13 +273,14 @@ class Game {
     }
     if (p.level >= PROGRESSION.MAX_LEVEL) p.xp = 0;
     this.db.syncAttrPoints(p);
+    if (p.level > before) p.glacons = (p.glacons || 0) + (p.level - before) * PROGRESSION.GLACONS_PER_LEVEL;
     this.db.markDirty();
     const gained = p.level - before;
     const h = this.heroes.get(p.id);
     if (gained > 0 && h) {
       this.refreshHero(h);
       this.fx(['lvl', h.x, h.y, p.level]);
-      this.fx(['text', h.x, h.y - 70, `+${gained} point${gained > 1 ? 's' : ''} de stat`, GD.PALETTE.fx.xp]);
+      this.fx(['text', h.x, h.y - 70, `+${gained} point${gained > 1 ? 's' : ''} de stat · +${gained * PROGRESSION.GLACONS_PER_LEVEL} 🧊`, GD.PALETTE.fx.xp]);
       if (before < PROGRESSION.CLASS_LEVEL && p.level >= PROGRESSION.CLASS_LEVEL || before < PROGRESSION.SPEC_LEVEL && p.level >= PROGRESSION.SPEC_LEVEL) this.pushFeed(`${h.name} peut faire évoluer sa classe !`);
     }
     return gained;
@@ -319,7 +319,8 @@ class Game {
     if (wasBoss) this.terrainChanged();
     // récompenses de fin de manche
     for (const h of this.heroes.values()) {
-      this.reward(h, 10 + r.wave * 4, 2 + Math.ceil(r.wave / 2));
+      const B = GD.BALANCE;
+      this.reward(h, B.WAVE_XP_BASE + r.wave * B.WAVE_XP_PER_WAVE, B.WAVE_GRELONS_BASE + Math.ceil(r.wave * B.WAVE_GRELONS_PER_WAVE));
       // un glaçon (coffre) par manche passée
       const pu = !h.isBot && this.db.userById(h.userId);
       if (pu) { pu.glacons = (pu.glacons || 0) + GD.GLACONS.PER_WAVE; this.fx(['text', Math.round(h.x), Math.round(h.y) - 80, '+1 🧊', '#bfe6ff']); }
@@ -328,7 +329,7 @@ class Game {
       const u = h.userId && this.db.userById(h.userId);
       if (u) u.stats.bestWave = Math.max(u.stats.bestWave, r.cleared);
     }
-    const bonus = Math.round((15 + r.wave * 3) * (r.pactActive ? 2 : 1));
+    const bonus = Math.round((GD.BALANCE.WAVE_ECUS_BASE + r.wave * GD.BALANCE.WAVE_ECUS_PER_WAVE) * (r.pactActive ? 2 : 1));
     this.addTreasury(bonus);
     r.pactActive = false;
     if (r.wave >= 100) return this.victory();

@@ -73,25 +73,66 @@
   /* ------------------------------------------------------------------ */
   /* Progression                                                         */
   /* ------------------------------------------------------------------ */
+  // Le niveau n'augmente PAS les statistiques : seuls les points de stat (et l'équipement) le font.
+  // Chaque niveau rapporte des points de stat et des glaçons.
   const PROGRESSION = {
     CLASS_LEVEL: 3, // niveau pour quitter « habitant »
     SPEC_LEVEL: 8, // niveau pour choisir une spécialisation
     MAX_LEVEL: 60,
-    xpForLevel: (lvl) => Math.round(60 * Math.pow(lvl, 1.45)), // XP nécessaire pour passer de lvl à lvl+1
-    statBonus: (lvl) => 1 + 0.01 * (lvl - 1), // petit bonus automatique ; l'essentiel vient des points de stat
-    POINTS_PER_LEVEL: 1
+    POINTS_PER_LEVEL: 1,
+    GLACONS_PER_LEVEL: 1,
+    XP_BASE: 60, // XP pour passer de lvl à lvl+1 = XP_BASE × lvl^XP_EXP
+    XP_EXP: 1.45,
+    xpForLevel: (lvl) => Math.round(PROGRESSION.XP_BASE * Math.pow(lvl, PROGRESSION.XP_EXP))
+  };
+
+  /*
+   * Réglages généraux d'équilibrage (tous modifiables en direct depuis l'admin, onglet Équilibrage)
+   */
+  const BALANCE = {
+    TOWER_BASE_HP: 200,
+    ULT_TIME: 28, // secondes pour charger un ultime
+    RESPAWN_TIME: 12, // secondes avant la réapparition d'un héros
+    WAVE_HP_LINEAR: 0.1, // PV des monstres : × (1 + LIN×(m-1) + QUAD×(m-1)²)
+    WAVE_HP_QUAD: 0.0025,
+    WAVE_DMG: 0.045, // dégâts des monstres : × (1 + DMG×(m-1))
+    HP_PER_HERO: 0.03, // PV des monstres en plus par héros présent
+    MOB_COUNT_BASE: 6, // nombre de monstres : (BASE + PAR_MANCHE×m) × facteur joueurs
+    MOB_COUNT_PER_WAVE: 1.5,
+    MOB_COUNT_PER_HERO: 0.25,
+    MOB_COUNT_HERO_CAP: 12,
+    MAX_WAVE_MOBS: 450,
+    ELITE_BASE: 0.02, // chance d'élite : BASE + PAR_MANCHE×m (max ELITE_MAX)
+    ELITE_PER_WAVE: 0.003,
+    ELITE_MAX: 0.25,
+    ELITE_HP: 3.5,
+    ELITE_DMG: 1.5,
+    BOSS_HP_BASE: 0.6, // PV des boss : × (BASE + PAR_HÉROS × héros)
+    BOSS_HP_PER_HERO: 0.25,
+    WAVE_XP_BASE: 10, // récompense de fin de manche (par héros)
+    WAVE_XP_PER_WAVE: 4,
+    WAVE_GRELONS_BASE: 2,
+    WAVE_GRELONS_PER_WAVE: 0.5,
+    WAVE_ECUS_BASE: 15, // écus pour l'équipe en fin de manche
+    WAVE_ECUS_PER_WAVE: 3,
+    KILL_ECUS: 0.5, // part de la valeur d'un monstre versée en écus à l'équipe
+    HARVEST_INTERVAL: 3, // paysans : une récolte toutes les X secondes
+    HARVEST_BASE: 1.5,
+    HARVEST_PER_LEVEL: 0.15
   };
 
   /* ------------------------------------------------------------------ */
   /* Statistiques : 1 point gagné à chaque niveau, réparti librement      */
   /* ------------------------------------------------------------------ */
+  const pct = (v) => (Math.round(v * 1000) / 10).toString().replace('.', ',');
+  const attr = (name, icon, per, what) => ({ name, icon, per, what, get desc() { return `+${pct(this.per)}% ${this.what} par point`; } });
   const ATTRIBUTES = {
-    vie: { name: 'Vie', icon: '❤️', desc: '+6% de PV max par point' },
-    force: { name: 'Force', icon: '⚔️', desc: '+5% de dégâts par point' },
-    defense: { name: 'Défense', icon: '🛡️', desc: '+2% de réduction des dégâts par point' },
-    agilite: { name: 'Agilité', icon: '🌀', desc: '+4% de vitesse d’attaque par point' },
-    vitesse: { name: 'Vitesse', icon: '👟', desc: '+3% de vitesse de déplacement par point' },
-    critique: { name: 'Critique', icon: '🎯', desc: '+1,5% de chances de coup critique par point' }
+    vie: attr('Vie', '❤️', 0.06, 'de PV max'),
+    force: attr('Force', '⚔️', 0.05, 'de dégâts'),
+    defense: attr('Défense', '🛡️', 0.02, 'de réduction des dégâts'),
+    agilite: attr('Agilité', '🌀', 0.04, 'de vitesse d’attaque'),
+    vitesse: attr('Vitesse', '👟', 0.03, 'de vitesse de déplacement'),
+    critique: attr('Critique', '🎯', 0.015, 'de chances de coup critique')
   };
   const ATTR_IDS = Object.keys(ATTRIBUTES);
   const emptyAttrs = () => Object.fromEntries(ATTR_IDS.map((k) => [k, 0]));
@@ -105,16 +146,16 @@
     let ihp = 0, iarmor = 0, idmg = 0, ispeed = 0;
     for (const s of SLOTS) if (gear[s]) { const st = itemStats(gear[s]); ihp += st.hp || 0; iarmor += st.armor || 0; idmg += st.dmg || 0; ispeed += st.speed || 0; }
     const sb = setBonuses(gear).bonus;
-    const lb = PROGRESSION.statBonus(o.level || 1);
-    const baseDmg = c.dmg * lb * (1 + 0.05 * a.force + idmg + (sb.dmg || 0));
+    const A = ATTRIBUTES;
+    const baseDmg = c.dmg * (1 + A.force.per * a.force + idmg + (sb.dmg || 0));
     return {
-      maxHp: Math.round(c.hp * lb * (1 + ihp + (sb.hp || 0) + 0.06 * a.vie)),
+      maxHp: Math.round(c.hp * (1 + ihp + (sb.hp || 0) + A.vie.per * a.vie)),
       baseDmg,
       dmg: baseDmg * (1 + 0.1 * (up.forge || 0)),
-      armor: Math.min(0.75, (c.armor || 0) + iarmor + (sb.armor || 0) + 0.02 * a.defense + 0.08 * (up.armory || 0)),
-      cd: c.cd / (1 + 0.04 * a.agilite + (sb.atkspd || 0)),
-      speed: c.speed * (1 + 0.03 * a.vitesse + ispeed + (sb.speed || 0)),
-      crit: Math.min(0.8, (c.crit || 0.05) + 0.015 * a.critique + (sb.crit || 0)),
+      armor: Math.min(0.75, (c.armor || 0) + iarmor + (sb.armor || 0) + A.defense.per * a.defense + 0.08 * (up.armory || 0)),
+      cd: c.cd / (1 + A.agilite.per * a.agilite + (sb.atkspd || 0)),
+      speed: c.speed * (1 + A.vitesse.per * a.vitesse + ispeed + (sb.speed || 0)),
+      crit: Math.min(0.8, (c.crit || 0.05) + A.critique.per * a.critique + (sb.crit || 0)),
       ultRate: 1 + (sb.ult || 0),
       harvestMult: 1 + (sb.harvest || 0),
       range: c.range,
@@ -369,5 +410,21 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128 }
   };
 
-  return { NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  // Modifie une valeur d'équilibrage (chemin = ['MOBS', 'gobelin', 'hp'])
+  const ROOTS = () => ({ BALANCE, PROGRESSION, ATTRIBUTES, GLACONS, RARITIES, CLASSES, MOBS, UPGRADES, TEMPLATES, SETS });
+  function getPath(path) {
+    let o = ROOTS()[path[0]];
+    for (let i = 1; i < path.length && o != null; i++) o = o[path[i]];
+    return o;
+  }
+  function setPath(path, value) {
+    let o = ROOTS()[path[0]];
+    for (let i = 1; i < path.length - 1; i++) { if (o[path[i]] == null) o[path[i]] = {}; o = o[path[i]]; }
+    o[path[path.length - 1]] = value;
+  }
+  function applyBalance(overrides) {
+    for (const [k, v] of Object.entries(overrides || {})) { try { setPath(k.split('.'), v); } catch (e) { /* chemin obsolète */ } }
+  }
+
+  return { getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

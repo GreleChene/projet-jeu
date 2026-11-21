@@ -22,6 +22,19 @@
       <p>Cette page est réservée aux administrateurs. <a href="/">Se connecter</a></p>
     </div>
     <div id="admin" class="hidden">
+      <nav class="tabs" id="adminTabs">
+        <button data-atab="game" class="active">🎮 Partie & joueurs</button>
+        <button data-atab="balance">📊 Équilibrage (stats du jeu)</button>
+      </nav>
+      <div data-aview="balance" class="hidden">
+        <div class="panel">
+          <div class="row"><h2 style="margin:0">Équilibrage en direct</h2><span class="spacer"></span><input id="balFilter" placeholder="Filtrer (ex. gobelin, PV, Rempart…)" style="max-width:300px"></div>
+          <p class="small muted">Chaque modification est enregistrée et appliquée <b>immédiatement</b> pour tous les joueurs et sur le stream, sans redémarrage. Les valeurs modifiées sont surlignées ; « ↺ » remet la valeur d’origine. Les monstres déjà présents gardent leurs stats, les nouveaux utilisent les nouvelles valeurs.</p>
+          <div class="row"><span class="notice" id="balNotice"></span><span class="error" id="balError"></span><span class="spacer"></span><button class="small danger" id="balResetAll">Tout réinitialiser</button></div>
+        </div>
+        <div id="balGroups"></div>
+      </div>
+      <div data-aview="game">
       <div class="grid two">
         <div class="panel">
           <h2>Partie</h2>
@@ -84,6 +97,7 @@
       <div class="panel">
         <div class="row"><h2 style="margin:0">Comptes</h2><span class="spacer"></span><input id="userFilter" placeholder="Rechercher un pseudo…" style="max-width:260px"></div>
         <div class="table-wrap"><table id="users"></table></div>
+      </div>
       </div>
     </div>
   </div>

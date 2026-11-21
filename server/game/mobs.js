@@ -28,14 +28,15 @@ module.exports = {
   },
 
   scaling(w) {
+    const B = GD.BALANCE;
     const n = Math.max(1, this.heroes.size);
     const diff = this.settings.difficulty;
     const pact = this.run.pactActive ? 1.5 : 1;
     return {
-      hp: (1 + 0.1 * (w - 1) + 0.0025 * (w - 1) ** 2) * diff * pact * (1 + 0.03 * (n - 1)),
-      dmg: (1 + 0.045 * (w - 1)) * Math.sqrt(diff),
-      bossHp: 0.6 + 0.25 * Math.min(n, 80),
-      count: Math.min(12, 1 + 0.25 * (n - 1)) * pact * Math.sqrt(diff)
+      hp: (1 + B.WAVE_HP_LINEAR * (w - 1) + B.WAVE_HP_QUAD * (w - 1) ** 2) * diff * pact * (1 + B.HP_PER_HERO * (n - 1)),
+      dmg: (1 + B.WAVE_DMG * (w - 1)) * Math.sqrt(diff),
+      bossHp: B.BOSS_HP_BASE + B.BOSS_HP_PER_HERO * Math.min(n, 80),
+      count: Math.min(B.MOB_COUNT_HERO_CAP, 1 + B.MOB_COUNT_PER_HERO * (n - 1)) * pact * Math.sqrt(diff)
     };
   },
 
@@ -44,10 +45,10 @@ module.exports = {
     const sc = this.scaling(w);
     const pool = this.mobPool(w);
     // au-delà de MAX_WAVE_MOBS, on renforce les monstres au lieu d'en ajouter
-    const MAX_WAVE_MOBS = 450;
-    let total = Math.round((6 + 1.5 * w) * sc.count);
+    const B = GD.BALANCE, MAX_WAVE_MOBS = B.MAX_WAVE_MOBS;
+    let total = Math.round((B.MOB_COUNT_BASE + B.MOB_COUNT_PER_WAVE * w) * sc.count);
     if (total > MAX_WAVE_MOBS) { r.hpBoost = total / MAX_WAVE_MOBS; total = MAX_WAVE_MOBS; } else r.hpBoost = 1;
-    const eliteChance = Math.min(0.25, 0.02 + w * 0.003);
+    const eliteChance = Math.min(B.ELITE_MAX, B.ELITE_BASE + w * B.ELITE_PER_WAVE);
     r.queue = [];
     for (let i = 0; i < total; i++) r.queue.push({ type: U.pick(pool), elite: Math.random() < eliteChance });
     const duration = 16 + Math.min(40, w * 0.5);
@@ -103,11 +104,11 @@ module.exports = {
     const d = MOBS[type];
     const sc = opts.sc || this.scaling(Math.max(1, this.run.wave));
     const elite = !!opts.elite && !d.boss;
-    const hpMul = sc.hp * (d.boss ? sc.bossHp : this.run.hpBoost || 1) * (elite ? 3.5 : 1);
+    const hpMul = sc.hp * (d.boss ? sc.bossHp : this.run.hpBoost || 1) * (elite ? GD.BALANCE.ELITE_HP : 1);
     const m = {
       nid: this.nid++, type, x, y, boss: !!d.boss, elite,
       maxHp: Math.round(d.hp * hpMul), hp: 0,
-      dmg: d.dmg * sc.dmg * (elite ? 1.5 : 1), speed: d.speed * U.rand(0.92, 1.08), range: d.range, cd: d.cd,
+      dmg: d.dmg * sc.dmg * (elite ? GD.BALANCE.ELITE_DMG : 1), speed: d.speed * U.rand(0.92, 1.08), range: d.range, cd: d.cd,
       size: d.size * (elite ? 1.3 : 1), atkT: U.rand(0, d.cd), facing: Math.atan2(WORLD.CY - y, WORLD.CX - x),
       status: {}, target: null, targetId: 'tower', retargetT: 0, attackAnim: 0, auraT: 0, charging: null,
       abil: (d.abilities || []).map((a) => ({ ...a, t: a.cd * 0.5 }))
@@ -340,7 +341,7 @@ module.exports = {
     const d = MOBS[m.type];
     this.fx(['death', Math.round(m.x), Math.round(m.y), MOB_IDS.indexOf(m.type), m.boss ? 1 : 0]);
     const mult = m.elite ? 4 : 1;
-    this.addTreasury(Math.ceil(d.gold * (m.elite ? 3 : 1) * 0.5));
+    this.addTreasury(Math.ceil(d.gold * (m.elite ? 3 : 1) * GD.BALANCE.KILL_ECUS));
     const hero = killer && this.heroes.get(killer.id) === killer ? killer : null;
     if (hero) {
       hero.runKills++;

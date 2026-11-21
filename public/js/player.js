@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const GD = window.GameData, P = GD.PALETTE;
-  const { api, $, $$, el, toast, heroCanvas } = window.UI;
+  const { api, $, $$, el, toast, heroCanvas, balanceReady, onBalance } = window.UI;
 
   let me = null;
   let live = null; // dernier état envoyé par le serveur
@@ -53,7 +53,7 @@
     location.reload();
   });
 
-  api('/api/me').then((d) => start(d.user)).catch(() => $('#auth').classList.remove('hidden'));
+  balanceReady.then(() => api('/api/me')).then((d) => start(d.user)).catch(() => $('#auth').classList.remove('hidden'));
 
   /* ============================== Démarrage ============================== */
   function start(user) {
@@ -83,6 +83,9 @@
 
   function connect() {
     socket = io({ transports: ['websocket', 'polling'] });
+    // l'admin a modifié l'équilibrage : on rafraîchit l'affichage (stats, règles, prix…)
+    let balT = null;
+    onBalance(socket, () => { clearTimeout(balT); balT = setTimeout(async () => { try { setUser((await api('/api/me')).user); } catch (e) { renderAll(); } }, 300); });
     socket.on('state', (s) => { live = s; renderLive(); });
     // notifications (achat, don, échange…)
     socket.on('notify', async (text) => {
@@ -205,7 +208,7 @@
       me.level = p.level; me.xp = p.xp; me.xpNext = p.xpNext; me.attrPoints = p.attrPoints;
       $('#hdrLevel').textContent = `Niv. ${me.level}`;
       api('/api/me').then((d) => setUser(d.user)).catch(() => {});
-      toast(`Niveau ${p.level} ! +1 point de stat à répartir`);
+      toast(`Niveau ${p.level} ! +${GD.PROGRESSION.POINTS_PER_LEVEL} point de stat et +${GD.PROGRESSION.GLACONS_PER_LEVEL} glaçon 🧊`);
     }
   }
 
@@ -628,7 +631,7 @@
         el('p', {}, 'Ton héros se bat tout seul grâce à son IA. Toi, tu choisis sa classe, ses statistiques, son équipement et son comportement depuis ce site, et tu votes avec l’équipe.')),
       sec('🧬 Classes', el('p', {}, `Tout le monde commence Habitant. Au niveau ${PR.CLASS_LEVEL}, choisis une classe. Au niveau ${PR.SPEC_LEVEL}, choisis une spécialisation qui débloque un ultime. Ces choix sont définitifs.`),
         ul(GD.BASE_CLASSES.map((b) => [el('b', { style: `color:${GD.CLASSES[b].color}` }, GD.CLASSES[b].name), ` → ${GD.specsOf(b).map((s) => `${GD.CLASSES[s].name} (${GD.CLASSES[s].ultName})`).join(' / ')}${GD.CLASSES[b].leash ? ` · reste à moins de ${GD.CLASSES[b].leash} px de la tour` : ''}`]))),
-      sec('📊 Niveaux & statistiques', el('p', {}, `Les éliminations et les manches passées rapportent de l’XP. Chaque niveau donne ${PR.POINTS_PER_LEVEL} point de stat, à répartir librement (réinitialisation gratuite) :`),
+      sec('📊 Niveaux & statistiques', el('p', {}, `Les éliminations et les manches passées rapportent de l’XP. Monter de niveau n’augmente pas directement les statistiques : chaque niveau donne ${PR.POINTS_PER_LEVEL} point de stat à répartir librement (réinitialisation gratuite) et ${PR.GLACONS_PER_LEVEL} glaçon 🧊. Seuls les points de stat et l’équipement renforcent ton héros :`),
         ul(GD.ATTR_IDS.map((a) => `${GD.ATTRIBUTES[a].icon} ${GD.ATTRIBUTES[a].name} : ${GD.ATTRIBUTES[a].desc}`))),
       sec('💰 Monnaies', ul([
         [hail(), el('b', {}, 'Grêlons'), ' : ta monnaie personnelle, gagnée en combattant et conservée entre les parties. Elle sert à acheter des glaçons, et tu en récupères en recyclant des objets.'],

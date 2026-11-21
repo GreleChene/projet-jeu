@@ -6,7 +6,6 @@ const GD = require('../../shared/constants');
 const U = require('./util');
 const { WORLD, CLASSES, MOBS } = GD;
 
-const ULT_TIME = 28; // secondes pour charger un ultime (hors bonus)
 
 module.exports = {
   isInvisible(h) {
@@ -38,7 +37,7 @@ module.exports = {
         h.hp = Math.min(h.maxHp, h.hp + h.maxHp * (0.008 + 0.012 * this.run.upgrades.infirmary) * dt);
       }
       const c = CLASSES[h.cls];
-      if (c.ult && h.ult < 1) h.ult = Math.min(1, h.ult + (dt / ULT_TIME) * (h.ultRate || 1) * (1 + 0.2 * this.run.upgrades.shrine));
+      if (c.ult && h.ult < 1) h.ult = Math.min(1, h.ult + (dt / GD.BALANCE.ULT_TIME) * (h.ultRate || 1) * (1 + 0.2 * this.run.upgrades.shrine));
 
       if (h.dashing) { this.updateDash(h, dt); continue; }
       if (h.chain) { this.updateChain(h, dt); continue; }
@@ -257,10 +256,10 @@ module.exports = {
     h.harvesting = true;
     h.facing = Math.atan2(node.y - h.y, node.x - h.x);
     h.timers.harvest += dt;
-    if (h.timers.harvest >= 3) {
+    if (h.timers.harvest >= GD.BALANCE.HARVEST_INTERVAL) {
       h.timers.harvest = 0;
       h.attackAnim = 0.25;
-      const amt = Math.round((1.5 + h.level * 0.15) * (c.harvest === 'any' ? 1 : 1.5) * (h.harvestMult || 1));
+      const amt = Math.round((GD.BALANCE.HARVEST_BASE + h.level * GD.BALANCE.HARVEST_PER_LEVEL) * (c.harvest === 'any' ? 1 : 1.5) * (h.harvestMult || 1));
       this.addTreasury(amt);
       this.fx(['coin', Math.round(node.x), Math.round(node.y - 10), amt]);
     }
@@ -278,7 +277,7 @@ module.exports = {
   heroDie(h) {
     h.alive = false; h.hp = 0;
     h.deathX = h.x; h.deathY = h.y;
-    h.respawnT = Math.max(4, 12 - 1.5 * this.run.upgrades.infirmary);
+    h.respawnT = Math.max(2, GD.BALANCE.RESPAWN_TIME - 1.5 * this.run.upgrades.infirmary);
     h.zombie = false; h.dashing = null; h.chain = null; h.target = null; h.status = {};
     this.fx(['hdeath', Math.round(h.x), Math.round(h.y), h.nid]);
     const u = h.userId && this.db.userById(h.userId);

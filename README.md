@@ -16,7 +16,7 @@ npm start
 |---|---|---|
 | Joueur | `http://localhost:3000/` | inscription (pseudo + mot de passe), classe, statistiques, armures, IA, votes |
 | Stream | `http://localhost:3000/stream` | **source Navigateur OBS en 1920×1080** (publique, en lecture seule) |
-| Admin | `http://localhost:3000/admin` | lancer, mettre en pause ou arrêter une partie, aller à une manche, régler, bots de test (classe et niveau au choix), comptes (donner de l'XP ou des Grêlons) |
+| Admin | `http://localhost:3000/admin` | lancer, mettre en pause ou arrêter une partie, aller à une manche, régler, bots de test (classe et niveau au choix), comptes (donner de l'XP, des Grêlons ou des glaçons), **onglet Équilibrage** |
 
 **Administration :** au premier démarrage, le compte **`admin`** est créé avec le mot de passe **`123456`**. C'est le **seul** compte qui a accès à `/admin` et à l'API d'administration ; la page redirige tous les autres vers l'accueil, et personne ne peut s'inscrire sous le pseudo « admin ». Change ce mot de passe dès la mise en ligne (onglet « Compte » de la page joueur, connecté en tant qu'`admin`).
 
@@ -34,7 +34,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
 ## Le jeu
 
 - **Mode défense de tour.** Les monstres arrivent de tous les bords. La tour commence avec **200 PV** ; si elle tombe, la partie est perdue. Il y a 100 manches.
-- **Statistiques.** Chaque niveau gagné rapporte **1 point de stat** à répartir librement (onglet « Statistiques ») : Vie, Force, Défense, Agilité, Vitesse, Critique. Les points peuvent être réinitialisés gratuitement.
+- **Niveaux et statistiques.** Monter de niveau n'augmente pas les statistiques. Chaque niveau rapporte **1 point de stat** (Vie, Force, Défense, Agilité, Vitesse, Critique), réinitialisable gratuitement, et **1 glaçon**. Seuls les points de stat et l'équipement renforcent un héros. Les comptes existants ont reçu rétroactivement 1 glaçon par niveau déjà gagné.
 - **Classes évolutives.** Tout le monde commence *Habitant*. Au niveau 3, le joueur choisit une classe. Au niveau 8, il choisit une spécialisation, qui donne un **ultime** :
   - Soldat → Paladin (tourbillon en cercle) / Chevalier (charge à 200 %)
   - Mage → Glace (cône de froid) / Feu (boule de feu) / Soin (soin de zone de 350 px)
@@ -79,11 +79,23 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
 | 61–90 | **Terres brûlées** et coulées de lave (décor) | 90 : **Géant de magma** |
 | 91–100 | Mélange des trois terrains, avec tous les monstres | 100 : les trois grands boss ensemble |
 
+## Équilibrage en direct (admin)
+
+L'onglet **📊 Équilibrage** de la page admin affiche toutes les valeurs du jeu et permet de les modifier :
+- les réglages généraux (PV de la tour, croissance des monstres par manche, élites, boss, récompenses, récolte…) ;
+- la progression (niveaux, XP, points et glaçons par niveau) et l'effet de chaque point de stat ;
+- les glaçons (prix, contenu) et les raretés (probabilités, multiplicateurs, recyclage) ;
+- les stats de chaque classe, de chaque monstre et boss, et des capacités des boss ;
+- chaque pièce d'équipement, les bonus de sets et les améliorations de la tour.
+
+Chaque modification est enregistrée dans la base et appliquée **immédiatement** au serveur, aux pages des joueurs et au stream, sans redémarrage ni passage par le code. Un bouton « ↺ » remet la valeur d'origine.
+
 ## Architecture
 
 ```
 server/             Node.js (Express + Socket.IO)
   index.js          API comptes / joueur / admin, sessions, temps réel
+  balance.js        équilibrage modifiable en direct depuis l'admin
   db.js             stockage JSON (écriture atomique)
   game/engine.js    boucle de jeu autoritaire (20 Hz), manches, votes, réseau
   game/heroes.js    IA des héros, passifs, ultimes, invocations

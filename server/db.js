@@ -22,13 +22,13 @@ function legacyPrice(id) {
   return 0;
 }
 
-let data = { users: {}, sessions: {}, settings: {}, market: [], trades: [] };
+let data = { users: {}, sessions: {}, settings: {}, market: [], trades: [], balance: {} };
 let dirty = false;
 
 function load() {
   try {
     data = JSON.parse(fs.readFileSync(config.DATA_FILE, 'utf8'));
-    data.users ||= {}; data.sessions ||= {}; data.settings ||= {}; data.market ||= []; data.trades ||= [];
+    data.users ||= {}; data.sessions ||= {}; data.settings ||= {}; data.market ||= []; data.trades ||= []; data.balance ||= {};
     for (const u of Object.values(data.users)) migrateUser(u);
     dirty = true; // enregistre les migrations éventuelles
   } catch (e) {
@@ -66,6 +66,8 @@ function migrateUser(u) {
   u.equip ||= {};
   for (const s of SLOTS) if (u.equip[s] && !u.inventory.some((it) => it.uid === u.equip[s])) delete u.equip[s];
   u.glacons ||= 0;
+  // le niveau ne donne plus de statistiques : compensation rétroactive d'un glaçon par niveau déjà gagné
+  if (!u.levelGlacons) { u.glacons += (u.level - 1) * PROGRESSION.GLACONS_PER_LEVEL; u.levelGlacons = true; }
   // ancien système d'éclats de glace : converti en Grêlons
   if (u.iceShards) { u.gold += Math.round((u.iceShards / 10) * GLACONS.PRICE); delete u.iceShards; }
   if (u.inventory.some((it) => it.r >= 5)) u.mysticFound = true;

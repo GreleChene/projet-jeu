@@ -51,5 +51,10 @@
     }
     frame();
   }
-  window.UI = { api, $, $$, el, toast, heroCanvas };
+  // Équilibrage modifié en direct par l'admin : appliqué au chargement puis à chaque changement
+  const balanceReady = fetch('/api/balance').then((r) => r.json()).then((d) => window.GameData.applyBalance(d.overrides)).catch(() => {});
+  function onBalance(socket, cb) {
+    socket.on('balance', (p) => { window.GameData.setPath(p.key.split('.'), p.value); if (cb) cb(p); });
+  }
+  window.UI = { api, $, $$, el, toast, heroCanvas, balanceReady, onBalance };
 })();
