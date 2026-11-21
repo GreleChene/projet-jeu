@@ -119,3 +119,18 @@ test('reconversion : 75 % des Grêlons d’amélioration remboursés', () => {
   assert.strictEqual(GD.houseSpent(u), spent);
   assert.strictEqual(Math.floor(GD.houseSpent(u) * GD.HOUSE_RESPEC_REFUND), Math.floor(spent * 0.75));
 });
+
+test('héros mort : récompenses de toutes les manches jusqu’à la fin ; attente sauvegardée', () => {
+  const GD = require('../shared/constants');
+  const u = { id: 'u2', pseudo: 'Mort', cls: 'soldat', level: 10, xp: 0, gold: 0, glacons: 0, look: { cape: 0, skin: 0, hair: 0 }, ai: { stance: 'balanced', target: 'nearest', retreat: 0, ult: 'asap' }, attrs: GD.emptyAttrs(), skills: {}, house: {}, inventory: [], equip: {}, stats: { kills: 0, bossKills: 0, deaths: 0, runs: 0, bestWave: 0 } };
+  const db = { data: { settings: {} }, markDirty() {}, userById: (id) => (id === 'u2' ? u : null), syncAttrPoints() {}, gearOf() { return {}; } };
+  const g = new Game(db, { to: () => ({ emit() {} }), sockets: { sockets: new Map() } });
+  g.startRun(1);
+  const h = g.joinUser(u);
+  for (let w = 1; w <= 3; w++) { g.setWave(w); g.mobs = []; g.run.queue = []; g.run.bossPending = []; h.alive = false; h.respawnT = 999; g.tick(0.05); }
+  assert.strictEqual(h.runGlacons, 3, 'un glaçon par manche même mort');
+  assert.ok(u.pending && u.pending.glacons === 3, 'récompenses en attente enregistrées dans le profil');
+  g.stopRun();
+  assert.strictEqual(u.glacons, 3);
+  assert.strictEqual(u.pending, undefined);
+});

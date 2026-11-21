@@ -685,11 +685,12 @@ io.on('connection', (socket) => {
     const h = game.joinUser(user);
     if (typeof ack === 'function') ack(h && !h.error ? { ok: true } : { error: (h && h.error) || 'Impossible de rejoindre.' });
   });
-  socket.on('leave', () => game.removeHero(socket.data.userId));
   socket.on('vote', (opt) => game.castVote(socket.data.userId, String(opt)));
 });
 
 // récompenses de fin de partie : notification au joueur
+// récompenses restées en attente (serveur arrêté en pleine partie) : versées au redémarrage
+for (const u of db.allUsers()) if (u.pending) game.settlePending(u);
 game.onPayout = (u, r) => notify(u.id, `🎁 Fin de partie : +${r.xp} XP, +${r.gold} Grêlons, +${r.glacons} glaçon(s)${r.levels ? ` · +${r.levels} niveau(x) !` : ''}`);
 game.start();
 const Twitch = require('./twitch');

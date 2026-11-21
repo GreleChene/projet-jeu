@@ -328,6 +328,27 @@ class Game {
     xp = Math.round(xp * mult * (h.xpMult || 1)); gold = Math.round(gold * mult);
     // tout est mis de côté et versé à la fin de la partie (payout)
     h.runXp += xp; h.runGold += gold;
+    this.savePending(h);
+  }
+
+  // Les récompenses en attente sont aussi enregistrées dans le profil : un redémarrage du serveur ne les perd pas
+  savePending(h) {
+    if (h.isBot || h.paid) return;
+    const p = this.db.userById(h.userId);
+    if (!p) return;
+    p.pending = { xp: h.runXp, gold: h.runGold, glacons: h.runGlacons || 0, run: this.run.id };
+    this.db.markDirty();
+  }
+
+  // Verse des récompenses restées en attente (partie interrompue par un redémarrage)
+  settlePending(p) {
+    const r = p.pending;
+    delete p.pending;
+    if (!r) return;
+    p.gold += r.gold || 0;
+    p.glacons = (p.glacons || 0) + (r.glacons || 0);
+    this.grantXp(p, r.xp || 0);
+    this.db.markDirty();
   }
 
   // Versement des récompenses de la partie (fin de partie, ou départ du héros)
@@ -336,6 +357,7 @@ class Game {
     h.paid = true;
     const p = this.db.userById(h.userId);
     if (!p) return;
+    delete p.pending;
     p.gold += h.runGold;
     p.glacons = (p.glacons || 0) + (h.runGlacons || 0);
     const levels = this.grantXp(p, h.runXp);
@@ -405,7 +427,7 @@ class Game {
       this.reward(h, B.WAVE_XP_BASE + r.wave * B.WAVE_XP_PER_WAVE, B.WAVE_GRELONS_BASE + Math.ceil(r.wave * B.WAVE_GRELONS_PER_WAVE));
       // un glaçon (coffre) par manche passée
       const pu = !h.isBot && this.db.userById(h.userId);
-      if (pu) { h.runGlacons = (h.runGlacons || 0) + GD.GLACONS.PER_WAVE; this.fx(['text', Math.round(h.x), Math.round(h.y) - 80, '+1 🧊', '#bfe6ff']); }
+      if (pu) { h.runGlacons = (h.runGlacons || 0) + GD.GLACONS.PER_WAVE; this.savePending(h); this.fx(['text', Math.round(h.x), Math.round(h.y) - 80, '+1 🧊', '#bfe6ff']); }
       if (!h.alive) { h.alive = true; h.zombie = false; h.hp = Math.round(h.maxHp * 0.5); h.x = WORLD.CX; h.y = WORLD.CY + 90; }
       if (h.zombie) { h.zombie = false; this.rosterVersion++; }
       const u = h.userId && this.db.userById(h.userId);
@@ -526,10 +548,19 @@ class Game {
       last = now;
       if (el > 0.25) el = 0.25;
       acc += el;
-      while (acc >= dt) { acc -= dt; this.tick(dt); }
+      // une erreur dans la simulation est journalisée sans faire tomber le serveur
+      while (acc >= dt) {
+        acc -= dt;
+        try { this.tick(dt); } catch (e) {
+          const now = Date.now();
+          if (!this.lastErr || now - this.lastErr > 10000) { this.lastErr = now; console.error('Erreur de simulation :', e); }
+        }
+      }
       snapAcc += el; playerAcc += el;
-      if (snapAcc >= 1 / config.SNAPSHOT_RATE) { snapAcc = 0; this.broadcastSnapshot(); }
-      if (playerAcc >= 1 / config.PLAYER_RATE) { playerAcc = 0; this.broadcastPlayers(); }
+      try {
+        if (snapAcc >= 1 / config.SNAPSHOT_RATE) { snapAcc = 0; this.broadcastSnapshot(); }
+        if (playerAcc >= 1 / config.PLAYER_RATE) { playerAcc = 0; this.broadcastPlayers(); }
+      } catch (e) { console.error('Erreur d’envoi :', e.message); }
     }, 1000 / config.TICK_RATE);
   }
 

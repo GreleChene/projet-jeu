@@ -126,7 +126,6 @@
     $('#joinError').textContent = '';
     socket.emit('join', (r) => { if (r && r.error) $('#joinError').textContent = r.error; });
   });
-  $('#leaveBtn').addEventListener('click', () => { if (confirm('Retirer ton héros de la bataille ?')) socket.emit('leave'); });
 
   const PHASES = { lobby: 'En attente du lancement', intermission: 'Entracte', wave: 'Combat en cours', gameover: 'Défaite', victory: 'Victoire !' };
 
