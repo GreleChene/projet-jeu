@@ -432,11 +432,11 @@ class Game {
       const u = h.userId && this.db.userById(h.userId);
       if (u) u.stats.bestWave = Math.max(u.stats.bestWave, r.cleared);
     }
-    // Infirmerie (à partir du niveau requis) : un héros mort au hasard est réanimé à chaque fin de manche
-    if (r.upgrades.infirmary >= GD.BALANCE.INFIRMARY_REVIVE_LEVEL) {
-      const dead = [...this.heroes.values()].filter((h) => !h.alive);
-      if (dead.length) { const h = U.pick(dead); this.reviveHero(h); this.pushFeed(`⛑️ L’infirmerie réanime ${h.name} !`); }
-    }
+    // Infirmerie : réanime des héros morts au hasard à chaque fin de manche (1 au niveau requis, 2 au niveau supérieur)
+    const inf = r.upgrades.infirmary, B = GD.BALANCE;
+    const revives = inf >= B.INFIRMARY_REVIVE2_LEVEL ? 2 : inf >= B.INFIRMARY_REVIVE_LEVEL ? 1 : 0;
+    const dead = U.shuffle([...this.heroes.values()].filter((h) => !h.alive)).slice(0, revives);
+    for (const h of dead) { this.reviveHero(h); this.pushFeed(`⛑️ L’infirmerie réanime ${h.name} !`); }
     const bonus = Math.round((GD.BALANCE.WAVE_ECUS_BASE + r.wave * GD.BALANCE.WAVE_ECUS_PER_WAVE) * (r.pactActive ? 2 : 1));
     this.addTreasury(bonus);
     r.pactActive = false;

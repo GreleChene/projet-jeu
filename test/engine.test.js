@@ -168,3 +168,15 @@ test('Infirmerie au niveau requis : un héros mort réanimé par manche', () => 
   g.setWave(4); g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
   assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 0, 'pas de réanimation sous le niveau requis');
 });
+
+test('Infirmerie niveau 6 : deux héros réanimés par manche', () => {
+  const GD = require('../shared/constants');
+  const g = makeGame();
+  for (let i = 0; i < 4; i++) g.addBot({ cls: 'soldat', level: 10 });
+  g.startRun(1);
+  g.run.upgrades.infirmary = GD.BALANCE.INFIRMARY_REVIVE2_LEVEL;
+  g.setWave(3);
+  for (const h of g.heroes.values()) g.heroDie(h);
+  g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
+  assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 2);
+});
