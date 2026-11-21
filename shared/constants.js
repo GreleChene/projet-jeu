@@ -205,19 +205,45 @@
   };
 
   /*
-   * Bâtiments de classe autour de la tour (les classes de soutien sont les plus proches).
-   * angle en degrés (0 = est, 90 = sud) ; dist en pixels ; le nord est laissé libre (tour dessinée en hauteur).
+   * Bâtiments : chaque héros a sa petite habitation, du type de sa classe (2 archers = 2 tours de guet).
+   * Chaque classe a son secteur autour de la tour (angle en degrés, 0 = est, 90 = sud ; le nord reste libre
+   * car la tour est dessinée en hauteur). Les classes de soutien sont les plus proches.
    */
   const BUILDINGS = [
-    { family: 'paysan', name: 'Ferme', angle: 50, dist: 150 },
-    { family: 'habitant', name: 'Chaumière', angle: 130, dist: 160 },
-    { family: 'mage', name: 'Tour des mages', angle: 165, dist: 225 },
-    { family: 'eleveur', name: 'Étable', angle: 350, dist: 215 },
-    { family: 'archer', name: 'Tour de guet', angle: 212, dist: 280 },
-    { family: 'assassin', name: 'Repaire', angle: 318, dist: 275 },
-    { family: 'soldat', name: 'Caserne', angle: 75, dist: 250 }
+    { family: 'paysan', name: 'Ferme', angle: 45, dist: 150 },
+    { family: 'habitant', name: 'Chaumière', angle: 129, dist: 160 },
+    { family: 'mage', name: 'Tour des mages', angle: 171, dist: 200 },
+    { family: 'eleveur', name: 'Étable', angle: 321, dist: 215 },
+    { family: 'archer', name: 'Tour de guet', angle: 213, dist: 235 },
+    { family: 'assassin', name: 'Repaire', angle: 3, dist: 245 },
+    { family: 'soldat', name: 'Caserne', angle: 87, dist: 255 }
   ];
-  const buildingPos = (b) => ({ x: WORLD.CX + Math.cos((b.angle * Math.PI) / 180) * b.dist * 1.35, y: WORLD.CY + Math.sin((b.angle * Math.PI) / 180) * b.dist * 0.85 });
+  const ellipsePos = (angleDeg, dist) => ({ x: WORLD.CX + Math.cos((angleDeg * Math.PI) / 180) * dist * 1.35, y: WORLD.CY + Math.sin((angleDeg * Math.PI) / 180) * dist * 0.85 });
+  // Emplacements possibles : anneaux autour de la tour (le nord, où la tour est dessinée en hauteur, reste libre)
+  const BUILDING_SPOTS = [];
+  for (let d = 150; d <= 560; d += 50) {
+    const step = Math.max(6, (66 / (d * 1.1)) * (180 / Math.PI));
+    for (let a = 0; a < 360; a += step) {
+      if (d < 420 && a > 238 && a < 302) continue;
+      const p = ellipsePos(a, d);
+      if (p.x < 50 || p.x > WORLD.W - 50 || p.y < 70 || p.y > WORLD.H - 40) continue;
+      BUILDING_SPOTS.push({ a, d, ...p });
+    }
+  }
+  // Choisit l'emplacement libre le plus proche du secteur de la classe (sans chevaucher les bâtiments existants)
+  function placeBuilding(family, taken) {
+    const b = BUILDINGS.find((x) => x.family === family) || BUILDINGS[1];
+    let best = null, bc = Infinity;
+    for (const s of BUILDING_SPOTS) {
+      if (taken.some((t) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2 < 60 * 60)) continue;
+      let da = Math.abs(s.a - b.angle) % 360;
+      if (da > 180) da = 360 - da;
+      const cost = da * 2.2 + Math.abs(s.d - b.dist) * 0.6;
+      if (cost < bc) { bc = cost; best = s; }
+    }
+    return best ? { x: best.x, y: best.y } : ellipsePos(b.angle, b.dist);
+  }
+  const buildingPos = (b) => placeBuilding(b.family, []);
 
   /* ------------------------------------------------------------------ */
   /* Statistiques : 1 point gagné à chaque niveau, réparti librement      */
@@ -525,5 +551,5 @@
     for (const [k, v] of Object.entries(overrides || {})) { try { setPath(k.split('.'), v); } catch (e) { /* chemin obsolète */ } }
   }
 
-  return { SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

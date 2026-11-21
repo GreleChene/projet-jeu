@@ -215,7 +215,7 @@ module.exports = {
     const ux = dx / L, uy = dy / L;
     let best = null, bt = Infinity;
     for (const b of this.run.buildings) {
-      if (!b.active || b.hp <= 0) continue;
+      if (b.hp <= 0) continue;
       const px = b.x - m.x, py = b.y - m.y;
       const t = px * ux + py * uy;
       if (t < -b.size || t > L) continue;

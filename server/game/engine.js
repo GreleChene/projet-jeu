@@ -15,6 +15,7 @@ const { PROJ_KINDS, ZONE_KINDS, HF, MF } = GD.NET;
 const PROJ_INDEX = Object.fromEntries(PROJ_KINDS.map((k, i) => [k, i]));
 const ZONE_INDEX = Object.fromEntries(ZONE_KINDS.map((k, i) => [k, i]));
 const HAZARD_KINDS = ['ice', 'toxic', 'lava'];
+const BUILDING_INDEX = Object.fromEntries(GD.BUILDINGS.map((b, i) => [b.family, i]));
 
 
 const DEFAULT_SETTINGS = {
@@ -60,8 +61,8 @@ class Game {
       cleared: 0,
       uprooted: false,
       tower: { hp: GD.BALANCE.TOWER_BASE_HP, max: GD.BALANCE.TOWER_BASE_HP, ballistaT: 0, catapultT: 0 },
-      // bâtiments de classe : refuge et soin des héros entre les manches
-      buildings: GD.BUILDINGS.map((b, i) => ({ idx: i, family: b.family, name: b.name, ...GD.buildingPos(b), hp: GD.BALANCE.BUILDING_HP, max: GD.BALANCE.BUILDING_HP, size: 34, isBuilding: true, active: false })),
+      // habitations : une par héros, du type de sa classe (refuge et soin entre les manches)
+      buildings: [],
       treasury: 0,
       wealthEarned: 0,
       upgrades: Object.fromEntries(Object.keys(UPGRADES).map((k) => [k, 0])),
@@ -650,7 +651,7 @@ class Game {
           this.damageAlly(a, p.dmg); done = true; break;
         }
         if (!done) for (const b of this.run.buildings) {
-          if (!b.active || b.hp <= 0 || (b.x - p.x) ** 2 + (b.y - p.y) ** 2 > b.size ** 2) continue;
+          if (b.hp <= 0 || (b.x - p.x) ** 2 + (b.y - p.y) ** 2 > b.size ** 2) continue;
           this.damageBuilding(b, p.dmg); done = true; break;
         }
         if (!done && (p.x - WORLD.CX) ** 2 + (p.y - WORLD.CY) ** 2 < WORLD.TOWER_R ** 2) {
@@ -695,7 +696,7 @@ class Game {
     const want = Math.min(B.HAZARD_MAX, Math.floor(B.HAZARD_BASE + w * B.HAZARD_PER_WAVE));
     const KIND = { frost: 'ice', poison: 'toxic', fire: 'lava' };
     const placed = [];
-    const avoid = [{ x: WORLD.CX, y: WORLD.CY, r: 190 }, ...this.run.buildings.filter((b) => b.active).map((b) => ({ x: b.x, y: b.y, r: 70 }))];
+    const avoid = [{ x: WORLD.CX, y: WORLD.CY, r: 190 }, ...this.run.buildings.map((b) => ({ x: b.x, y: b.y, r: 60 }))];
     for (let tries = 0; tries < 400 && placed.length < want; tries++) {
       const r = U.rand(55, 105);
       const x = U.rand(70 + r, WORLD.W - 70 - r), y = U.rand(60 + r, WORLD.H - 60 - r);
@@ -750,18 +751,24 @@ class Game {
     return speed;
   }
 
-  buildingOf(family) { return this.run.buildings.find((b) => b.family === family && b.active) || null; }
+  buildingOfHero(h) { return this.run.buildings.find((b) => b.ownerId === h.id) || null; }
 
-  // Un bâtiment n'existe que si au moins un héros de cette famille de classes participe
+  // Chaque héros a sa propre habitation, du type de sa classe : 2 archers = 2 tours de guet.
+  // Elle apparaît quand le héros rejoint et disparaît quand il part (ou change de classe).
   updateBuildingPresence() {
-    const fams = new Set();
-    for (const h of this.heroes.values()) fams.add(GD.familyOf(h.cls));
-    for (const b of this.run.buildings) {
-      const want = fams.has(b.family);
-      if (want && !b.active) {
-        b.active = true;
-        if (this.phase !== 'lobby') { this.fx(['bbuild', Math.round(b.x), Math.round(b.y)]); }
-      } else if (!want && b.active) b.active = false;
+    const r = this.run;
+    const keep = r.buildings.filter((b) => { const h = this.heroes.get(b.ownerId); return h && GD.familyOf(h.cls) === b.family; });
+    if (keep.length !== r.buildings.length) r.buildings = keep;
+    if (r.buildings.length === this.heroes.size) return;
+    const owned = new Set(r.buildings.map((b) => b.ownerId));
+    for (const h of this.heroes.values()) {
+      if (owned.has(h.id)) continue;
+      const family = GD.familyOf(h.cls);
+      const def = GD.BUILDINGS.find((x) => x.family === family) || GD.BUILDINGS[1];
+      const pos = GD.placeBuilding(family, r.buildings);
+      const b = { id: this.nid++, ownerId: h.id, ownerNid: h.nid, ownerName: h.name, family, name: def.name, ...pos, hp: GD.BALANCE.BUILDING_HP, max: GD.BALANCE.BUILDING_HP, size: 28, isBuilding: true };
+      r.buildings.push(b);
+      if (this.phase !== 'lobby') this.fx(['bbuild', Math.round(b.x), Math.round(b.y)]);
     }
   }
 
@@ -771,8 +778,7 @@ class Game {
     if (b.hp <= 0) {
       b.hp = 0;
       this.fx(['bdestroy', Math.round(b.x), Math.round(b.y)]);
-      const fam = GD.CLASSES[b.family] ? GD.CLASSES[b.family].name : b.family;
-      this.pushFeed(`🔥 ${b.name} détruite ! Les ${fam.toLowerCase()}s ne pourront plus s’y soigner.`);
+      this.pushFeed(`🔥 ${b.name} de ${b.ownerName} détruite ! ${b.ownerName} ne pourra plus s’y soigner.`);
     }
   }
 
@@ -846,7 +852,8 @@ class Game {
       timer: Math.ceil(r.timer), seed: r.seed, tv: this.terrainVersion, ter: this.terrain, rv: this.rosterVersion,
       vote: r.vote ? { o: r.vote.options, c: this.voteCounts(), cost: Object.fromEntries(r.vote.options.map((o) => [o, UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0])) } : null,
       pact: r.pactActive ? 1 : r.pactNext ? 2 : 0,
-      bd: r.buildings.map((b) => (b.active ? Math.ceil((100 * b.hp) / b.max) : -1)),
+      // habitations : [index du type, x, y, PV %, nid du propriétaire]
+      bd: r.buildings.map((b) => [BUILDING_INDEX[b.family], Math.round(b.x), Math.round(b.y), Math.ceil((100 * b.hp) / b.max), b.ownerNid]),
       jn: this.canJoin() ? (Number.isFinite(r.joinUntil) ? Math.ceil((r.joinUntil - Date.now()) / 1000) : -1) : 0,
       bosses, h: heroes, m: mobs, a: allies, p: proj, z: zones, e: ev
     };
@@ -892,7 +899,7 @@ class Game {
         buffs: Object.fromEntries(Object.entries(h.buffs).filter(([, v]) => v > 0).map(([k, v]) => [k, Math.ceil(v)])),
         status: Object.keys(h.status), dmg: Math.round(h.dmg), armor: Math.round(h.armor * 100),
         resting: !!h.resting,
-        building: (() => { const b = this.buildingOf(GD.familyOf(h.cls)); return b ? { name: b.name, hp: Math.ceil(b.hp), max: b.max } : null; })()
+        building: (() => { const b = this.buildingOfHero(h); return b ? { name: b.name, hp: Math.ceil(b.hp), max: b.max } : null; })()
       };
     }
     return out;

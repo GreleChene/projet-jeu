@@ -149,7 +149,7 @@ module.exports = {
   /* --------------------------- IA principale --------------------------- */
   // Entre les manches : chaque héros rentre dans le bâtiment de sa classe pour se soigner (s'il est encore debout)
   heroRest(h, dt, speed) {
-    const b = this.buildingOf(GD.familyOf(h.cls));
+    const b = this.buildingOfHero(h);
     h.harvesting = false; h.retreating = false;
     if (!b || b.hp <= 0) { h.resting = false; this.heroIdle(h, dt, 1); return; }
     const a = (h.nid * 2.4) % (Math.PI * 2);
@@ -494,7 +494,7 @@ module.exports = {
         const tw = this.run.tower;
         tw.hp = Math.min(tw.max, tw.hp + tw.max * 0.12);
         // le bûcheron répare aussi les bâtiments encore debout
-        for (const b of this.run.buildings) if (b.active && b.hp > 0) b.hp = Math.min(b.max, b.hp + b.max * 0.3);
+        for (const b of this.run.buildings) if (b.hp > 0) b.hp = Math.min(b.max, b.hp + b.max * 0.3);
         this.fx(['towerheal', WORLD.CX, WORLD.CY]);
         break;
       }

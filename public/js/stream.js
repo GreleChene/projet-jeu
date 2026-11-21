@@ -222,12 +222,11 @@
     // entités triées en profondeur
     const list = [];
     list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, hp: snap.tw[0] / snap.tw[1] }) });
-    if (snap.bd) GD.BUILDINGS.forEach((b, i) => {
-      if (snap.bd[i] < 0) return; // aucun héros de cette classe : pas de bâtiment
-      const p = GD.buildingPos(b);
-      const fam = GD.CLASSES[b.family];
-      list.push({ y: p.y + 4, d: () => A.drawBuilding(ctx, b.family, p.x, p.y, { hp: snap.bd[i] / 100, t: time, color: fam ? fam.color : P.ui.gold }) });
-    });
+    // habitations des héros : [type, x, y, PV %, nid du propriétaire]
+    for (const [ti, bx, by, hp] of snap.bd || []) {
+      const def = GD.BUILDINGS[ti], fam = GD.CLASSES[def.family];
+      list.push({ y: by + 4, d: () => { ctx.save(); ctx.translate(bx, by); ctx.scale(0.82, 0.82); A.drawBuilding(ctx, def.family, 0, 0, { hp: hp / 100, t: time + bx, color: fam ? fam.color : P.ui.gold }); ctx.restore(); } });
+    }
     for (const [id, h] of heroes) list.push({ y: h.y, d: () => drawHeroEnt(id, h) });
     for (const m of mobs.values()) list.push({ y: m.y, d: () => drawMobEnt(m, false) });
     for (const m of allies.values()) list.push({ y: m.y, d: () => drawMobEnt(m, true) });
@@ -303,15 +302,14 @@
   // Nom et PV des bâtiments (seulement s'ils sont abîmés, ou pendant l'entracte)
   function drawBuildingLabels() {
     if (!snap || !snap.bd) return;
-    GD.BUILDINGS.forEach((b, i) => {
-      const hp = snap.bd[i], p = GD.buildingPos(b);
-      if (hp < 0) return;
-      if (hp >= 100 && snap.ph !== 'intermission') return;
-      ctx.textAlign = 'center'; ctx.font = `800 12px ${FONT_B}`; ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
-      const label = hp > 0 ? b.name : `${b.name} (détruite)`;
-      ctx.strokeText(label, p.x, p.y + 26); ctx.fillStyle = hp > 0 ? '#ffffff' : P.ui.danger; ctx.fillText(label, p.x, p.y + 26);
-      if (hp > 0) bar(p.x - 24, p.y + 31, 48, 5, hp / 100, hp < 30 ? P.ui.danger : '#9fd3ff');
-    });
+    for (const [, x, y, hp, owner] of snap.bd) {
+      if (hp >= 100 && snap.ph !== 'intermission') continue;
+      const info = roster.get(owner);
+      ctx.textAlign = 'center'; ctx.font = `800 11px ${FONT_B}`; ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
+      const label = `${info ? info.name : '?'}${hp > 0 ? '' : ' (détruite)'}`;
+      ctx.strokeText(label, x, y + 22); ctx.fillStyle = hp > 0 ? '#bfe6ff' : P.ui.danger; ctx.fillText(label, x, y + 22);
+      if (hp > 0 && hp < 100) bar(x - 20, y + 26, 40, 4, hp / 100, hp < 30 ? P.ui.danger : '#9fd3ff');
+    }
   }
 
   function drawLabels() {
