@@ -160,7 +160,8 @@
   const BALANCE = {
     TOWER_BASE_HP: 200,
     ULT_TIME: 28, // secondes pour charger un ultime
-    REVIVE_HP: 0.6, // vote « Résurrection » : part des PV max rendus au héros réanimé
+    REVIVE_HP: 0.6, // vote « Résurrection » / Infirmerie : part des PV max rendus au héros réanimé
+    INFIRMARY_REVIVE_LEVEL: 3, // à partir de ce niveau, l'Infirmerie réanime un héros mort à chaque fin de manche
     WAVE_HP_LINEAR: 0.1, // PV des monstres : × (1 + LIN×(m-1) + QUAD×(m-1)²)
     WAVE_HP_QUAD: 0.0025,
     WAVE_DMG: 0.045, // dégâts des monstres : × (1 + DMG×(m-1))
@@ -539,7 +540,7 @@
     walls: { name: 'Remparts', icon: '🧱', desc: '+15% PV max de la tour (et soin équivalent)', cost: 60, growth: 1.5, max: 10, unlock: 0 },
     ballista: { name: 'Baliste', icon: '🏹', desc: 'La tour tire sur les ennemis (+1 niveau de baliste)', cost: 80, growth: 1.6, max: 8, unlock: 0 },
     forge: { name: 'Forge', icon: '🔨', desc: '+10% dégâts pour tous les héros', cost: 100, growth: 1.55, max: 10, unlock: 0 },
-    infirmary: { name: 'Infirmerie', icon: '⛑️', desc: 'Régénération des héros près de la tour', cost: 90, growth: 1.6, max: 6, unlock: 0 },
+    infirmary: { name: 'Infirmerie', icon: '⛑️', get desc() { return `Régénération près de la tour ; dès le niveau ${BALANCE.INFIRMARY_REVIVE_LEVEL} : réanime un héros mort à chaque manche`; }, cost: 90, growth: 1.6, max: 6, unlock: 0 },
     armory: { name: 'Armurerie', icon: '🛡️', desc: '+8% de réduction de dégâts pour les héros', cost: 150, growth: 1.6, max: 5, unlock: 250 },
     shrine: { name: 'Autel arcanique', icon: '🔮', desc: 'Les ultimes se chargent 20% plus vite', cost: 220, growth: 1.7, max: 5, unlock: 400 },
     catapult: { name: 'Catapulte', icon: '☄️', desc: 'La tour lance des rochers explosifs', cost: 400, growth: 1.7, max: 5, unlock: 800 },

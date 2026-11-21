@@ -152,3 +152,19 @@ test('pas de réapparition ; vote « Résurrection » proposé s’il y a un mor
   assert.strictEqual(a.alive, true);
   assert.strictEqual(a.hp, Math.round(a.maxHp * 0.6));
 });
+
+test('Infirmerie au niveau requis : un héros mort réanimé par manche', () => {
+  const GD = require('../shared/constants');
+  const g = makeGame();
+  for (let i = 0; i < 3; i++) g.addBot({ cls: 'soldat', level: 10 });
+  g.startRun(1);
+  g.run.upgrades.infirmary = GD.BALANCE.INFIRMARY_REVIVE_LEVEL;
+  g.setWave(3);
+  for (const h of g.heroes.values()) g.heroDie(h);
+  g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
+  assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 1, 'un seul héros réanimé');
+  g.run.upgrades.infirmary = GD.BALANCE.INFIRMARY_REVIVE_LEVEL - 1;
+  for (const h of g.heroes.values()) g.heroDie(h);
+  g.setWave(4); g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
+  assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 0, 'pas de réanimation sous le niveau requis');
+});

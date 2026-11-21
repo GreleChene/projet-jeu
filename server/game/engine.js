@@ -432,6 +432,11 @@ class Game {
       const u = h.userId && this.db.userById(h.userId);
       if (u) u.stats.bestWave = Math.max(u.stats.bestWave, r.cleared);
     }
+    // Infirmerie (à partir du niveau requis) : un héros mort au hasard est réanimé à chaque fin de manche
+    if (r.upgrades.infirmary >= GD.BALANCE.INFIRMARY_REVIVE_LEVEL) {
+      const dead = [...this.heroes.values()].filter((h) => !h.alive);
+      if (dead.length) { const h = U.pick(dead); this.reviveHero(h); this.pushFeed(`⛑️ L’infirmerie réanime ${h.name} !`); }
+    }
     const bonus = Math.round((GD.BALANCE.WAVE_ECUS_BASE + r.wave * GD.BALANCE.WAVE_ECUS_PER_WAVE) * (r.pactActive ? 2 : 1));
     this.addTreasury(bonus);
     r.pactActive = false;
@@ -517,6 +522,14 @@ class Game {
     this.applyUpgrade(best);
   }
 
+  reviveHero(h) {
+    h.alive = true; h.zombie = false; h.status = {};
+    h.hp = Math.round(h.maxHp * GD.BALANCE.REVIVE_HP);
+    const a = Math.random() * Math.PI * 2;
+    h.x = WORLD.CX + Math.cos(a) * 90; h.y = WORLD.CY + 70 + Math.sin(a) * 30;
+    this.fx(['revive', Math.round(h.x), Math.round(h.y)]);
+  }
+
   applyUpgrade(id) {
     const r = this.run;
     if (id === 'save') { this.pushFeed('L’équipe garde ses écus.'); return; }
@@ -533,11 +546,7 @@ class Game {
       r.treasury -= cost;
       r.upgrades.revive++;
       const h = U.pick(dead);
-      h.alive = true; h.zombie = false; h.status = {};
-      h.hp = Math.round(h.maxHp * GD.BALANCE.REVIVE_HP);
-      const a = Math.random() * Math.PI * 2;
-      h.x = WORLD.CX + Math.cos(a) * 90; h.y = WORLD.CY + 70 + Math.sin(a) * 30;
-      this.fx(['revive', Math.round(h.x), Math.round(h.y)]);
+      this.reviveHero(h);
       this.pushFeed(`💖 L’équipe réanime ${h.name} !`);
       return;
     }
