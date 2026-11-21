@@ -302,9 +302,10 @@
   // Nom et PV des bâtiments (seulement s'ils sont abîmés, ou pendant l'entracte)
   function drawBuildingLabels() {
     if (!snap || !snap.bd) return;
-    for (const [, x, y, hp, owner] of snap.bd) {
+    for (const [, x, y, hp, owners] of snap.bd) {
       if (hp >= 100 && snap.ph !== 'intermission') continue;
-      const info = roster.get(owner);
+      const names = (owners || []).map((n) => (roster.get(n) || {}).name).filter(Boolean);
+      const info = { name: names.length <= 2 ? names.join(' & ') : `${names[0]} & ${names.length - 1} autres` };
       ctx.textAlign = 'center'; ctx.font = `800 11px ${FONT_B}`; ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
       const label = `${info ? info.name : '?'}${hp > 0 ? '' : ' (détruite)'}`;
       ctx.strokeText(label, x, y + 22); ctx.fillStyle = hp > 0 ? '#bfe6ff' : P.ui.danger; ctx.fillText(label, x, y + 22);

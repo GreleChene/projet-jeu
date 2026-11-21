@@ -76,12 +76,13 @@
   }
 
   // Décor d'une tuile : type « tree » (sapin / chêne / arbre mort / roche brûlée) ou petits détails
-  const BPOS = (GameData.BUILDINGS || []).map((b) => GameData.buildingPos(b));
   function tileDecor(tx, ty, seed) {
     if (nearTower(tx, ty, 150)) return null;
-    const cx = (tx + 0.5) * WORLD.TILE, cy = (ty + 0.5) * WORLD.TILE;
-    for (const p of BPOS) if ((cx - p.x) ** 2 + (cy - p.y) ** 2 < 85 * 85) return null;
+    // zone des habitations autour de la tour : pas d'arbres ni de rochers (seulement de petits détails)
+    const ex = ((tx + 0.5) * WORLD.TILE - WORLD.CX) / 1.35, ey = ((ty + 0.5) * WORLD.TILE - WORLD.CY) / 0.85;
+    const inVillage = ex * ex + ey * ey < 420 * 420;
     const h = hash2(tx, ty, seed + 7);
+    if (inVillage && h < 0.05) return null;
     if (h < 0.028) return { kind: 'tree', v: hash2(tx, ty, seed + 8), ox: (hash2(tx, ty, seed + 9) - 0.5) * 18, oy: (hash2(tx, ty, seed + 10) - 0.5) * 18 };
     if (h < 0.05) return { kind: 'rock', v: hash2(tx, ty, seed + 8), ox: (hash2(tx, ty, seed + 9) - 0.5) * 20, oy: (hash2(tx, ty, seed + 10) - 0.5) * 20 };
     if (h < 0.4) return { kind: 'small', v: hash2(tx, ty, seed + 8), ox: (hash2(tx, ty, seed + 9) - 0.5) * 24, oy: (hash2(tx, ty, seed + 10) - 0.5) * 24 };

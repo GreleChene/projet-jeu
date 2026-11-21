@@ -18,7 +18,7 @@ const L = {
   HAZARD_BASE: 'Zones dangereuses : nombre de base par manche', HAZARD_PER_WAVE: 'Zones dangereuses : en plus par manche', HAZARD_MAX: 'Zones dangereuses : maximum',
   HAZARD_ICE_SLOW: 'Zone de glace : ralentissement (0,35 = −35 %)', HAZARD_POISON_PCT: 'Zone de poison : part des PV max perdue', HAZARD_POISON_EVERY: 'Zone de poison : toutes les X secondes',
   HAZARD_LAVA_PCT: 'Zone de lave : part des PV max perdue', HAZARD_LAVA_EVERY: 'Zone de lave : toutes les X secondes',
-  BUILDING_HP: 'PV des bâtiments de classe', BUILDING_HEAL: 'Soin dans son bâtiment pendant l’entracte (part des PV max / s)',
+  BUILDING_HP: 'PV d’une habitation (par occupant)', BUILDINGS_PER_CLASS: 'Habitations max par classe (au-delà : partage)', BUILDING_HEAL: 'Soin dans son bâtiment pendant l’entracte (part des PV max / s)',
   HARVEST_BASE: 'Paysans : écus par récolte (base)', HARVEST_PER_LEVEL: 'Paysans : écus par récolte par niveau',
   CLASS_LEVEL: 'Niveau pour choisir une classe', SKILL_EVERY: 'Un point de compétence tous les X niveaux', SKILL_RESPEC_LOSS: 'Reconversion : part des points perdue (0,25 = un quart)', MAX_LEVEL: 'Niveau maximum', POINTS_PER_LEVEL: 'Points de stat par niveau',
   GLACONS_PER_LEVEL: 'Glaçons par niveau', XP_BASE: 'XP requise : base', XP_EXP: 'XP requise : exposant',

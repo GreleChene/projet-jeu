@@ -751,25 +751,63 @@ class Game {
     return speed;
   }
 
-  buildingOfHero(h) { return this.run.buildings.find((b) => b.ownerId === h.id) || null; }
+  buildingOfHero(h) { return this.run.buildings.find((b) => b.owners.includes(h.id)) || null; }
 
-  // Chaque héros a sa propre habitation, du type de sa classe : 2 archers = 2 tours de guet.
-  // Elle apparaît quand le héros rejoint et disparaît quand il part (ou change de classe).
+  /*
+   * Habitations : une par héros, du type de sa classe, au maximum BUILDINGS_PER_CLASS par classe.
+   * Au-delà, le joueur partage l'habitation la moins occupée de sa classe : leurs PV fusionnent
+   * (chaque occupant apporte BUILDING_HP). Elles sont placées au hasard (classes mélangées).
+   */
   updateBuildingPresence() {
-    const r = this.run;
-    const keep = r.buildings.filter((b) => { const h = this.heroes.get(b.ownerId); return h && GD.familyOf(h.cls) === b.family; });
-    if (keep.length !== r.buildings.length) r.buildings = keep;
-    if (r.buildings.length === this.heroes.size) return;
-    const owned = new Set(r.buildings.map((b) => b.ownerId));
+    const r = this.run, B = GD.BALANCE;
+    let changed = false;
+    // départs (ou changements de classe) : l'habitation perd la part de PV de l'occupant
+    for (const b of r.buildings) {
+      const before = b.owners.length;
+      b.owners = b.owners.filter((id) => { const h = this.heroes.get(id); return h && GD.familyOf(h.cls) === b.family; });
+      if (b.owners.length !== before) {
+        changed = true;
+        const newMax = B.BUILDING_HP * b.owners.length;
+        b.hp = b.max > 0 ? (b.hp * newMax) / b.max : newMax;
+        b.max = newMax;
+      }
+    }
+    if (changed) r.buildings = r.buildings.filter((b) => b.owners.length);
+    // une place s'est libérée dans une classe : un occupant d'une habitation partagée récupère la sienne
+    for (const family of new Set(r.buildings.map((b) => b.family))) {
+      const mine = r.buildings.filter((b) => b.family === family);
+      const shared = mine.find((b) => b.owners.length > 1);
+      if (shared && mine.length < B.BUILDINGS_PER_CLASS) {
+        shared.owners.pop();
+        const newMax = B.BUILDING_HP * shared.owners.length;
+        shared.hp = (shared.hp * newMax) / shared.max; shared.max = newMax;
+      }
+    }
+    const housed = new Set(r.buildings.flatMap((b) => b.owners));
+    if (housed.size === this.heroes.size) return;
     for (const h of this.heroes.values()) {
-      if (owned.has(h.id)) continue;
+      if (housed.has(h.id)) continue;
       const family = GD.familyOf(h.cls);
+      const mine = r.buildings.filter((b) => b.family === family);
+      if (mine.length >= B.BUILDINGS_PER_CLASS) {
+        // partage : l'habitation la moins occupée de sa classe, ses PV augmentent
+        const b = mine.sort((x, y) => x.owners.length - y.owners.length || y.hp / y.max - x.hp / x.max)[0];
+        b.owners.push(h.id);
+        b.hp += B.BUILDING_HP; b.max += B.BUILDING_HP;
+        this.fx(['bbuild', Math.round(b.x), Math.round(b.y)]);
+        continue;
+      }
       const def = GD.BUILDINGS.find((x) => x.family === family) || GD.BUILDINGS[1];
-      const pos = GD.placeBuilding(family, r.buildings);
-      const b = { id: this.nid++, ownerId: h.id, ownerNid: h.nid, ownerName: h.name, family, name: def.name, ...pos, hp: GD.BALANCE.BUILDING_HP, max: GD.BALANCE.BUILDING_HP, size: 28, isBuilding: true };
+      const pos = GD.placeBuilding(family, [...r.buildings, ...this.nodes]);
+      const b = { id: this.nid++, owners: [h.id], family, name: def.name, ...pos, hp: B.BUILDING_HP, max: B.BUILDING_HP, size: 28, isBuilding: true };
       r.buildings.push(b);
       if (this.phase !== 'lobby') this.fx(['bbuild', Math.round(b.x), Math.round(b.y)]);
     }
+  }
+
+  ownersLabel(b) {
+    const names = b.owners.map((id) => (this.heroes.get(id) || {}).name).filter(Boolean);
+    return names.length <= 2 ? names.join(' et ') : `${names[0]}, ${names[1]} et ${names.length - 2} autre(s)`;
   }
 
   damageBuilding(b, n) {
@@ -778,7 +816,8 @@ class Game {
     if (b.hp <= 0) {
       b.hp = 0;
       this.fx(['bdestroy', Math.round(b.x), Math.round(b.y)]);
-      this.pushFeed(`🔥 ${b.name} de ${b.ownerName} détruite ! ${b.ownerName} ne pourra plus s’y soigner.`);
+      const who = this.ownersLabel(b);
+      this.pushFeed(`🔥 ${b.name} de ${who} détruite ! ${b.owners.length > 1 ? 'Ils ne pourront' : 'Il ne pourra'} plus s’y soigner.`);
     }
   }
 
@@ -852,8 +891,8 @@ class Game {
       timer: Math.ceil(r.timer), seed: r.seed, tv: this.terrainVersion, ter: this.terrain, rv: this.rosterVersion,
       vote: r.vote ? { o: r.vote.options, c: this.voteCounts(), cost: Object.fromEntries(r.vote.options.map((o) => [o, UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0])) } : null,
       pact: r.pactActive ? 1 : r.pactNext ? 2 : 0,
-      // habitations : [index du type, x, y, PV %, nid du propriétaire]
-      bd: r.buildings.map((b) => [BUILDING_INDEX[b.family], Math.round(b.x), Math.round(b.y), Math.ceil((100 * b.hp) / b.max), b.ownerNid]),
+      // habitations : [index du type, x, y, PV %, nids des occupants]
+      bd: r.buildings.map((b) => [BUILDING_INDEX[b.family], Math.round(b.x), Math.round(b.y), Math.ceil((100 * b.hp) / b.max), b.owners.map((id) => (this.heroes.get(id) || {}).nid)]),
       jn: this.canJoin() ? (Number.isFinite(r.joinUntil) ? Math.ceil((r.joinUntil - Date.now()) / 1000) : -1) : 0,
       bosses, h: heroes, m: mobs, a: allies, p: proj, z: zones, e: ev
     };
@@ -899,7 +938,7 @@ class Game {
         buffs: Object.fromEntries(Object.entries(h.buffs).filter(([, v]) => v > 0).map(([k, v]) => [k, Math.ceil(v)])),
         status: Object.keys(h.status), dmg: Math.round(h.dmg), armor: Math.round(h.armor * 100),
         resting: !!h.resting,
-        building: (() => { const b = this.buildingOfHero(h); return b ? { name: b.name, hp: Math.ceil(b.hp), max: b.max } : null; })()
+        building: (() => { const b = this.buildingOfHero(h); return b ? { name: b.name, hp: Math.ceil(b.hp), max: b.max, shared: b.owners.length } : null; })()
       };
     }
     return out;

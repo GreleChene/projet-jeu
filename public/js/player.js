@@ -173,7 +173,7 @@
       for (const [k, v] of Object.entries(h.buffs)) if (BN[k]) st.push(`${BN[k]} ${v}s`);
       const SN = { poison: '🟢 Empoisonné', burn: '🔥 Brûlé', slow: '❄️ Ralenti', freeze: '🧊 Gelé' };
       for (const s of h.status) if (SN[s]) st.push(SN[s]);
-      if (h.building) st.push(h.building.hp > 0 ? `🏠 ${h.building.name} : ${h.building.hp}/${h.building.max} PV${h.resting ? ' (repos, soin en cours)' : ''}` : `🔥 ${h.building.name} détruite : plus de soin entre les manches`);
+      if (h.building) st.push(h.building.hp > 0 ? `🏠 ${h.building.name}${h.building.shared > 1 ? ` (partagée à ${h.building.shared})` : ''} : ${h.building.hp}/${h.building.max} PV${h.resting ? ' (repos, soin en cours)' : ''}` : `🔥 ${h.building.name} détruite : plus de soin entre les manches`);
       $('#heroStatus').textContent = st.join(' · ') || `Dégâts ${h.dmg} · Armure ${h.armor}%`;
       $('#sKills').textContent = h.kills; $('#sXp').textContent = h.xp; $('#sGold').textContent = h.gold;
     }

@@ -200,7 +200,8 @@
     HAZARD_POISON_EVERY: 3, // …toutes les X secondes
     HAZARD_LAVA_PCT: 0.01, // zone de lave : % des PV max perdus…
     HAZARD_LAVA_EVERY: 2, // …toutes les X secondes
-    BUILDING_HP: 100, // PV de chaque bâtiment de classe
+    BUILDING_HP: 100, // PV d'une habitation (s'additionnent quand plusieurs joueurs la partagent)
+    BUILDINGS_PER_CLASS: 5, // habitations max par classe ; au-delà, les joueurs partagent
     BUILDING_HEAL: 0.25 // soin par seconde (part des PV max) dans son bâtiment pendant l'entracte
   };
 
@@ -219,29 +220,24 @@
     { family: 'soldat', name: 'Caserne', angle: 87, dist: 255 }
   ];
   const ellipsePos = (angleDeg, dist) => ({ x: WORLD.CX + Math.cos((angleDeg * Math.PI) / 180) * dist * 1.35, y: WORLD.CY + Math.sin((angleDeg * Math.PI) / 180) * dist * 0.85 });
-  // Emplacements possibles : anneaux autour de la tour (le nord, où la tour est dessinée en hauteur, reste libre)
+  // Emplacements possibles : anneaux autour de la tour, y compris au nord (la tour peut alors les cacher en partie,
+  // mais jamais entièrement : le corps de la tour reste dégagé)
   const BUILDING_SPOTS = [];
-  for (let d = 150; d <= 560; d += 50) {
+  for (let d = 150; d <= 380; d += 46) {
     const step = Math.max(6, (66 / (d * 1.1)) * (180 / Math.PI));
     for (let a = 0; a < 360; a += step) {
-      if (d < 420 && a > 238 && a < 302) continue;
       const p = ellipsePos(a, d);
+      if (p.x > 905 && p.x < 1015 && p.y > 300 && p.y < 590) continue; // derrière / devant le corps de la tour
       if (p.x < 50 || p.x > WORLD.W - 50 || p.y < 70 || p.y > WORLD.H - 40) continue;
       BUILDING_SPOTS.push({ a, d, ...p });
     }
   }
-  // Choisit l'emplacement libre le plus proche du secteur de la classe (sans chevaucher les bâtiments existants)
-  function placeBuilding(family, taken) {
-    const b = BUILDINGS.find((x) => x.family === family) || BUILDINGS[1];
-    let best = null, bc = Infinity;
-    for (const s of BUILDING_SPOTS) {
-      if (taken.some((t) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2 < 60 * 60)) continue;
-      let da = Math.abs(s.a - b.angle) % 360;
-      if (da > 180) da = 360 - da;
-      const cost = da * 2.2 + Math.abs(s.d - b.dist) * 0.6;
-      if (cost < bc) { bc = cost; best = s; }
-    }
-    return best ? { x: best.x, y: best.y } : ellipsePos(b.angle, b.dist);
+  // Choisit un emplacement libre au hasard (les classes sont mélangées), sans chevaucher les habitations existantes
+  function placeBuilding(family, taken, rnd) {
+    const free = BUILDING_SPOTS.filter((s) => !taken.some((t) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2 < 62 * 62));
+    if (!free.length) return ellipsePos(Math.random() * 360, 420);
+    const s = free[Math.floor((rnd || Math.random)() * free.length)];
+    return { x: s.x, y: s.y };
   }
   const buildingPos = (b) => placeBuilding(b.family, []);
 
