@@ -76,8 +76,11 @@
   }
 
   // Décor d'une tuile : type « tree » (sapin / chêne / arbre mort / roche brûlée) ou petits détails
+  const BPOS = (GameData.BUILDINGS || []).map((b) => GameData.buildingPos(b));
   function tileDecor(tx, ty, seed) {
     if (nearTower(tx, ty, 150)) return null;
+    const cx = (tx + 0.5) * WORLD.TILE, cy = (ty + 0.5) * WORLD.TILE;
+    for (const p of BPOS) if ((cx - p.x) ** 2 + (cy - p.y) ** 2 < 85 * 85) return null;
     const h = hash2(tx, ty, seed + 7);
     if (h < 0.028) return { kind: 'tree', v: hash2(tx, ty, seed + 8), ox: (hash2(tx, ty, seed + 9) - 0.5) * 18, oy: (hash2(tx, ty, seed + 10) - 0.5) * 18 };
     if (h < 0.05) return { kind: 'rock', v: hash2(tx, ty, seed + 8), ox: (hash2(tx, ty, seed + 9) - 0.5) * 20, oy: (hash2(tx, ty, seed + 10) - 0.5) * 20 };
@@ -105,8 +108,9 @@
     const n = 12;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + (rnd() - 0.5) * 0.3;
-      const r = 200 + rnd() * 220;
-      nodes.push({ id: i, type: types[i % 3], x: WORLD.CX + Math.cos(a) * r * 1.35, y: WORLD.CY + Math.sin(a) * r * 0.85 });
+      // entre les bâtiments et la limite des paysans (500 px de la tour)
+      const r = 330 + rnd() * 130;
+      nodes.push({ id: i, type: types[i % 3], x: WORLD.CX + Math.cos(a) * r, y: WORLD.CY + Math.sin(a) * r * 0.8 });
     }
     return nodes;
   }

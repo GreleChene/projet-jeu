@@ -59,6 +59,8 @@ class Game {
       cleared: 0,
       uprooted: false,
       tower: { hp: GD.BALANCE.TOWER_BASE_HP, max: GD.BALANCE.TOWER_BASE_HP, ballistaT: 0, catapultT: 0 },
+      // bâtiments de classe : refuge et soin des héros entre les manches
+      buildings: GD.BUILDINGS.map((b, i) => ({ idx: i, family: b.family, name: b.name, ...GD.buildingPos(b), hp: GD.BALANCE.BUILDING_HP, max: GD.BALANCE.BUILDING_HP, size: 34, isBuilding: true })),
       treasury: 0,
       wealthEarned: 0,
       upgrades: Object.fromEntries(Object.keys(UPGRADES).map((k) => [k, 0])),
@@ -631,6 +633,10 @@ class Game {
           if (a.hp <= 0 || (a.x - p.x) ** 2 + (a.y - p.y) ** 2 > (a.size + 6) ** 2) continue;
           this.damageAlly(a, p.dmg); done = true; break;
         }
+        if (!done) for (const b of this.run.buildings) {
+          if (b.hp <= 0 || (b.x - p.x) ** 2 + (b.y - p.y) ** 2 > b.size ** 2) continue;
+          this.damageBuilding(b, p.dmg); done = true; break;
+        }
         if (!done && (p.x - WORLD.CX) ** 2 + (p.y - WORLD.CY) ** 2 < WORLD.TOWER_R ** 2) {
           this.damageTower(p.dmg); done = true;
         }
@@ -685,6 +691,19 @@ class Game {
     if (s.poison) { s.poison.t -= dt; dmgFn(s.poison.dps * dt, 'poison'); if (s.poison.t <= 0) delete s.poison; }
     if (s.burn) { s.burn.t -= dt; dmgFn(s.burn.dps * dt, 'burn'); if (s.burn.t <= 0) delete s.burn; }
     return speed;
+  }
+
+  buildingOf(family) { return this.run.buildings.find((b) => b.family === family) || null; }
+
+  damageBuilding(b, n) {
+    if (b.hp <= 0) return;
+    b.hp -= n;
+    if (b.hp <= 0) {
+      b.hp = 0;
+      this.fx(['bdestroy', Math.round(b.x), Math.round(b.y)]);
+      const fam = GD.CLASSES[b.family] ? GD.CLASSES[b.family].name : b.family;
+      this.pushFeed(`🔥 ${b.name} détruite ! Les ${fam.toLowerCase()}s ne pourront plus s’y soigner.`);
+    }
   }
 
   damageTower(n) {
@@ -757,6 +776,7 @@ class Game {
       timer: Math.ceil(r.timer), seed: r.seed, tv: this.terrainVersion, ter: this.terrain, rv: this.rosterVersion,
       vote: r.vote ? { o: r.vote.options, c: this.voteCounts(), cost: Object.fromEntries(r.vote.options.map((o) => [o, UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0])) } : null,
       pact: r.pactActive ? 1 : r.pactNext ? 2 : 0,
+      bd: r.buildings.map((b) => Math.ceil((100 * b.hp) / b.max)),
       jn: this.canJoin() ? (Number.isFinite(r.joinUntil) ? Math.ceil((r.joinUntil - Date.now()) / 1000) : -1) : 0,
       bosses, h: heroes, m: mobs, a: allies, p: proj, z: zones, e: ev
     };

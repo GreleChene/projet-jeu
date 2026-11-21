@@ -147,7 +147,24 @@ module.exports = {
   dmgMul(h) { return h.buffs.fury > 0 ? 1.4 : 1; },
 
   /* --------------------------- IA principale --------------------------- */
+  // Entre les manches : chaque héros rentre dans le bâtiment de sa classe pour se soigner (s'il est encore debout)
+  heroRest(h, dt, speed) {
+    const b = this.buildingOf(GD.familyOf(h.cls));
+    h.harvesting = false; h.retreating = false;
+    if (!b || b.hp <= 0) { h.resting = false; this.heroIdle(h, dt, 1); return; }
+    const a = (h.nid * 2.4) % (Math.PI * 2);
+    const tx = b.x + Math.cos(a) * 26, ty = b.y + 26 + Math.sin(a) * 10;
+    if ((h.x - tx) ** 2 + (h.y - ty) ** 2 > 36) this.moveToward(h, tx, ty, speed, dt);
+    h.resting = (h.x - b.x) ** 2 + (h.y - b.y) ** 2 < 70 * 70;
+    if (h.resting && h.hp < h.maxHp) {
+      h.hp = Math.min(h.maxHp, h.hp + h.maxHp * GD.BALANCE.BUILDING_HEAL * dt);
+      if (Math.random() < dt * 2) this.fx(['heal', Math.round(h.x), Math.round(h.y)]);
+    }
+  },
+
   heroAI(h, c, dt, speedMul) {
+    if (this.phase === 'intermission' && !this.mobs.length) { this.heroRest(h, dt, h.speed * speedMul); this.clampHero(h); return; }
+    h.resting = false;
     const ai = h.ai;
     const ratio = h.hp / h.maxHp;
     if (ai.retreat > 0 && ratio * 100 < ai.retreat) h.retreating = true;
@@ -476,6 +493,8 @@ module.exports = {
       case 'towerheal': {
         const tw = this.run.tower;
         tw.hp = Math.min(tw.max, tw.hp + tw.max * 0.12);
+        // le bûcheron répare aussi les bâtiments encore debout
+        for (const b of this.run.buildings) if (b.hp > 0) b.hp = Math.min(b.max, b.hp + b.max * 0.3);
         this.fx(['towerheal', WORLD.CX, WORLD.CY]);
         break;
       }

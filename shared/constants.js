@@ -97,6 +97,11 @@
     WAVE_HP_QUAD: 0.0025,
     WAVE_DMG: 0.045, // dégâts des monstres : × (1 + DMG×(m-1))
     HP_PER_HERO: 0.03, // PV des monstres en plus par héros présent
+    DMG_PER_HERO: 0.01, // dégâts des monstres en plus par héros présent
+    WAVE_DURATION_BASE: 16, // durée d'apparition des monstres (s) = BASE + PAR_MANCHE×m + PAR_HÉROS×héros
+    WAVE_DURATION_PER_WAVE: 0.5,
+    WAVE_DURATION_PER_HERO: 1.2,
+    WAVE_DURATION_MAX: 120,
     MOB_COUNT_BASE: 6, // nombre de monstres : (BASE + PAR_MANCHE×m) × facteur joueurs
     MOB_COUNT_PER_WAVE: 1.5,
     MOB_COUNT_PER_HERO: 0.25,
@@ -118,8 +123,25 @@
     KILL_ECUS: 0.5, // part de la valeur d'un monstre versée en écus à l'équipe
     HARVEST_INTERVAL: 3, // paysans : une récolte toutes les X secondes
     HARVEST_BASE: 1.5,
-    HARVEST_PER_LEVEL: 0.15
+    HARVEST_PER_LEVEL: 0.15,
+    BUILDING_HP: 100, // PV de chaque bâtiment de classe
+    BUILDING_HEAL: 0.25 // soin par seconde (part des PV max) dans son bâtiment pendant l'entracte
   };
+
+  /*
+   * Bâtiments de classe autour de la tour (les classes de soutien sont les plus proches).
+   * angle en degrés (0 = est, 90 = sud) ; dist en pixels ; le nord est laissé libre (tour dessinée en hauteur).
+   */
+  const BUILDINGS = [
+    { family: 'paysan', name: 'Ferme', angle: 50, dist: 150 },
+    { family: 'habitant', name: 'Chaumière', angle: 130, dist: 160 },
+    { family: 'mage', name: 'Tour des mages', angle: 165, dist: 225 },
+    { family: 'eleveur', name: 'Étable', angle: 350, dist: 215 },
+    { family: 'archer', name: 'Tour de guet', angle: 212, dist: 280 },
+    { family: 'assassin', name: 'Repaire', angle: 318, dist: 275 },
+    { family: 'soldat', name: 'Caserne', angle: 90, dist: 285 }
+  ];
+  const buildingPos = (b) => ({ x: WORLD.CX + Math.cos((b.angle * Math.PI) / 180) * b.dist * 1.35, y: WORLD.CY + Math.sin((b.angle * Math.PI) / 180) * b.dist * 0.85 });
 
   /* ------------------------------------------------------------------ */
   /* Statistiques : 1 point gagné à chaque niveau, réparti librement      */
@@ -426,5 +448,5 @@
     for (const [k, v] of Object.entries(overrides || {})) { try { setPath(k.split('.'), v); } catch (e) { /* chemin obsolète */ } }
   }
 
-  return { getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

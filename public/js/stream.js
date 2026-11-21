@@ -150,6 +150,7 @@
       case 'towerheal': add({ k: 'ring', x: WORLD.CX, y: WORLD.CY, r: 160, color: F.heal, dur: 0.9, w: 10 }); burst(WORLD.CX, WORLD.CY - 80, F.heal, 24, 160); break;
       case 'summon': add({ k: 'ring', x: e[1], y: e[2], r: e[3], color: '#b14cff', dur: 0.6, w: 8 }); break;
       case 'uproot': burst(e[1], e[2], P.wood[1], 10, 180, 4); add({ k: 'puff', x: e[1], y: e[2], dur: 0.6, r: 26 }); shake = Math.max(shake, 6); break;
+      case 'bdestroy': burst(e[1], e[2] - 20, P.stone[1], 30, 220, 5); burst(e[1], e[2] - 20, P.biome.fire.accent[0], 16, 160, 4); add({ k: 'puff', x: e[1], y: e[2] - 20, dur: 0.9, r: 50 }); shake = Math.max(shake, 10); break;
       case 'bossin': shake = Math.max(shake, 16); add({ k: 'flash', dur: 0.6, color: '#ff3d5a' }); break;
       case 'announce': announce = { title: e[1], sub: e[2], t: 0 }; break;
       case 'feed': feed.push({ text: e[1], t: 0 }); if (feed.length > 7) feed.shift(); break;
@@ -220,6 +221,11 @@
     // entités triées en profondeur
     const list = [];
     list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, hp: snap.tw[0] / snap.tw[1] }) });
+    if (snap.bd) GD.BUILDINGS.forEach((b, i) => {
+      const p = GD.buildingPos(b);
+      const fam = GD.CLASSES[b.family];
+      list.push({ y: p.y + 4, d: () => A.drawBuilding(ctx, b.family, p.x, p.y, { hp: snap.bd[i] / 100, t: time, color: fam ? fam.color : P.ui.gold }) });
+    });
     for (const [id, h] of heroes) list.push({ y: h.y, d: () => drawHeroEnt(id, h) });
     for (const m of mobs.values()) list.push({ y: m.y, d: () => drawMobEnt(m, false) });
     for (const m of allies.values()) list.push({ y: m.y, d: () => drawMobEnt(m, true) });
@@ -292,7 +298,21 @@
     ctx.fillStyle = color; ctx.fillRect(x, y, w * Math.max(0, Math.min(1, k)), h);
   }
 
+  // Nom et PV des bâtiments (seulement s'ils sont abîmés, ou pendant l'entracte)
+  function drawBuildingLabels() {
+    if (!snap || !snap.bd) return;
+    GD.BUILDINGS.forEach((b, i) => {
+      const hp = snap.bd[i], p = GD.buildingPos(b);
+      if (hp >= 100 && snap.ph !== 'intermission') return;
+      ctx.textAlign = 'center'; ctx.font = `800 12px ${FONT_B}`; ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
+      const label = hp > 0 ? b.name : `${b.name} (détruite)`;
+      ctx.strokeText(label, p.x, p.y + 26); ctx.fillStyle = hp > 0 ? '#ffffff' : P.ui.danger; ctx.fillText(label, p.x, p.y + 26);
+      if (hp > 0) bar(p.x - 24, p.y + 31, 48, 5, hp / 100, hp < 30 ? P.ui.danger : '#9fd3ff');
+    });
+  }
+
   function drawLabels() {
+    drawBuildingLabels();
     ctx.textAlign = 'center';
     ctx.font = `800 13px ${FONT_B}`;
     ctx.lineJoin = 'round';

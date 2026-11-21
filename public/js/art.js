@@ -594,6 +594,108 @@
     ctx.restore();
   }
 
+  /* ------------------------------ bâtiments de classe ------------------------------ */
+  // o = { hp (0..1), t, color (couleur de la classe) }
+  function drawBuilding(ctx, family, x, y, o) {
+    const t = o.t || 0, hp = o.hp === undefined ? 1 : o.hp;
+    const W = P.wood, S = P.stone;
+    ctx.save();
+    ctx.translate(x, y);
+    shadow(ctx, 0, 6, 44, 13);
+    if (hp <= 0) { drawRuins(ctx, t); ctx.restore(); return; }
+    const flag = (fx, fy, col) => {
+      line(ctx, fx, fy, fx, fy - 20, W[2], 1.6);
+      poly(ctx, [fx, fy - 20, fx + 13, fy - 16 + Math.sin(t * 4 + fx) * 1.5, fx, fy - 12], col, 1.3);
+    };
+    switch (family) {
+      case 'paysan': // ferme : grange rouge
+        rrect(ctx, -30, -30, 60, 36, 3, '#b5413a', 2.5);
+        poly(ctx, [-36, -28, 0, -54, 36, -28], '#7a2e2a', 2.5);
+        rrect(ctx, -10, -18, 20, 24, 2, '#f3ead7', 2);
+        ctx.strokeStyle = '#b5413a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, -16); ctx.lineTo(8, 4); ctx.moveTo(8, -16); ctx.lineTo(-8, 4); ctx.stroke();
+        rrect(ctx, 26, -8, 16, 14, 4, '#e2c56a', 1.8); // botte de foin
+        flag(-30, -30, o.color);
+        break;
+      case 'habitant': { // chaumière + fumée
+        rrect(ctx, -26, -26, 52, 32, 4, '#e8dcc0', 2.5);
+        ctx.beginPath(); ctx.moveTo(-34, -22); ctx.quadraticCurveTo(0, -60, 34, -22); ctx.closePath(); fillStroke(ctx, '#d9b85a', 2.5);
+        ctx.strokeStyle = 'rgba(29,22,38,.25)'; ctx.lineWidth = 1.2;
+        for (let i = -24; i <= 24; i += 8) { ctx.beginPath(); ctx.moveTo(i, -25); ctx.lineTo(i * 0.5, -44); ctx.stroke(); }
+        rrect(ctx, 14, -52, 8, 16, 2, S[1], 1.8);
+        for (let i = 0; i < 3; i++) { ctx.save(); ctx.globalAlpha = 0.35 - i * 0.1; circle(ctx, 18 + Math.sin(t + i) * 3, -60 - i * 9 - ((t * 8) % 9), 4 + i * 2, '#d8d0e0', 0.01); ctx.restore(); }
+        rrect(ctx, -7, -14, 14, 20, 6, W[1], 2);
+        rrect(ctx, -22, -18, 9, 9, 2, '#ffd76a', 1.6);
+        break;
+      }
+      case 'mage': // tour des mages fine, toit violet, orbe lumineux
+        rrect(ctx, -16, -64, 32, 70, 6, '#5b6fa8', 2.5);
+        ctx.fillStyle = 'rgba(29,22,38,.2)'; for (let i = 0; i < 4; i++) ctx.fillRect(-15, -54 + i * 15, 30, 1.6);
+        poly(ctx, [-22, -62, 0, -100, 22, -62], '#6b4fa0', 2.5);
+        ctx.save(); ctx.translate(0, -106); glow(ctx, '#c9a8ff', 10 + Math.sin(t * 3) * 2); ctx.restore();
+        circle(ctx, 0, -106, 5, '#c9a8ff', 1.6);
+        rrect(ctx, -6, -40, 12, 16, 6, '#ffd76a', 1.8);
+        rrect(ctx, -8, -12, 16, 18, 7, W[2], 2);
+        break;
+      case 'eleveur': // étable ouverte + barrière
+        rrect(ctx, -32, -30, 64, 36, 3, W[0], 2.5);
+        ctx.fillStyle = 'rgba(29,22,38,.2)'; for (let i = -28; i < 32; i += 8) ctx.fillRect(i, -28, 1.5, 32);
+        poly(ctx, [-38, -28, -30, -48, 30, -48, 38, -28], W[2], 2.5);
+        rrect(ctx, -14, -20, 28, 26, 3, '#3a2e3e', 2);
+        for (const fx of [-44, 32]) { line(ctx, fx, 6, fx + 12, 6, W[1], 2); line(ctx, fx, -2, fx + 12, -2, W[1], 2); line(ctx, fx, -6, fx, 8, W[2], 2); line(ctx, fx + 12, -6, fx + 12, 8, W[2], 2); }
+        flag(30, -48, o.color);
+        break;
+      case 'archer': // tour de guet en bois sur pilotis
+        for (const lx of [-18, 14]) line(ctx, lx, 6, lx + (lx < 0 ? 6 : -6), -46, W[1], 3.5);
+        line(ctx, -14, -10, 10, -30, W[2], 2); line(ctx, 10, -10, -14, -30, W[2], 2);
+        rrect(ctx, -24, -62, 48, 16, 3, W[0], 2.5);
+        for (let i = -20; i <= 16; i += 9) rrect(ctx, i, -72, 6, 10, 1, W[0], 1.6);
+        poly(ctx, [-28, -70, 0, -96, 28, -70], '#2e9e57', 2.5);
+        flag(0, -96, o.color);
+        break;
+      case 'assassin': // repaire : tente sombre
+        poly(ctx, [-38, 6, 0, -52, 38, 6], '#2b2433', 2.5);
+        poly(ctx, [-8, 6, 0, -22, 8, 6], '#120d18', 2);
+        ctx.strokeStyle = o.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-20, -20); ctx.lineTo(20, -20); ctx.stroke();
+        line(ctx, 0, -52, 0, -62, W[2], 2);
+        poly(ctx, [0, -62, 12, -58 + Math.sin(t * 3) * 1.5, 0, -54], '#5b4a7a', 1.3);
+        circle(ctx, -28, 2, 3, '#ffd76a', 1); // lanterne
+        break;
+      case 'soldat': // caserne en pierre crénelée
+      default:
+        rrect(ctx, -36, -34, 72, 40, 3, S[0], 2.5);
+        ctx.fillStyle = 'rgba(29,22,38,.2)';
+        for (let r = 0; r < 3; r++) for (let i = -34; i < 34; i += 12) ctx.fillRect(i + (r % 2) * 6, -30 + r * 12, 10, 1.4);
+        for (let i = -34; i <= 26; i += 12) rrect(ctx, i, -44, 8, 10, 1, S[1], 1.8);
+        rrect(ctx, -10, -16, 20, 22, 9, W[2], 2);
+        for (const sx of [-24, 24]) { circle(ctx, sx, -18, 6, o.color, 1.8); circle(ctx, sx, -18, 2, P.ui.gold, 1); }
+        flag(-36, -44, o.color);
+        break;
+    }
+    // dégâts : fissures et flammes
+    if (hp < 0.5) {
+      ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(-20, -24); ctx.lineTo(-12, -14); ctx.lineTo(-16, -4); ctx.moveTo(18, -26); ctx.lineTo(12, -16); ctx.stroke();
+    }
+    if (hp < 0.3) {
+      for (let i = 0; i < 2; i++) poly(ctx, [-12 + i * 22, -28, -6 + i * 22, -40 - Math.sin(t * 12 + i) * 5, 0 + i * 22, -28], P.biome.fire.accent[i], 1.3);
+    }
+    ctx.restore();
+  }
+
+  function drawRuins(ctx, t) {
+    const S = P.stone, W = P.wood;
+    poly(ctx, [-34, 6, -26, -8, -12, -4, -4, -14, 10, -6, 22, -12, 34, 6], S[2], 2.5);
+    rrect(ctx, -22, -6, 12, 8, 2, S[1], 1.6);
+    rrect(ctx, 8, -4, 14, 7, 2, S[0], 1.6);
+    line(ctx, -14, -2, 6, -22, '#2a1b17', 3);
+    line(ctx, 14, 0, 26, -16, '#2a1b17', 3);
+    for (let i = 0; i < 3; i++) {
+      ctx.save(); ctx.globalAlpha = 0.28 - i * 0.07;
+      circle(ctx, -4 + Math.sin(t * 0.8 + i) * 6, -24 - i * 14 - ((t * 10) % 14), 7 + i * 3, '#6b6478', 0.01);
+      ctx.restore();
+    }
+  }
+
   /* ------------------------------ projectiles ------------------------------ */
   function drawProjectile(ctx, kind, x, y, a, t) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(a);
@@ -810,5 +912,5 @@
     ctx.restore();
   }
 
-  window.Art = { shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
+  window.Art = { drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
 })();

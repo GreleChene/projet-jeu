@@ -34,7 +34,7 @@ module.exports = {
     const pact = this.run.pactActive ? 1.5 : 1;
     return {
       hp: (1 + B.WAVE_HP_LINEAR * (w - 1) + B.WAVE_HP_QUAD * (w - 1) ** 2) * diff * pact * (1 + B.HP_PER_HERO * (n - 1)),
-      dmg: (1 + B.WAVE_DMG * (w - 1)) * Math.sqrt(diff),
+      dmg: (1 + B.WAVE_DMG * (w - 1)) * Math.sqrt(diff) * (1 + B.DMG_PER_HERO * (n - 1)),
       bossHp: B.BOSS_HP_BASE + B.BOSS_HP_PER_HERO * Math.min(n, 80),
       count: Math.min(B.MOB_COUNT_HERO_CAP, 1 + B.MOB_COUNT_PER_HERO * (n - 1)) * pact * Math.sqrt(diff)
     };
@@ -51,7 +51,9 @@ module.exports = {
     const eliteChance = Math.min(B.ELITE_MAX, B.ELITE_BASE + w * B.ELITE_PER_WAVE);
     r.queue = [];
     for (let i = 0; i < total; i++) r.queue.push({ type: U.pick(pool), elite: Math.random() < eliteChance });
-    const duration = 16 + Math.min(40, w * 0.5);
+    // les manches durent plus longtemps quand il y a plus de joueurs (et plus de monstres)
+    const heroes = Math.max(1, this.heroes.size);
+    const duration = Math.min(B.WAVE_DURATION_MAX, B.WAVE_DURATION_BASE + w * B.WAVE_DURATION_PER_WAVE + (heroes - 1) * B.WAVE_DURATION_PER_HERO);
     r.packInterval = 2.2;
     r.packSize = Math.max(1, Math.ceil(total / (duration / r.packInterval)));
     r.spawnT = 1.5;
@@ -202,11 +204,29 @@ module.exports = {
       const dd = (a.x - m.x) ** 2 + (a.y - m.y) ** 2;
       if (dd < bd) { bd = dd; best = a; }
     }
+    return best || this.buildingOnPath(m);
+  },
+
+  // Bâtiment situé sur le chemin direct du monstre vers la tour (pas de détour)
+  buildingOnPath(m) {
+    const dx = WORLD.CX - m.x, dy = WORLD.CY - m.y;
+    const L = Math.hypot(dx, dy);
+    if (L < 1) return null;
+    const ux = dx / L, uy = dy / L;
+    let best = null, bt = Infinity;
+    for (const b of this.run.buildings) {
+      if (b.hp <= 0) continue;
+      const px = b.x - m.x, py = b.y - m.y;
+      const t = px * ux + py * uy;
+      if (t < -b.size || t > L) continue;
+      if (Math.abs(px * uy - py * ux) < b.size + m.size + 18 && t < bt) { bt = t; best = b; }
+    }
     return best;
   },
 
   hitUnit(u, dmg, onHit) {
-    if (this.heroes.get(u.id) === u) this.damageHero(u, dmg, onHit);
+    if (u.isBuilding) this.damageBuilding(u, dmg);
+    else if (this.heroes.get(u.id) === u) this.damageHero(u, dmg, onHit);
     else this.damageAlly(u, dmg);
   },
 
