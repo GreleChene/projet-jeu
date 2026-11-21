@@ -286,6 +286,16 @@ class Game {
     const st = GD.computeStats({ cls: h.cls, level: h.level, gear: h.gear, skills: p.skills, attrs: p.attrs, upgrades: this.run.upgrades });
     Object.assign(h, st);
     h.hp = Math.max(1, Math.min(h.maxHp, Math.round(h.maxHp * ratio)));
+    // amélioration spéciale de l'habitation (selon la classe actuelle)
+    const fam = GD.familyOf(h.cls), sp = GD.HOUSE_SPECIALS[fam], lvl = GD.houseSpecial(p, fam) * (sp ? sp.per : 0);
+    h.xpMult = 1; h.summonMult = 1;
+    if (fam === 'soldat') h.armor = Math.min(0.75, h.armor + lvl);
+    else if (fam === 'mage') h.ultRate += lvl;
+    else if (fam === 'paysan') h.harvestMult += lvl;
+    else if (fam === 'habitant') h.xpMult = 1 + lvl;
+    else if (fam === 'eleveur') h.summonMult = 1 + lvl;
+    const hb = this.run.buildings.find((b) => b.owners.includes(h.id));
+    if (hb && hb.family === fam) this.recomputeBuilding(hb, true);
     if (prevCls && prevCls !== h.cls) {
       this.allies = this.allies.filter((a) => a.ownerId !== h.id);
       h.ult = 0;
@@ -298,7 +308,7 @@ class Game {
   // Gain d'XP et de Grêlons (monnaie personnelle persistante)
   reward(h, xp, gold) {
     const mult = (1 + 0.2 * this.run.upgrades.banner) * (this.run.pactActive ? 2 : 1);
-    xp = Math.round(xp * mult); gold = Math.round(gold * mult);
+    xp = Math.round(xp * mult * (h.xpMult || 1)); gold = Math.round(gold * mult);
     h.runXp += xp; h.runGold += gold;
     const p = this.heroProfile(h);
     if (!p || h.isBot) return;
@@ -525,6 +535,7 @@ class Game {
         this.updateAllies(dt);
         this.updateMobs(dt);
         this.updateTower(dt);
+        this.updateBuildingSpecials(dt);
         this.updateProjectiles(dt);
         this.updateZones(dt);
         this.mobs = this.mobs.filter((m) => m.hp > 0);
@@ -765,12 +776,7 @@ class Game {
     for (const b of r.buildings) {
       const before = b.owners.length;
       b.owners = b.owners.filter((id) => { const h = this.heroes.get(id); return h && GD.familyOf(h.cls) === b.family; });
-      if (b.owners.length !== before) {
-        changed = true;
-        const newMax = B.BUILDING_HP * b.owners.length;
-        b.hp = b.max > 0 ? (b.hp * newMax) / b.max : newMax;
-        b.max = newMax;
-      }
+      if (b.owners.length !== before) { changed = true; if (b.owners.length) this.recomputeBuilding(b, false); }
     }
     if (changed) r.buildings = r.buildings.filter((b) => b.owners.length);
     // une place s'est libérée dans une classe : un occupant d'une habitation partagée récupère la sienne
@@ -779,8 +785,7 @@ class Game {
       const shared = mine.find((b) => b.owners.length > 1);
       if (shared && mine.length < B.BUILDINGS_PER_CLASS) {
         shared.owners.pop();
-        const newMax = B.BUILDING_HP * shared.owners.length;
-        shared.hp = (shared.hp * newMax) / shared.max; shared.max = newMax;
+        this.recomputeBuilding(shared, false);
       }
     }
     const housed = new Set(r.buildings.flatMap((b) => b.owners));
@@ -793,15 +798,54 @@ class Game {
         // partage : l'habitation la moins occupée de sa classe, ses PV augmentent
         const b = mine.sort((x, y) => x.owners.length - y.owners.length || y.hp / y.max - x.hp / x.max)[0];
         b.owners.push(h.id);
-        b.hp += B.BUILDING_HP; b.max += B.BUILDING_HP;
+        this.recomputeBuilding(b, true);
         this.fx(['bbuild', Math.round(b.x), Math.round(b.y)]);
         continue;
       }
       const def = GD.BUILDINGS.find((x) => x.family === family) || GD.BUILDINGS[1];
       const pos = GD.placeBuilding(family, [...r.buildings, ...this.nodes]);
-      const b = { id: this.nid++, owners: [h.id], family, name: def.name, ...pos, hp: B.BUILDING_HP, max: B.BUILDING_HP, size: 28, isBuilding: true };
+      const b = { id: this.nid++, owners: [h.id], family, name: def.name, ...pos, hp: 0, max: 0, size: 28, isBuilding: true, special: 0, fireT: 1, trapT: 0 };
+      this.recomputeBuilding(b, true);
       r.buildings.push(b);
       if (this.phase !== 'lobby') this.fx(['bbuild', Math.round(b.x), Math.round(b.y)]);
+    }
+  }
+
+  /*
+   * PV max = somme des PV de chaque occupant (améliorations « Murs renforcés » comprises).
+   * gain = true : les PV ajoutés sont aussi soignés (nouvel occupant, amélioration achetée) ;
+   * sinon les PV restent proportionnels (départ d'un occupant). Une habitation détruite le reste.
+   */
+  recomputeBuilding(b, gain) {
+    const profiles = b.owners.map((id) => this.heroProfile(this.heroes.get(id)));
+    const newMax = profiles.reduce((a, p) => a + GD.houseHp(p), 0);
+    if (gain) { if (b.hp > 0 || b.max === 0) b.hp = Math.min(newMax, b.hp + Math.max(0, newMax - b.max)); }
+    else b.hp = b.max > 0 ? (b.hp * newMax) / b.max : newMax;
+    b.max = newMax;
+    // soin = moyenne des occupants (pas de double soin) ; spéciale = meilleur niveau des occupants
+    b.heal = profiles.reduce((a, p) => a + GD.houseHeal(p), 0) / Math.max(1, profiles.length);
+    b.special = Math.max(0, ...profiles.map((p) => GD.houseSpecial(p, b.family)));
+  }
+
+  // Effets des habitations : la tour de guet tire, le repaire ralentit (selon l'amélioration spéciale)
+  updateBuildingSpecials(dt) {
+    const S = GD.HOUSE_SPECIALS;
+    for (const b of this.run.buildings) {
+      if (b.hp <= 0 || !b.special) continue;
+      if (b.family === 'archer') {
+        b.fireT -= dt;
+        if (b.fireT > 0) continue;
+        const t = this.nearestMob(b.x, b.y, 340);
+        if (!t) continue;
+        b.fireT = Math.max(0.7, 2.4 - 0.3 * b.special);
+        const owner = this.heroes.get(b.owners[0]);
+        this.shoot({ kind: 'arrow', side: 'hero', x: b.x, y: b.y - 40, target: t, dmg: 5 * b.special * (1 + 0.08 * (this.run.wave - 1)), speed: 700, owner });
+      } else if (b.family === 'assassin') {
+        b.trapT -= dt;
+        if (b.trapT > 0) continue;
+        b.trapT = 0.5;
+        for (const m of this.mobsInRadius(b.x, b.y, 120)) this.applyStatus(m, { slow: S.assassin.per * b.special, dur: 0.8 });
+      }
     }
   }
 

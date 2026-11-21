@@ -49,6 +49,23 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - On gagne 1 point de compétence tous les 2 niveaux.
   - La reconversion remet tout à zéro (changement de classe possible) mais fait perdre un quart des points attribués.
 - **Habitations.** Chaque héros a la sienne, du type de sa classe, dans la limite de **5 par classe** (réglable). Au-delà, le joueur partage l'habitation la moins occupée de sa classe, et leurs **PV fusionnent** : 100 PV par occupant. Quand une place se libère, un occupant récupère sa propre habitation. Les habitations sont placées au hasard autour de la tour, classes mélangées, y compris au nord (la tour peut les cacher en partie). Les monstres frappent celles qui se trouvent sur leur trajet vers la tour. Pendant l'entracte, chaque héros rentre se soigner dans la sienne, ce qui devient impossible si elle est détruite.
+- **Amélioration de bâtiment** (onglet dédié, achats en Grêlons, conservés d'une partie à l'autre) :
+  - *Murs renforcés* : +25 % de PV par niveau. Quand une habitation est partagée, les PV des occupants s'additionnent.
+  - *Lits douillets* : +20 % de puissance de soin par niveau. Une habitation partagée applique la **moyenne** des occupants, pas un double soin.
+  - Une amélioration **spéciale par classe** :
+
+    | Classe | Amélioration | Effet |
+    |---|---|---|
+    | Paysan | Grenier | plus d'écus récoltés |
+    | Habitant | Foyer | plus d'XP |
+    | Mage | Bibliothèque | charge de l'ultime plus rapide |
+    | Éleveur | Enclos | invocations plus fortes |
+    | Archer | Vigie | la tour de guet tire sur les ennemis proches |
+    | Assassin | Pièges | les ennemis proches du repaire sont ralentis |
+    | Soldat | Râtelier | plus de défense |
+
+    Pour les effets de bâtiment (Vigie, Pièges), c'est le meilleur niveau des occupants qui compte.
+  - Coûts et effets sont réglables dans l'onglet Équilibrage.
 - **Zones de biome.** À chaque manche, de petites zones apparaissent au hasard, sur des tuiles du biome correspondant et sans se chevaucher : glace (ralentit les héros), poison (−1 % des PV max toutes les 3 s), lave (−1 % toutes les 2 s). Pendant les manches 91 à 100, les trois types coexistent. Tout est réglable dans l'onglet Équilibrage.
 - **Adaptation au nombre de joueurs.** La puissance des monstres (PV et dégâts), leur nombre et la durée des manches augmentent avec le nombre de héros. Tout est réglable dans l'onglet Équilibrage.
 - **Niveaux et statistiques.** Monter de niveau n'augmente pas les statistiques. Chaque niveau rapporte **1 point de stat** (Vie, Force, Défense, Agilité, Vitesse, Critique), réinitialisable gratuitement, et **1 glaçon**. Seuls les points de stat et l'équipement renforcent un héros. Les comptes existants ont reçu rétroactivement 1 glaçon par niveau déjà gagné.

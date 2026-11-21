@@ -49,6 +49,7 @@
         <button data-tab="stats">📊 Statistiques <span class="badge hidden" id="ptsBadge"></span></button>
         <button data-tab="equip">🎒 Équipement <span class="badge hidden" id="iceBadge"></span></button>
         <button data-tab="market">🏪 Place marchande <span class="badge hidden" id="tradeBadge"></span></button>
+        <button data-tab="house">🏠 Amélioration de bâtiment</button>
         <button data-tab="gear">🎨 Apparence</button>
         <button data-tab="ai">🧠 IA</button>
         <button data-tab="ladder">🏆 Classement</button>
@@ -188,6 +189,24 @@
             <div id="mkTrades"></div>
             <h2 style="margin-top:16px">Mes annonces</h2>
             <div id="mkMine" class="inv"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Amélioration de bâtiment -->
+      <div data-view="house" class="hidden">
+        <div class="grid two">
+          <div class="panel">
+            <div class="row"><h2 style="margin:0" id="houseTitle">Mon habitation</h2><span class="spacer"></span><span class="chip gold" id="houseGold"></span></div>
+            <canvas id="houseArt" class="preview house-preview" width="260" height="200"></canvas>
+            <div id="houseStats" class="stats3" style="margin-top:10px"></div>
+            <p class="small muted" style="margin-top:10px">En bataille, chaque héros a son habitation (5 par classe au maximum). Si elle est partagée : les PV des occupants s’additionnent et la puissance de soin est la <b>moyenne</b> des occupants (pas de double soin). Pour l’amélioration spéciale, c’est le meilleur niveau des occupants qui compte.</p>
+          </div>
+          <div class="panel">
+            <h2>Améliorations</h2>
+            <p class="small muted">Achetées avec des Grêlons et conservées d’une partie à l’autre. Les PV et le soin valent pour toutes tes habitations ; l’amélioration spéciale dépend de ta classe.</p>
+            <div id="houseUpgrades" class="attr-list"></div>
+            <div class="error" id="houseError"></div>
           </div>
         </div>
       </div>

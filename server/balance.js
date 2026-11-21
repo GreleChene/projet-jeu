@@ -27,7 +27,7 @@ const L = {
 const COL = {
   hp: 'PV', dmg: 'Dégâts', range: 'Portée', cd: 'Recharge (s)', speed: 'Vitesse', armor: 'Armure', crit: 'Critique', leash: 'Distance max tour',
   size: 'Taille', xp: 'XP', gold: 'Grêlons', from: 'Dès la manche', w: 'Fréquence', p: 'Probabilité', mult: 'Multiplicateur', recycle: 'Recyclage (× prix glaçon)',
-  cost: 'Coût (écus)', growth: 'Hausse du coût', max: 'Niveau max', unlock: 'Débloqué à (écus gagnés)'
+  cost: 'Coût (écus)', growth: 'Hausse du coût', max: 'Niveau max', unlock: 'Débloqué à (écus gagnés)', per: 'Effet par niveau'
 };
 
 const numKeys = (o) => Object.keys(o).filter((k) => typeof o[k] === 'number');
@@ -54,6 +54,8 @@ function schema() {
     { id: 'abilities', title: '💥 Capacités des boss', type: 'fields', fields: bossFields },
     { id: 'items', title: '🛡️ Pièces d’équipement (valeurs en rareté commune)', note: '0,05 = +5 %. La rareté multiplie ces valeurs.', ...table('TEMPLATES', Object.keys(GD.TEMPLATES), ['hp', 'armor', 'dmg', 'speed'], (id) => `${GD.TEMPLATES[id].name} (${S[GD.TEMPLATES[id].slot]})`) },
     { id: 'sets', title: '🧩 Bonus de sets', type: 'fields', fields: setFields },
+    { id: 'house', title: '🏠 Améliorations d’habitation (Grêlons)', note: 'Coût du niveau n = coût × hausse^n (en Grêlons). Effet par niveau : 0,25 = +25 %.', ...table('HOUSE_UPGRADES', Object.keys(GD.HOUSE_UPGRADES), ['per', 'cost', 'growth', 'max'], (id) => `${GD.HOUSE_UPGRADES[id].icon} ${GD.HOUSE_UPGRADES[id].name}`) },
+    { id: 'houseSpecial', title: '🏠 Améliorations spéciales par classe', note: 'Vigie : niveau de tir de la tour de guet. Pièges : ralentissement par niveau.', ...table('HOUSE_SPECIALS', Object.keys(GD.HOUSE_SPECIALS), ['per', 'cost', 'growth', 'max'], (id) => `${GD.HOUSE_SPECIALS[id].icon} ${GD.HOUSE_SPECIALS[id].name} (${GD.CLASSES[id].name})`) },
     { id: 'upgrades', title: '🏰 Améliorations de la tour (votes)', ...table('UPGRADES', Object.keys(GD.UPGRADES), ['cost', 'growth', 'max', 'unlock'], (id) => `${GD.UPGRADES[id].icon} ${GD.UPGRADES[id].name}`) }
   ];
 }

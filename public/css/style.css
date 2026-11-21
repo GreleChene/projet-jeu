@@ -271,3 +271,5 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 #skillBadge { background: var(--danger); color: #fff; border-radius: 999px; padding: 0 7px; font-size: .75rem; margin-left: 4px; }
 .branch-locked { opacity: .55; filter: grayscale(.5); }
 .skill.mastery { border-style: dashed; }
+.house-preview { background: radial-gradient(circle at 50% 75%, #4b8f3a 0%, #2b5a22 55%, #1e3d18 100%); }
+.chip { white-space: nowrap; }

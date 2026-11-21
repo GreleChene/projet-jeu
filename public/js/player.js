@@ -114,6 +114,7 @@
     renderAttrs();
     renderGear();
     renderEquip();
+    renderHouse();
     renderRules();
     renderMarket();
     renderAI();
@@ -687,6 +688,66 @@
     if (ok) { showcase = null; wantUid = null; renderShowcase(); }
   });
 
+  /* ============================== Amélioration de bâtiment ============================== */
+  (function houseArt() {
+    const cv = $('#houseArt');
+    const ctx = cv.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const w = cv.width, h = cv.height;
+    cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + 'px'; cv.style.height = h + 'px';
+    let t = 0;
+    (function loop() {
+      t += 1 / 60;
+      if (me && !$('[data-view="house"]').classList.contains('hidden')) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        const fam = GD.familyOf(me.cls);
+        ctx.save(); ctx.translate(w / 2, h * 0.78); ctx.scale(1.9, 1.9);
+        window.Art.drawBuilding(ctx, fam, 0, 0, { hp: 1, t, color: GD.CLASSES[fam].color });
+        ctx.restore();
+        window.Art.drawHero(ctx, w / 2 + 70, h * 0.86, { cls: me.cls, look: me.look, gear: myGear(), t, scale: 1.4, moving: false, facing: Math.PI });
+      }
+      requestAnimationFrame(loop);
+    })();
+  })();
+
+  function renderHouse() {
+    const fam = GD.familyOf(me.cls);
+    const def = GD.BUILDINGS.find((b) => b.family === fam) || GD.BUILDINGS[1];
+    const hs = GD.houseOf(me);
+    $('#houseTitle').textContent = `Mon habitation : ${def.name}`;
+    $('#houseGold').replaceChildren(hail(), `${me.gold} Grêlons`);
+    $('#houseStats').replaceChildren(
+      el('div', { class: 'stat' }, el('b', {}, Math.round(GD.houseHp(me))), el('span', { class: 'small muted' }, '🧱 PV')),
+      el('div', { class: 'stat' }, el('b', {}, `${Math.round(GD.houseHeal(me) * 100)}%`), el('span', { class: 'small muted' }, '🛏️ soin / s')),
+      el('div', { class: 'stat' }, el('b', {}, hs.special[fam] || 0), el('span', { class: 'small muted' }, `${GD.HOUSE_SPECIALS[fam].icon} ${GD.HOUSE_SPECIALS[fam].name}`)));
+    const card = (key, upg, lvl, nowTxt, nextTxt) => {
+      const max = lvl >= upg.max;
+      const cost = GD.houseCost(upg, lvl);
+      return el('div', { class: 'attr' },
+        el('span', { class: 'ico' }, upg.icon),
+        el('div', { class: 'info' },
+          el('div', {}, upg.name, ' ', el('span', { class: 'chip small' }, `niv. ${lvl}/${upg.max}`)),
+          el('div', { class: 'small muted' }, `Actuel : ${nowTxt}`),
+          max ? '' : el('div', { class: 'small' }, `Suivant : ${nextTxt}`)),
+        max ? el('span', { class: 'chip small' }, 'Max')
+          : el('button', { class: 'primary', disabled: me.gold < cost, onclick: () => buyHouse(key, upg.name) }, hail(), String(cost)));
+    };
+    const U = GD.HOUSE_UPGRADES, S = GD.HOUSE_SPECIALS[fam];
+    const sl = hs.special[fam] || 0;
+    $('#houseUpgrades').replaceChildren(
+      card('hp', U.hp, hs.hp, U.hp.desc(U.hp.per * hs.hp), U.hp.desc(U.hp.per * (hs.hp + 1))),
+      card('heal', U.heal, hs.heal, U.heal.desc(U.heal.per * hs.heal), U.heal.desc(U.heal.per * (hs.heal + 1))),
+      card('special', S, sl, sl ? S.desc(fam === 'archer' ? sl : S.per * sl) : 'aucun effet', S.desc(fam === 'archer' ? sl + 1 : S.per * (sl + 1))),
+      el('p', { class: 'small muted' }, 'Améliorations spéciales de tes autres classes : ' + (Object.entries(hs.special).filter(([f, v]) => v && f !== fam).map(([f, v]) => `${GD.HOUSE_SPECIALS[f].name} ${v}`).join(', ') || 'aucune')));
+  }
+
+  async function buyHouse(key, name) {
+    $('#houseError').textContent = '';
+    try { setUser((await api('/api/me/house', { body: { key } })).user); toast(`🏠 ${name} amélioré !`); }
+    catch (e) { $('#houseError').textContent = e.message; }
+  }
+
   /* ============================== Règles ============================== */
   function renderRules() {
     const PR = GD.PROGRESSION, G = GD.GLACONS;
@@ -720,6 +781,10 @@
       sec('🛡️ Sets d’équipement', el('p', {}, 'Il y a 5 emplacements : casque, torse, pantalon, chaussures et arme. Chaque famille de classes a son set (5 pièces, arme comprise), et 3 sets universels (4 pièces) sont portables par toutes les classes. Porter plusieurs pièces d’un même set donne des bonus, quelle que soit leur rareté.'),
         table(['Set', 'Classes', 'Bonus'], Object.values(GD.SETS).map((s) => [el('b', {}, s.name), s.families ? s.families.map((f) => GD.CLASSES[f].name).join(', ') : 'Toutes',
           el('div', {}, ...Object.entries(s.bonus).map(([n, b]) => el('div', {}, `${n} pièces : ${bonusLine(b)}`)))]))),
+      sec('🏠 Habitations', ul([
+        `En bataille, chaque héros a son habitation, du type de sa classe (${GD.BALANCE.BUILDINGS_PER_CLASS} par classe au maximum ; au-delà, elle est partagée et les PV s’additionnent).`,
+        'Entre les manches, chaque héros s’y soigne. Si elle est détruite, plus de soin jusqu’à la fin de la partie.',
+        'Onglet « Amélioration de bâtiment » : PV, puissance de soin (moyenne des occupants si partagée) et une amélioration spéciale par classe : ' + Object.entries(GD.HOUSE_SPECIALS).map(([f, sp]) => `${sp.icon} ${sp.name} (${GD.CLASSES[f].name})`).join(', ') + '.'])),
       sec('🗳️ Votes d’équipe', el('p', {}, `Toutes les ${voteEvery} manches, pendant l’entracte, les héros votent pour dépenser les écus de l’équipe. L’option la plus votée l’emporte :`),
         ul(Object.values(GD.UPGRADES).map((u) => `${u.icon} ${u.name} : ${u.desc}${u.unlock ? ` (débloqué quand l’équipe a gagné ${u.unlock} écus)` : ''}`).concat(['🪙 Économiser : garder les écus pour plus tard']))),
       sec('🌍 Le monde', ul([

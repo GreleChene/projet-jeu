@@ -91,7 +91,7 @@ function publicUser(u) {
   return {
     id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', cls: u.cls, level: u.level, xp: u.xp, xpNext: GD.PROGRESSION.xpForLevel(u.level),
     gold: u.gold, look: u.look, inventory: u.inventory, equip: u.equip, glacons: u.glacons, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id),
-    attrs: u.attrs, attrPoints: u.attrPoints, skills: u.skills || {}, skillLost: u.skillLost || 0, twitchName: u.twitchName || null, mysticFound: !!u.mysticFound,
+    attrs: u.attrs, attrPoints: u.attrPoints, skills: u.skills || {}, house: GD.houseOf(u), skillLost: u.skillLost || 0, twitchName: u.twitchName || null, mysticFound: !!u.mysticFound,
     locked: Object.fromEntries(u.inventory.map((it) => [it.uid, lockOf(u, it.uid)]).filter(([, l]) => l)),
     incomingTrades: db.data.trades.filter((t) => t.toId === u.id).length
   };
@@ -179,6 +179,25 @@ app.post('/api/me/class', auth, (req, res) => {
   u.cls = id;
   // les points placés dans les initiations des autres classes sont rendus
   for (const k of Object.keys(u.skills || {})) if (GD.SKILLS[k] && GD.SKILLS[k].init && GD.SKILLS[k].base !== id) delete u.skills[k];
+  afterProfileChange(u);
+  res.json({ user: publicUser(u) });
+});
+
+/* ============================== Améliorations d'habitation ============================== */
+app.post('/api/me/house', auth, (req, res) => {
+  const u = req.user;
+  const key = (req.body || {}).key;
+  const fam = GD.familyOf(u.cls);
+  const def = key === 'special' ? GD.HOUSE_SPECIALS[fam] : GD.HOUSE_UPGRADES[key];
+  if (!def) return res.status(400).json({ error: 'Amélioration inconnue' });
+  const h = GD.houseOf(u);
+  const lvl = key === 'special' ? h.special[fam] || 0 : h[key];
+  if (lvl >= def.max) return res.status(400).json({ error: 'Niveau maximum atteint.' });
+  const cost = GD.houseCost(def, lvl);
+  if (u.gold < cost) return res.status(400).json({ error: 'Pas assez de Grêlons' });
+  u.gold -= cost;
+  if (key === 'special') h.special[fam] = lvl + 1; else h[key] = lvl + 1;
+  u.house = h;
   afterProfileChange(u);
   res.json({ user: publicUser(u) });
 });

@@ -239,6 +239,31 @@
     const s = free[Math.floor((rnd || Math.random)() * free.length)];
     return { x: s.x, y: s.y };
   }
+  /*
+   * Améliorations d'habitation (achetées avec des Grêlons, conservées d'une partie à l'autre).
+   * PV : s'additionnent quand l'habitation est partagée. Soin : moyenne des occupants (pas de double soin).
+   * Spéciale : propre au type de bâtiment (donc à la classe actuelle du joueur).
+   */
+  const HOUSE_UPGRADES = {
+    hp: { name: 'Murs renforcés', icon: '🧱', per: 0.25, max: 10, cost: 80, growth: 1.45, desc: (v) => `+${Math.round(v * 100)}% de PV pour ton habitation` },
+    heal: { name: 'Lits douillets', icon: '🛏️', per: 0.2, max: 10, cost: 100, growth: 1.45, desc: (v) => `+${Math.round(v * 100)}% de puissance de soin` }
+  };
+  const HOUSE_SPECIALS = {
+    paysan: { name: 'Grenier', icon: '🌾', per: 0.08, max: 5, cost: 180, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% d’écus récoltés` },
+    habitant: { name: 'Foyer chaleureux', icon: '🔥', per: 0.05, max: 5, cost: 150, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% d’XP gagnée` },
+    mage: { name: 'Bibliothèque', icon: '📚', per: 0.06, max: 5, cost: 200, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% de charge de l’ultime` },
+    eleveur: { name: 'Enclos', icon: '🐺', per: 0.12, max: 5, cost: 200, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% de PV et dégâts des invocations` },
+    archer: { name: 'Vigie', icon: '🏹', per: 1, max: 5, cost: 220, growth: 1.7, desc: (v) => (v ? `la tour de guet tire sur les ennemis proches (niveau ${v})` : 'la tour de guet tire sur les ennemis proches') },
+    assassin: { name: 'Pièges', icon: '🪤', per: 0.08, max: 5, cost: 200, growth: 1.7, desc: (v) => `les ennemis proches du repaire sont ralentis de ${Math.round(v * 100)}%` },
+    soldat: { name: 'Râtelier d’armes', icon: '🛡️', per: 0.02, max: 5, cost: 200, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% de défense` }
+  };
+  const houseCost = (def, lvl) => Math.round(def.cost * Math.pow(def.growth, lvl));
+  // Niveaux d'amélioration d'un profil : { hp, heal, special: { famille: niveau } }
+  const houseOf = (u) => ({ hp: 0, heal: 0, ...(u && u.house), special: { ...((u && u.house && u.house.special) || {}) } });
+  const houseHp = (u) => BALANCE.BUILDING_HP * (1 + HOUSE_UPGRADES.hp.per * houseOf(u).hp);
+  const houseHeal = (u) => BALANCE.BUILDING_HEAL * (1 + HOUSE_UPGRADES.heal.per * houseOf(u).heal);
+  const houseSpecial = (u, family) => (houseOf(u).special[family] || 0);
+
   const buildingPos = (b) => placeBuilding(b.family, []);
 
   /* ------------------------------------------------------------------ */
@@ -532,7 +557,7 @@
   };
 
   // Modifie une valeur d'équilibrage (chemin = ['MOBS', 'gobelin', 'hp'])
-  const ROOTS = () => ({ BALANCE, PROGRESSION, ATTRIBUTES, GLACONS, RARITIES, CLASSES, MOBS, UPGRADES, TEMPLATES, SETS });
+  const ROOTS = () => ({ BALANCE, PROGRESSION, ATTRIBUTES, GLACONS, RARITIES, CLASSES, MOBS, UPGRADES, TEMPLATES, SETS, HOUSE_UPGRADES, HOUSE_SPECIALS });
   function getPath(path) {
     let o = ROOTS()[path[0]];
     for (let i = 1; i < path.length && o != null; i++) o = o[path[i]];
@@ -547,5 +572,5 @@
     for (const [k, v] of Object.entries(overrides || {})) { try { setPath(k.split('.'), v); } catch (e) { /* chemin obsolète */ } }
   }
 
-  return { placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

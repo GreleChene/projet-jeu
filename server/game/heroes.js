@@ -157,7 +157,7 @@ module.exports = {
     if ((h.x - tx) ** 2 + (h.y - ty) ** 2 > 36) this.moveToward(h, tx, ty, speed, dt);
     h.resting = (h.x - b.x) ** 2 + (h.y - b.y) ** 2 < 70 * 70;
     if (h.resting && h.hp < h.maxHp) {
-      h.hp = Math.min(h.maxHp, h.hp + h.maxHp * GD.BALANCE.BUILDING_HEAL * dt);
+      h.hp = Math.min(h.maxHp, h.hp + h.maxHp * (b.heal || GD.BALANCE.BUILDING_HEAL) * dt);
       if (Math.random() < dt * 2) this.fx(['heal', Math.round(h.x), Math.round(h.y)]);
     }
   },
@@ -314,7 +314,7 @@ module.exports = {
     const d = MOBS[type];
     const a = {
       nid: this.nid++, type, ownerId: owner.id, x: x + U.rand(-20, 20), y: y + U.rand(-20, 20),
-      maxHp: Math.round(owner.maxHp * d.hp), hp: 0, size: d.size, speed: d.speed, range: d.range, cd: d.cd,
+      maxHp: Math.round(owner.maxHp * d.hp * (owner.summonMult || 1)), hp: 0, size: d.size, speed: d.speed, range: d.range, cd: d.cd,
       atkT: 0, facing: 0, attackAnim: 0, target: null, retargetT: 0, offset: Math.random() * Math.PI * 2, ...extra
     };
     a.hp = a.maxHp;
@@ -355,7 +355,7 @@ module.exports = {
           a.atkT = a.cd;
           a.attackAnim = 0.2;
           a.facing = Math.atan2(t.y - a.y, t.x - a.x);
-          const dmg = o.dmg * MOBS[a.type].dmg * (o.buffs.beast > 0 ? 1.6 : 1);
+          const dmg = o.dmg * MOBS[a.type].dmg * (o.buffs.beast > 0 ? 1.6 : 1) * (o.summonMult || 1);
           this.damageMob(t, dmg, o, { byAlly: true });
         }
       } else {
