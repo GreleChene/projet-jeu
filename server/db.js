@@ -65,7 +65,10 @@ function migrateUser(u) {
   u.inventory = u.inventory.filter((it) => TEMPLATES[it.t]);
   u.equip ||= {};
   for (const s of SLOTS) if (u.equip[s] && !u.inventory.some((it) => it.uid === u.equip[s])) delete u.equip[s];
-  u.glacons ||= 0;
+  u.level ||= 1;
+  // un compte créé avant ce correctif pouvait avoir un nombre de glaçons invalide (NaN, enregistré comme null) :
+  // on lui rend ses glaçons de départ
+  if (!Number.isFinite(u.glacons)) u.glacons = u.levelGlacons ? GLACONS.START : 0;
   // le niveau ne donne plus de statistiques : compensation rétroactive d'un glaçon par niveau déjà gagné
   if (!u.levelGlacons) { u.glacons += (u.level - 1) * PROGRESSION.GLACONS_PER_LEVEL; u.levelGlacons = true; }
   // ancien système d'éclats de glace : converti en Grêlons
