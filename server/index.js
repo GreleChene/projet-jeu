@@ -146,11 +146,11 @@ function afterProfileChange(u) {
 }
 
 app.put('/api/me/look', auth, (req, res) => {
-  const { cape, skin, hair } = req.body || {};
-  const P = GD.PALETTE;
-  const ok = (v, n) => Number.isInteger(v) && v >= 0 && v < n;
-  if (!ok(cape, P.capes.length) || !ok(skin, P.skin.length) || !ok(hair, P.hair.length)) return res.status(400).json({ error: 'Apparence invalide' });
-  req.user.look = { cape, skin, hair };
+  const b = req.body || {};
+  const clean = GD.sanitizeLook(b);
+  // toute valeur envoyée doit être valide (pas de correction silencieuse côté client)
+  for (const k of Object.keys(clean)) if (b[k] !== undefined && b[k] !== clean[k]) return res.status(400).json({ error: 'Apparence invalide' });
+  req.user.look = clean;
   afterProfileChange(req.user);
   res.json({ user: publicUser(req.user) });
 });

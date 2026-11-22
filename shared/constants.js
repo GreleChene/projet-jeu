@@ -21,7 +21,8 @@
     ui: { bg: '#15111c', panel: '#221b2d', panel2: '#2c2339', border: '#4a3b5e', text: '#f3ead7', muted: '#a596b8', gold: '#f2c14e', danger: '#e2504c', ok: '#6cc86a', accent: '#8f6bd9' },
     stone: ['#8d8597', '#6e6679', '#524b5d', '#3c3546'],
     wood: ['#a8703f', '#83532c', '#5e3a1f'],
-    skin: ['#f6d2b0', '#e2ab7f', '#bf8358', '#8e5a37', '#5d3a24'],
+    // 5 teintes naturelles puis 5 teintes fantaisie (orange, rouge, bleu, vert, violet)
+    skin: ['#f6d2b0', '#e2ab7f', '#bf8358', '#8e5a37', '#5d3a24', '#f0904a', '#d9503f', '#6a9ae8', '#7cc46a', '#a07ad8'],
     hair: ['#2b1d14', '#6b3f1f', '#c88a3a', '#e8d27a', '#b7b0a8', '#a23b2a'],
     capes: ['#c0392b', '#2f6fd1', '#2e9e57', '#8e44ad', '#e67e22', '#f1c40f', '#16a2a8', '#d35d9c', '#ecf0f1', '#34495e'],
     biome: {
@@ -485,6 +486,30 @@
   const DEFAULT_AI = { stance: 'balanced', target: 'nearest', retreat: 25, ult: 'smart' };
 
   /* ------------------------------------------------------------------ */
+  /* Personnalisation du visage (5 choix par trait)                      */
+  /* ------------------------------------------------------------------ */
+  const LOOK_OPTIONS = {
+    hairStyle: ['Courte', 'En pics', 'Longue', 'Crête', 'Chignon'],
+    eyes: ['Ronds', 'Brillants', 'Endormis', 'Féroces', 'Grands'],
+    nose: ['Petit', 'Pointu', 'Rond', 'Retroussé', 'Discret'],
+    mouth: ['Sourire', 'Neutre', 'Étonnée', 'Rieuse', 'Croc']
+  };
+  const DEFAULT_LOOK = { cape: 0, skin: 1, hair: 0, hairStyle: 0, eyes: 0, nose: 0, mouth: 0 };
+  // Apparence aléatoire (nouveaux comptes, bots)
+  function randomLook(rnd) {
+    const r = rnd || Math.random, pick = (n) => Math.floor(r() * n);
+    return { cape: pick(PALETTE.capes.length), skin: pick(5), hair: pick(PALETTE.hair.length), hairStyle: pick(5), eyes: pick(5), nose: pick(5), mouth: pick(5) };
+  }
+  // Valide et complète une apparence (valeurs hors limites -> défaut)
+  function sanitizeLook(l) {
+    const o = l || {}, ok = (v, n) => Number.isInteger(v) && v >= 0 && v < n;
+    const lim = { cape: PALETTE.capes.length, skin: PALETTE.skin.length, hair: PALETTE.hair.length, hairStyle: 5, eyes: 5, nose: 5, mouth: 5 };
+    const out = {};
+    for (const k of Object.keys(lim)) out[k] = ok(o[k], lim[k]) ? o[k] : DEFAULT_LOOK[k];
+    return out;
+  }
+
+  /* ------------------------------------------------------------------ */
   /* Monstres                                                            */
   /* era : 1 = givre (1-30), 2 = corruption (31-60), 3 = feu (61-90)      */
   /* ------------------------------------------------------------------ */
@@ -634,5 +659,5 @@
     for (const [k, v] of Object.entries(overrides || {})) { try { setPath(k.split('.'), v); } catch (e) { /* chemin obsolète */ } }
   }
 
-  return { BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

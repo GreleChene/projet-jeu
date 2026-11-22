@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const config = require('./config');
-const { DEFAULT_AI, PALETTE, emptyAttrs, PROGRESSION, TEMPLATES, SLOTS, GLACONS, CLASSES } = require('../shared/constants');
+const { DEFAULT_AI, PALETTE, emptyAttrs, PROGRESSION, TEMPLATES, SLOTS, GLACONS, CLASSES, sanitizeLook, randomLook } = require('../shared/constants');
 
 // Anciennes armures (v1) : remboursées en Grêlons
 const LEGACY_ITEMS = { head_hood: 30, head_leather: 90, head_iron: 250, head_great: 600, head_rune: 1500, body_leather: 140, body_mail: 380, body_plate: 900, body_rune: 2200 };
@@ -50,7 +50,7 @@ for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { saveNow(); proc
 
 function migrateUser(u) {
   u.ai = { ...DEFAULT_AI, ...(u.ai || {}) };
-  u.look ||= { cape: 0, skin: 1, hair: 0 };
+  u.look = sanitizeLook(u.look);
   u.gold ||= 0;
   // v3 : objets uniques (inventaire) + glaçons ; les anciennes armures achetées sont remboursées
   if (u.gearVersion !== 3) {
@@ -118,7 +118,7 @@ function newUser(pseudo, passHash, role) {
   const rnd = (n) => Math.floor(Math.random() * n);
   const u = migrateUser({
     id, pseudo, pseudoLower: pseudo.toLowerCase(), passHash, role, createdAt: Date.now(), banned: false,
-    look: { cape: rnd(PALETTE.capes.length), skin: rnd(PALETTE.skin.length), hair: rnd(PALETTE.hair.length) }
+    look: randomLook()
   });
   data.users[id] = u;
   markDirty();

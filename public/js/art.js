@@ -159,7 +159,287 @@
    * o = { cls, look:{cape,skin,hair}, gear:{head,body,legs,feet,weapon: {t, r}}, facing, t, attack(0..1),
    *       moving, zombie, stealth, scale, seed }
    */
+  /* ==================================================================================
+   * HÉROS EN PIXEL ART — assemblé à la volée : corps, visage personnalisé (yeux, nez, bouche,
+   * coiffure, peau), équipement (style + rareté), arme de classe. Regard vers la droite.
+   * Chaque combinaison est mise en cache par image d'animation.
+   * ================================================================================== */
+  const HW = 34, HH = 38, Y0 = 4; // grille ; Y0 = marge en haut pour chapeaux et armes levées
+  function pixGrid() {
+    const g = new Array(HW * HH).fill(null);
+    const P2 = {
+      px(x, y, c) { x = Math.round(x); y = Math.round(y); if (c && x >= 0 && y >= 0 && x < HW && y < HH) g[y * HW + x] = c; },
+      rect(x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) P2.px(x + i, y + j, c); },
+      line(x0, y0, x1, y1, c) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) || 1; for (let i = 0; i <= n; i++) P2.px(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, c); },
+      get(x, y) { return x >= 0 && y >= 0 && x < HW && y < HH ? g[y * HW + x] : null; },
+      g
+    };
+    return P2;
+  }
+  function heroGearKey(eq) { return GD.SLOTS.map((s) => (eq[s] ? eq[s].t + ':' + eq[s].r : '-')).join(','); }
+
+  // frame : 0 repos, 1 et 2 marche, 3 attaque
+  function buildHeroPixels(o, eq, frame) {
+    const G = pixGrid(), Y = Y0;
+    const c = GD.CLASSES[o.cls] || GD.CLASSES.habitant;
+    const L = GD.sanitizeLook(o.look);
+    const head = piece(eq.head), body = piece(eq.body), legs = piece(eq.legs), feet = piece(eq.feet);
+    const wTier = eq.weapon ? GD.RARITIES[eq.weapon.r].shape : 0;
+    const cape = P.capes[L.cape];
+    const skin = o.zombie ? '#9bc27a' : P.skin[L.skin], skD = shade(skin, -0.2), skL = shade(skin, 0.18);
+    const hair = P.hair[L.hair], haD = shade(hair, -0.3), haL = shade(hair, 0.25);
+    const dark = '#1a1214';
+    const atk = frame === 3;
+    const lo = frame === 1 ? -1 : frame === 2 ? 1 : 0; // décalage des jambes
+
+    // ---- cape (derrière)
+    const capeC = shade(cape, -0.15);
+    for (let y = Y + 15; y <= Y + 26; y++) { const w = 2 + Math.floor((y - Y - 15) / 3); G.rect(10 - w, y, w + 1, 1, y % 3 ? capeC : shade(capeC, -0.15)); }
+    // ---- bouclier dans le dos
+    if (c.shield) {
+      for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) if (i * i + j * j <= 10) G.px(7 + i, Y + 19 + j, i * i + j * j >= 7 ? shade(c.color, -0.3) : c.color);
+      G.px(7, Y + 19, P.ui.gold); G.px(6, Y + 17, shade(c.color, 0.35));
+    }
+    // ---- bras arrière
+    const sleeve = body.tier ? (body.style === 'heavy' ? body.main : shade(body.main, -0.1)) : shade(cape, -0.05);
+    G.rect(10, Y + 16, 2, 5, shade(sleeve, -0.2)); G.rect(10, Y + 21, 2, 2, skD);
+    // ---- jambes et bottes
+    const pants = legs.tier ? legs.main : '#5e3a1f', pantsD = shade(pants, -0.25);
+    G.rect(12 + lo, Y + 23, 2, 5, pantsD); G.rect(15 - lo, Y + 23, 2, 5, pants);
+    if (legs.style === 'heavy' && legs.tier >= 2) { G.px(15 - lo, Y + 25, legs.trim); G.px(16 - lo, Y + 25, legs.trim); }
+    if (legs.rune) G.px(16 - lo, Y + 24, '#2fd6e0');
+    const boot = feet.tier ? feet.main : '#3c2a1e', bootD = shade(boot, -0.3);
+    const bootH = feet.tier >= 2 && feet.style !== 'cloth' ? 3 : 2;
+    G.rect(11 + lo, Y + 30 - bootH, 4, bootH, bootD); G.rect(14 - lo, Y + 30 - bootH, 4, bootH, boot);
+    G.rect(11 + lo, Y + 29, 4, 1, shade(bootD, -0.2)); G.rect(14 - lo, Y + 29, 4, 1, shade(boot, -0.35));
+    if (feet.tier >= 3) { G.px(15 - lo, Y + 28 - bootH + 1, feet.trim); G.px(16 - lo, Y + 28 - bootH + 1, feet.trim); }
+    if (feet.rune) G.px(16 - lo, Y + 28, '#2fd6e0');
+    // ---- torse selon le style d'armure
+    const tun = body.tier ? body.main : cape, tunD = shade(tun, -0.22), tunL = shade(tun, 0.2);
+    const st = body.style, t = body.tier;
+    if (t && st === 'cloth') {
+      // robe longue qui couvre le haut des jambes
+      for (let y = Y + 15; y <= Y + 27; y++) { const ex = Math.floor((y - Y - 15) / 4); G.rect(11 - ex, y, 7 + ex * 2, 1, y > Y + 25 ? tunD : tun); }
+      G.rect(11, Y + 27, 7 + 6, 1, body.trim); G.line(14, Y + 16, 14, Y + 26, body.trim);
+      if (t >= 2) { G.px(13, Y + 16, body.trim); G.px(15, Y + 16, body.trim); }
+      if (t >= 3) { G.px(12, Y + 20, body.trim); G.px(16, Y + 23, body.trim); }
+    } else {
+      G.rect(11, Y + 15, 7, 8, tun);
+      G.rect(17, Y + 15, 1, 8, tunD); G.rect(11, Y + 15, 1, 6, tunL);
+      if (t && st === 'heavy') {
+        G.rect(12, Y + 16, 5, 1, tunL); G.px(14, Y + 17, tunD); G.px(14, Y + 18, tunD);
+        if (t >= 2) { G.rect(10, Y + 15, 3, 2, tunL); G.rect(16, Y + 15, 3, 2, tun); G.px(18, Y + 16, tunD); }
+        if (t >= 3) { G.px(12, Y + 19, body.trim); G.px(13, Y + 20, body.trim); G.px(15, Y + 20, body.trim); G.px(16, Y + 19, body.trim); G.px(14, Y + 21, body.trim); }
+      } else if (t && st === 'leather') {
+        G.line(11, Y + 15, 17, Y + 21, body.trim);
+        if (t >= 2) { G.rect(12, Y + 18, 5, 1, tunD); }
+        if (t >= 3) { G.rect(10, Y + 15, 2, 2, body.trim); G.rect(17, Y + 15, 2, 2, body.trim); }
+      } else if (t && st === 'worker') {
+        G.rect(11, Y + 15, 7, 8, t === 1 ? tun : '#e8dcc0');
+        if (t >= 2) { G.rect(12, Y + 17, 5, 6, tun); G.px(12, Y + 16, body.trim); G.px(16, Y + 16, body.trim); G.rect(13, Y + 19, 3, 2, tunD); }
+      } else if (t) {
+        for (let y = Y + 17; y < Y + 22; y += 2) G.rect(12, y, 5, 1, tunD);
+      }
+    }
+    if (!(t && st === 'cloth')) { G.rect(11, Y + 22, 7, 1, dark); G.px(14, Y + 22, P.ui.gold); }
+    // écusson de classe
+    G.rect(13, Y + 18, 2, 2, c.color); G.px(13, Y + 18, shade(c.color, 0.4));
+    if (body.rune) { G.px(15, Y + 17, '#2fd6e0'); G.px(12, Y + 21, '#2fd6e0'); }
+    // ---- cou et tête
+    G.rect(13, Y + 14, 3, 1, skD);
+    G.rect(10, Y + 5, 10, 9, skin); G.rect(11, Y + 4, 8, 1, skin); G.rect(11, Y + 14, 7, 0, skin);
+    G.rect(11, Y + 13, 8, 1, skin);
+    G.rect(19, Y + 6, 1, 7, skD); G.rect(11, Y + 13, 8, 1, skD); G.px(11, Y + 5, skL); G.px(12, Y + 5, skL);
+    G.rect(11, Y + 9, 1, 2, skD); // oreille
+    // ---- cheveux (cachés par certains casques)
+    const hidesHair = head.tier > 0 && !(head.style === 'leather' && head.tier === 1) && !(head.style === 'cloth' && head.tier === 4);
+    if (!hidesHair) {
+      const hs = L.hairStyle;
+      if (hs === 2) { G.rect(8, Y + 6, 3, 11, haD); G.rect(9, Y + 6, 2, 10, hair); }
+      if (hs !== 3) {
+        G.rect(10, Y + 3, 10, 3, hair); G.rect(11, Y + 2, 8, 1, hair);
+        G.rect(10, Y + 6, 2, 3, hair); G.rect(10, Y + 9, 1, 2, haD);
+        G.rect(12, Y + 6, 3, 1, hair); G.px(16, Y + 6, hair); G.px(18, Y + 6, hair);
+        G.rect(11, Y + 2, 4, 1, haL); G.px(10, Y + 4, haL);
+        G.rect(10, Y + 5, 10, 1, hair); G.rect(19, Y + 4, 1, 2, haD);
+      }
+      if (hs === 1) { for (const x of [10, 12, 14, 16, 18]) { G.px(x, Y + 1, hair); G.px(x + 1, Y + 1, haD); G.px(x, Y, hair); } G.px(11, Y - 1, hair); G.px(15, Y - 1, hair); }
+      if (hs === 3) {
+        G.rect(10, Y + 4, 10, 2, haD); G.rect(10, Y + 6, 1, 3, haD);
+        G.rect(13, Y - 2, 4, 6, hair); G.rect(14, Y - 3, 2, 1, hair); G.rect(13, Y - 2, 1, 6, haL);
+      }
+      if (hs === 4) { G.rect(12, Y - 1, 5, 3, hair); G.rect(13, Y - 2, 3, 1, hair); G.px(13, Y - 1, haL); G.rect(12, Y + 1, 5, 1, haD); }
+    }
+    // ---- yeux (colonnes 14 et 17)
+    const E = L.eyes, ey = Y + 8;
+    for (const ex of [14, 17]) {
+      if (E === 0) { G.rect(ex, ey, 1, 2, dark); }
+      else if (E === 1) { G.rect(ex, ey, 2, 2, dark); G.px(ex, ey, '#ffffff'); }
+      else if (E === 2) { G.rect(ex, ey + 1, 2, 1, dark); }
+      else if (E === 3) { G.rect(ex, ey, 1, 2, dark); G.px(ex - 1, ey - 1, ex === 14 ? null : dark); G.line(ex - 1, ey - 2, ex + 1, ey - 1, haD); }
+      else { G.rect(ex, ey - 1, 2, 3, '#ffffff'); G.rect(ex + 1, ey, 1, 2, '#3a8fd8'); G.px(ex + 1, ey + 1, dark); }
+    }
+    // ---- nez (bord droit du visage)
+    const N = L.nose, ny = Y + 10;
+    if (N === 0) G.px(19, ny, skD);
+    else if (N === 1) { G.px(20, ny - 1, skin); G.px(20, ny, skin); G.px(21, ny, skD); }
+    else if (N === 2) { G.rect(19, ny - 1, 2, 2, skin); G.px(20, ny, skD); G.px(19, ny + 1, skD); }
+    else if (N === 3) { G.px(20, ny - 1, skin); G.px(19, ny, skD); }
+    // ---- bouche
+    const M = o.attack > 0.2 && L.mouth !== 2 ? 2 : L.mouth, my = Y + 11;
+    if (M === 0) { G.px(14, my, dark); G.rect(15, my + 1, 2, 1, dark); G.px(17, my, dark); }
+    else if (M === 1) { G.rect(15, my + 1, 3, 1, dark); }
+    else if (M === 2) { G.rect(15, my, 2, 2, '#4a1a24'); }
+    else if (M === 3) { G.rect(14, my, 4, 2, '#4a1a24'); G.rect(14, my, 4, 1, '#ffffff'); G.px(16, my + 1, '#d9506a'); }
+    else { G.rect(14, my + 1, 4, 1, dark); G.px(16, my + 2, '#ffffff'); }
+    if (o.zombie) { G.px(12, Y + 11, '#5c7a3d'); G.px(13, Y + 12, '#5c7a3d'); }
+    // ---- couvre-chef
+    drawHeadgearPx(G, head, Y, cape);
+    // ---- bras avant + arme
+    const hx = 19, hy = Y + 19;
+    if (!atk) { G.rect(18, Y + 16, 2, 3, sleeve); G.rect(19, Y + 18, 2, 2, skin); }
+    else { G.rect(18, Y + 16, 4, 2, sleeve); G.rect(21, Y + 16, 2, 2, skin); }
+    drawWeaponPx(G, c.weapon, atk ? 22 : hx + 1, atk ? Y + 16 : hy - 1, atk, wTier, c.color);
+    if (c.weapon === 'daggers') drawWeaponPx(G, 'daggers', 10, Y + 22, false, wTier, c.color);
+    return G.g;
+  }
+
+  function drawHeadgearPx(G, head, Y, cape) {
+    const st = head.style, t = head.tier;
+    if (!t) return;
+    const M = st === 'common' ? shade(cape, -0.25) : head.main, Md = shade(M, -0.28), Ml = shade(M, 0.22), T = head.trim;
+    const hood = () => {
+      G.rect(9, Y + 2, 12, 4, M); G.rect(10, Y + 1, 10, 1, M); G.rect(9, Y + 6, 3, 9, M); G.rect(19, Y + 6, 2, 4, M);
+      G.rect(9, Y + 13, 4, 2, Md); G.rect(10, Y + 2, 5, 1, Ml); G.rect(9, Y + 6, 1, 8, Md);
+    };
+    if (st === 'common' || (st === 'cloth' && t === 1) || (st === 'leather' && t >= 2)) {
+      hood();
+      if (st === 'leather' && t >= 3) { G.line(9, Y + 1, 6, Y - 2, '#f3ead7'); G.px(7, Y - 2, '#f3ead7'); }
+      if (st === 'leather' && t === 4) { G.rect(13, Y + 10, 7, 2, '#2b2433'); G.px(17, Y + 10, '#2fd6e0'); }
+      return;
+    }
+    if (st === 'heavy') {
+      G.rect(10, Y + 2, 10, 4, M); G.rect(11, Y + 1, 8, 1, M); G.rect(11, Y + 2, 4, 1, Ml); G.rect(10, Y + 5, 10, 1, Md);
+      if (t >= 2) { G.rect(18, Y + 6, 2, 5, M); G.rect(10, Y + 6, 2, 6, M); G.px(18, Y + 6, T); }
+      if (t >= 3) { G.rect(10, Y + 6, 10, 7, M); G.rect(14, Y + 8, 6, 1, '#1a1214'); G.rect(10, Y + 6, 1, 7, Md); G.rect(19, Y + 6, 1, 7, Md); G.line(15, Y + 10, 15, Y + 12, Md); }
+      if (t === 3) { G.rect(14, Y - 2, 2, 3, T); G.px(13, Y - 1, T); }
+      if (t >= 4) { for (const x of [10, 13, 16, 19]) { G.px(x, Y, P.ui.gold); G.px(x, Y - 1, P.ui.gold); } G.rect(10, Y + 1, 10, 1, P.ui.gold); G.px(14, Y, '#2fd6e0'); }
+      return;
+    }
+    if (st === 'cloth') {
+      if (t <= 3) {
+        G.rect(7, Y + 5, 16, 1, M); G.rect(8, Y + 6, 14, 1, Md);
+        const h = t === 2 ? 6 : 9;
+        for (let i = 0; i < h; i++) { const w = Math.max(1, 9 - Math.floor(i * 9 / h)); G.rect(15 - Math.floor(w / 2) - Math.floor(i / 3), Y + 4 - i, w, 1, i % 4 === 3 ? Ml : M); }
+        G.rect(10, Y + 4, 10, 1, T);
+        if (t === 3) { G.px(13, Y, T); G.px(14, Y - 2, T); }
+      } else { G.rect(10, Y + 4, 10, 1, P.ui.gold); G.px(14, Y + 3, '#2fd6e0'); G.px(15, Y + 3, '#2fd6e0'); G.px(14, Y + 2, '#2fd6e0'); }
+      return;
+    }
+    if (st === 'leather') { // bandeau
+      G.rect(10, Y + 6, 10, 2, M); G.rect(7, Y + 7, 3, 1, M); G.px(6, Y + 8, M); G.px(15, Y + 6, Ml);
+      return;
+    }
+    if (st === 'worker') {
+      if (t === 1) { G.rect(6, Y + 5, 18, 1, '#e2c56a'); G.rect(10, Y + 2, 10, 3, '#e2c56a'); G.rect(10, Y + 4, 10, 1, '#b23a48'); G.rect(11, Y + 1, 8, 1, '#e2c56a'); G.rect(7, Y + 6, 16, 1, '#b8983a'); }
+      else if (t === 2) { G.rect(10, Y + 2, 10, 4, M); G.rect(11, Y + 1, 8, 1, M); G.rect(18, Y + 5, 4, 1, Md); G.px(14, Y, '#f3ead7'); }
+      else {
+        const hc = t === 4 ? P.ui.gold : M;
+        G.rect(10, Y + 2, 10, 4, hc); G.rect(11, Y + 1, 8, 1, hc); G.rect(8, Y + 5, 14, 1, shade(hc, -0.2)); G.rect(11, Y + 2, 3, 1, shade(hc, 0.3));
+        G.rect(17, Y + 2, 3, 2, '#3c3546'); G.px(20, Y + 2, t === 4 ? '#2fd6e0' : '#ffd76a'); G.px(21, Y + 2, t === 4 ? '#2fd6e0' : '#ffd76a');
+      }
+    }
+  }
+
+  // Armes en pixels. (x, y) = main ; atk = arme pointée vers l'avant, sinon levée.
+  function drawWeaponPx(G, w, x, y, atk, tier, col) {
+    const M = GD.WEAPON_METAL[tier] || GD.WEAPON_METAL[0], Md = shade(M, -0.35), W = tier >= 4 ? '#c99a3a' : tier === 3 ? '#e0c79a' : '#8a5a30', Wd = shade(W, -0.3);
+    const gold = tier >= 2 ? P.ui.gold : '#5e3a1f';
+    // direction : levée = vers le haut-droite, attaque = vers la droite
+    const dx = atk ? 1 : 0.5, dy = atk ? 0 : -1;
+    const along = (k, ox, oy, c) => G.px(x + dx * k + (ox || 0), y + dy * k + (oy || 0), c);
+    const shaft = (a, b, c) => { for (let k = a; k <= b; k++) along(k, 0, 0, c); };
+    const L = 1 + Math.floor(tier / 2);
+    switch (w) {
+      case 'club': shaft(0, 6, W); along(7, 0, 0, Wd); along(7, 1, 0, W); along(8, 0, 0, W); along(8, 1, 0, Wd); break;
+      case 'sword': shaft(-1, 0, Wd); along(1, atk ? 0 : -1, atk ? -1 : 0, gold); along(1, atk ? 0 : 1, atk ? 1 : 0, gold); along(1, 0, 0, gold); for (let k = 2; k <= 9 + L; k++) { along(k, 0, 0, M); along(k, atk ? 0 : 1, atk ? 1 : 0, Md); } break;
+      case 'hammer': shaft(-1, 7, W); for (let i = -2; i <= 2; i++) { along(8, atk ? 0 : i, atk ? i : 0, tier ? M : P.ui.gold); along(9, atk ? 0 : i, atk ? i : 0, Md); } break;
+      case 'lance': shaft(-3, 11, W); along(12, 0, 0, M); along(13, 0, 0, M); along(14 + L, 0, 0, Md); along(12, atk ? 0 : 1, atk ? 1 : 0, Md); along(4, atk ? 0 : 1, atk ? 1 : 0, col); break;
+      case 'staff': shaft(-3, 8, W); for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) if (i * i + j * j < 2) along(10, i, j, tier >= 4 ? '#2fd6e0' : col); along(10, 0, 0, '#ffffff'); if (tier >= 2) { along(9, -1, 0, gold); along(9, 1, 0, gold); } break;
+      case 'whip': shaft(0, 2, '#3a2433'); for (let k = 3; k <= 12; k++) G.px(x + k * (atk ? 1 : 0.6), y + (atk ? Math.round(Math.sin(k) * 1.5) : -k * 0.5 + (k > 8 ? (k - 8) : 0)), k % 2 ? W : Wd); break;
+      case 'scythe': shaft(-2, 9, tier >= 3 ? '#3a2e3e' : Wd); for (let k = 0; k < 6 + L; k++) G.px(x + dx * 9 - k + (atk ? 0 : 0), y + dy * 9 + Math.floor(k * k / 8) + (atk ? -k * 0.3 : 0), k % 2 ? M : Md); break;
+      case 'bow': case 'longbow': {
+        const h = (w === 'longbow' ? 9 : 7) + L;
+        for (let j = -h; j <= h; j++) { const bx = Math.round(Math.sqrt(Math.max(0, 1 - (j * j) / (h * h))) * 3); G.px(x + 1 + bx, y + j, j % 3 ? W : Wd); }
+        G.line(x + 1, y - h, x + 1, y + h, '#f3ead7'); if (atk) G.line(x - 2, y, x + 6, y, '#d8dde3');
+        if (tier >= 2) { G.px(x + 1, y - h, gold); G.px(x + 1, y + h, gold); }
+        break;
+      }
+      case 'crossbow': shaft(-2, 5, W); for (let i = -3; i <= 3; i++) G.px(x + dx * 5 + (atk ? -Math.abs(i) * 0.5 : i), y + dy * 5 + (atk ? i : Math.abs(i) * 0.5), tier ? M : '#8d8597'); break;
+      case 'daggers': along(0, 0, 0, Wd); for (let k = 1; k <= 4 + L; k++) along(k, 0, 0, k === 1 ? gold : M); break;
+      case 'pitchfork': shaft(-3, 9, W); for (let i = -2; i <= 2; i += 2) for (let k = 10; k <= 12 + L; k++) along(k, atk ? 0 : i, atk ? i : 0, tier ? M : '#8d8597'); for (let i = -2; i <= 2; i++) along(10, atk ? 0 : i, atk ? i : 0, tier ? M : '#8d8597'); break;
+      case 'axe': shaft(-1, 8, W); for (let k = 6; k <= 9; k++) for (let i = 1; i <= 3 + (k === 7 || k === 8 ? 1 : 0); i++) along(k, atk ? 0 : i, atk ? -i : 0, i > 2 ? M : Md); break;
+      case 'pickaxe': shaft(-1, 8, W); for (let i = -4; i <= 4; i++) along(9 - Math.abs(i) * 0.3, atk ? 0 : i, atk ? i : 0, tier ? M : '#8d8597'); break;
+      default: shaft(0, 6, W);
+    }
+    if (tier >= 4) { G.px(x + dx * 6 + 1, y + dy * 6, '#2fd6e0'); }
+  }
+
+  const HERO_CACHE = new Map();
+  function heroPixelCanvas(o, eq, frame, p) {
+    const L = GD.sanitizeLook(o.look);
+    const key = o.cls + '|' + Object.values(L).join('.') + '|' + heroGearKey(eq) + '|' + frame + '|' + p + '|' + (o.zombie ? 1 : 0) + '|' + (o.attack > 0.2 ? 1 : 0);
+    let c = HERO_CACHE.get(key);
+    if (c) return c;
+    if (HERO_CACHE.size > 1500) HERO_CACHE.clear();
+    const g = buildHeroPixels(o, eq, frame);
+    const lo = document.createElement('canvas'); lo.width = HW + 2; lo.height = HH + 2;
+    const x = lo.getContext('2d'), img = x.createImageData(HW + 2, HH + 2), D = img.data;
+    const at = (i, j) => (i >= 1 && j >= 1 && i <= HW && j <= HH ? g[(j - 1) * HW + (i - 1)] : null);
+    for (let j = 0; j < HH + 2; j++) for (let i = 0; i < HW + 2; i++) {
+      let col = at(i, j);
+      if (!col && (at(i + 1, j) || at(i - 1, j) || at(i, j + 1) || at(i, j - 1))) col = '#120c0a';
+      if (!col) continue;
+      const n = parseInt(col.slice(1), 16), k = (j * (HW + 2) + i) * 4;
+      D[k] = (n >> 16) & 255; D[k + 1] = (n >> 8) & 255; D[k + 2] = n & 255; D[k + 3] = 255;
+    }
+    x.putImageData(img, 0, 0);
+    c = document.createElement('canvas'); c.width = (HW + 2) * p; c.height = (HH + 2) * p;
+    const cx = c.getContext('2d'); cx.imageSmoothingEnabled = false; cx.drawImage(lo, 0, 0, c.width, c.height);
+    HERO_CACHE.set(key, c);
+    return c;
+  }
+  // Pieds en (x, y). Ligne des semelles : Y0 + 29 (+1 pour le contour).
+  function drawHeroPixel(ctx, x, y, o) {
+    const eq = GD.gearFor(o.cls, o.gear);
+    const s = o.scale || 1, p = Math.max(1, Math.round(s * 1.45)), t = o.t || 0;
+    const moving = o.moving === undefined ? true : o.moving;
+    const frame = o.attack > 0.2 ? 3 : moving ? 1 + (Math.floor(t * 7 + (o.seed || 0)) % 2) : 0;
+    const c = heroPixelCanvas(o, eq, frame, p);
+    const flip = Math.cos(o.facing || 0) < 0 ? -1 : 1;
+    const bob = moving && frame === 2 ? -p : 0;
+    const mythic = Object.values(eq).some((it) => it && it.r >= 5);
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    if (o.stealth) ctx.globalAlpha = 0.35;
+    shadow(ctx, 0, 1, 7 * p, 2.4 * p);
+    if (mythic) { ctx.save(); ctx.globalAlpha *= 0.35 + 0.15 * Math.sin(t * 4); ctx.translate(0, -14 * p); glow(ctx, '#2fd6e0', 12 * p); ctx.restore(); }
+    ctx.scale(flip, 1);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(c, -15 * p, -(Y0 + 31) * p + bob);
+    ctx.restore();
+  }
+  // Portrait (tête et épaules) pour les vignettes de personnalisation
+  function heroPortrait(ctx, w, h, o) {
+    const eq = GD.gearFor(o.cls, o.gear || {});
+    const p = Math.max(1, Math.floor(Math.min(w / 15, h / 17)));
+    const c = heroPixelCanvas({ ...o, moving: false }, eq, 0, p);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(c, 8 * p, (Y0 - 2) * p, 15 * p, 17 * p, Math.round((w - 15 * p) / 2), Math.round((h - 17 * p) / 2), 15 * p, 17 * p);
+  }
+
   function drawHero(ctx, x, y, o) {
+    if (RICH) return drawHeroPixel(ctx, x, y, o);
     const c = GD.CLASSES[o.cls] || GD.CLASSES.habitant;
     const look = o.look || { cape: 0, skin: 1, hair: 0 };
     const eq = GD.gearFor(o.cls, o.gear);
@@ -1513,5 +1793,5 @@
     ctx.restore();
   }
 
-  window.Art = { setDetail, mobTop, drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
+  window.Art = { setDetail, mobTop, heroPortrait, drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
 })();

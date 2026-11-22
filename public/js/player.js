@@ -383,14 +383,34 @@
   function swatches(box, colors, key) {
     box.replaceChildren(...colors.map((c, i) => el('button', {
       class: 'swatch' + (me.look[key] === i ? ' sel' : ''), style: `background:${c}`, title: c, 'aria-label': `${key} ${i + 1}`,
-      onclick: async () => { const look = { ...me.look, [key]: i }; me.look = look; renderGear(); setUser((await api('/api/me/look', { method: 'PUT', body: look })).user); }
+      onclick: () => saveLook({ [key]: i })
     })));
   }
 
+  async function saveLook(patch) {
+    me.look = { ...me.look, ...patch };
+    renderGear();
+    try { setUser((await api('/api/me/look', { method: 'PUT', body: me.look })).user); } catch (e) { toast(e.message); }
+  }
+  // Une vignette (portrait du héros) par option de visage
+  function faceOptions(box, key) {
+    const names = GD.LOOK_OPTIONS[key];
+    box.replaceChildren(...names.map((name, i) => {
+      const cv = el('canvas', { width: 68, height: 68 });
+      const look = { ...me.look, [key]: i };
+      if (key !== 'eyes') look.eyes = me.look.eyes;
+      window.Art.heroPortrait(cv.getContext('2d'), 68, 68, { cls: me.cls, look, gear: key === 'hairStyle' ? {} : myGear() });
+      return el('button', { class: 'face-opt' + (me.look[key] === i ? ' sel' : ''), title: name, onclick: () => saveLook({ [key]: i }) }, cv, el('span', {}, name));
+    }));
+  }
   function renderGear() {
     swatches($('#swCape'), P.capes, 'cape');
     swatches($('#swSkin'), P.skin, 'skin');
     swatches($('#swHair'), P.hair, 'hair');
+    faceOptions($('#optHair'), 'hairStyle');
+    faceOptions($('#optEyes'), 'eyes');
+    faceOptions($('#optNose'), 'nose');
+    faceOptions($('#optMouth'), 'mouth');
   }
 
   /* ============================== Équipement & glaçons ============================== */

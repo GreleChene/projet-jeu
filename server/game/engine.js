@@ -254,7 +254,7 @@ class Game {
     const h = this.makeHero({ id, userId: null, name: opts.name || `Bot${this.nid}`, isBot: true });
     h.bot = {
       cls, level: lvl,
-      look: { cape: (Math.random() * 10) | 0, skin: (Math.random() * 5) | 0, hair: (Math.random() * 6) | 0 },
+      look: GD.randomLook(),
       gear,
       skills: (() => {
         // bots : initiation, puis la branche de leur spécialisation (ultime compris)

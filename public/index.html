@@ -51,7 +51,7 @@
         <button data-tab="equip">🎒 Équipement <span class="badge hidden" id="iceBadge"></span></button>
         <button data-tab="market">🏪 Place marchande <span class="badge hidden" id="tradeBadge"></span></button>
         <button data-tab="house">🏠 Amélioration de bâtiment</button>
-        <button data-tab="gear">🎨 Apparence</button>
+        <button data-tab="gear">🎨 Personnalisation</button>
         <button data-tab="ai">🧠 IA</button>
         <button data-tab="ladder">🏆 Classement</button>
         <button data-tab="rules">📜 Règles</button>
@@ -213,12 +213,21 @@
 
       <!-- Apparence -->
       <div data-view="gear" class="hidden">
-        <div class="panel" style="max-width:520px;margin:0 auto 16px">
-          <h2>Apparence</h2>
-          <canvas id="gearArt" class="preview" width="260" height="200"></canvas>
-          <label>Cape</label><div class="swatches" id="swCape"></div>
-          <label>Peau</label><div class="swatches" id="swSkin"></div>
-          <label>Cheveux</label><div class="swatches" id="swHair"></div>
+        <div class="grid two custom-grid">
+          <div class="panel">
+            <h2>Personnalisation</h2>
+            <canvas id="gearArt" class="preview" width="260" height="230"></canvas>
+            <p class="small muted">Les changements sont enregistrés aussitôt et visibles sur le stream, même en pleine bataille.</p>
+            <label>Couleur de peau</label><div class="swatches" id="swSkin"></div>
+            <label>Couleur des cheveux</label><div class="swatches" id="swHair"></div>
+            <label>Cape</label><div class="swatches" id="swCape"></div>
+          </div>
+          <div class="panel">
+            <label>Coiffure</label><div class="face-opts" id="optHair"></div>
+            <label>Yeux</label><div class="face-opts" id="optEyes"></div>
+            <label>Nez</label><div class="face-opts" id="optNose"></div>
+            <label>Bouche</label><div class="face-opts" id="optMouth"></div>
+          </div>
         </div>
       </div>
 
