@@ -762,8 +762,8 @@
         el('p', {}, 'Quand tu rejoins une bataille, la classe, les statistiques, les compétences, l’équipement et l’habitation de ton héros sont figés jusqu’à la fin de la partie (l’apparence et l’IA restent modifiables). Toutes les récompenses de la partie (XP, Grêlons, glaçons) sont versées à la fin de la partie, ou quand ton héros la quitte.'),
         el('p', {}, 'Ton héros se bat tout seul grâce à son IA. Toi, tu choisis sa classe, ses statistiques, son équipement et son comportement depuis ce site, et tu votes avec l’équipe.')),
       sec('⚡ Modes et difficultés', ul([
-        `Classique : ${GD.MODES.classic.waves} manches, le terrain change après chaque boss (toutes les 5 manches).`,
-        `Partie rapide : ${GD.MODES.quick.waves} manches en 4 ères (10 givre, 10 corruption, 10 feu, 5 chaos) ; le terrain se corrompt à chaque manche, une seule zone dangereuse à la fois, monstres et boss accélérés ; récompenses ×${GD.MODES.quick.rewards}.`,
+        `Classique : ${GD.MODES.classic.waves} manches.`,
+        `Partie rapide : ${GD.MODES.quick.waves} manches, vote d’équipe à chaque manche, une seule zone dangereuse à la fois ; récompenses ×${GD.MODES.quick.rewards}.`,
         ...Object.values(GD.DIFFICULTIES).map((d) => `${d.icon} ${d.name} : monstres ×${d.mobHp} PV, ×${d.mobDmg} dégâts, ×${d.mobCount} nombre ; récompenses (XP, Grêlons) ×${d.rewards}.`),
         'L’admin choisit le mode et la difficulté au lancement de chaque partie.'])),
       sec('🧬 Classes', el('p', {}, `Tout le monde commence Habitant, avec un arbre d’initiation (une compétence liée à chaque classe). Au niveau ${PR.CLASS_LEVEL}, choisis ta classe : son initiation est conservée, les points des autres te sont rendus. Tu gagnes 1 point de compétence tous les ${PR.SKILL_EVERY} niveaux. L’arbre de ta classe a une branche par spécialisation : 5 compétences passives (3 rangs), l’ultime au bout (niveau ${PR.ULT_LEVEL} requis, il te fait devenir la spécialisation), puis une maîtrise. Dès que tu places un point dans une branche, les autres se bloquent. La reconversion remet tout à zéro (changement de classe possible) mais fait perdre ${Math.round(PR.SKILL_RESPEC_LOSS * 100)}% des points attribués.`),
@@ -796,11 +796,8 @@
         'Onglet « Amélioration de bâtiment » : PV, puissance de soin (moyenne des occupants si partagée) et une amélioration spéciale par classe : ' + Object.entries(GD.HOUSE_SPECIALS).map(([f, sp]) => `${sp.icon} ${sp.name} (${GD.CLASSES[f].name})`).join(', ') + '.'])),
       sec('🗳️ Votes d’équipe', el('p', {}, `Toutes les ${voteEvery} manches, pendant l’entracte, les héros votent pour dépenser les écus de l’équipe. L’option la plus votée l’emporte :`),
         ul(Object.values(GD.UPGRADES).map((u) => `${u.icon} ${u.name} : ${u.desc}${u.unlock ? ` (débloqué quand l’équipe a gagné ${u.unlock} écus)` : ''}`).concat(['🪙 Économiser : garder les écus pour plus tard']))),
-      sec('🌍 Le monde', ul([
-        'Manches 1 à 30 : la prairie gèle peu à peu depuis les bords (un boss toutes les 5 manches). À la manche 30, les arbres se déracinent et le Tréant colossal apparaît.',
-        'Manches 31 à 60 : la corruption verte et des monstres empoisonneurs. Boss final : La Mère-Spore.',
-        'Manches 61 à 90 : les terres brûlées, la lave et les monstres de feu. Boss final : le Géant de magma.',
-        'Manches 91 à 100 : le chaos, tous les terrains mélangés. Manche 100 : les trois grands boss en même temps.']))
+      // pas de détails sur l'évolution du terrain ni sur les boss : c'est une surprise pour les joueurs
+      sec('🌍 Le monde', el('p', {}, 'Le monde autour de la tour ne restera pas longtemps paisible… À vous de découvrir ce qui vous attend.'))
     );
   }
 
