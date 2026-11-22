@@ -182,8 +182,10 @@
     ELITE_MAX: 0.25,
     ELITE_HP: 3.5,
     ELITE_DMG: 1.5,
-    BOSS_HP_BASE: 0.6, // PV des boss : × (BASE + PAR_HÉROS × héros)
-    BOSS_HP_PER_HERO: 0.25,
+    BOSS_HP_BASE: 0.5, // PV des boss : × (BASE + PAR_HÉROS × héros)
+    BOSS_HP_PER_HERO: 0.12,
+    BOSS_WAVE_EXP: 0.7, // les PV des boss suivent la croissance par manche à la puissance 0,7 (plus douce)
+    TOWER_WALLS_HP: 60, // vote « Remparts » : PV max ajoutés à la tour (et soignés) par niveau
     WAVE_XP_BASE: 10, // récompense de fin de manche (par héros)
     WAVE_XP_PER_WAVE: 4,
     WAVE_GRELONS_BASE: 2,
@@ -495,26 +497,26 @@
     elementaire: { name: 'Élémentaire de feu', era: 3, from: 67, shape: 'elemental', color: '#ff7a1a', hp: 360, dmg: 20, speed: 40, range: 30, cd: 1.5, size: 22, aura: { burn: 2, radius: 70 }, xp: 28, gold: 8, w: 3 },
 
     // Bosses (abilities : slam / summon / volley / charge)
-    sanglier_geant: { name: 'Sanglier géant', boss: 1, shape: 'boar', color: '#5e3a22', hp: 900, dmg: 22, speed: 55, range: 40, cd: 1.4, size: 38, xp: 120, gold: 40, abilities: [{ type: 'charge', cd: 7, dmg: 2 }] },
-    yeti: { name: 'Yéti', boss: 1, shape: 'golem', color: '#f2f6fa', hp: 1600, dmg: 28, speed: 50, range: 46, cd: 1.6, size: 42, xp: 180, gold: 60, abilities: [{ type: 'slam', cd: 6, radius: 150, dmg: 1.5, slow: 0.4 }] },
-    loup_alpha: { name: 'Loup alpha', boss: 1, shape: 'wolf', color: '#5c5650', hp: 2200, dmg: 30, speed: 90, range: 40, cd: 1, size: 36, xp: 240, gold: 80, abilities: [{ type: 'summon', cd: 8, mob: 'loup_neige', count: 4 }] },
-    golem_ancien: { name: 'Golem de givre ancien', boss: 1, shape: 'golem', color: '#7cb8e8', hp: 3600, dmg: 40, speed: 38, range: 50, cd: 1.8, size: 48, xp: 320, gold: 110, abilities: [{ type: 'slam', cd: 6, radius: 180, dmg: 1.5, slow: 0.5 }, { type: 'volley', cd: 9, count: 12, proj: 'frost', dmg: 0.6 }] },
-    sorciere_givre: { name: 'Sorcière du givre', boss: 1, shape: 'wisp', color: '#d6f0ff', hp: 3800, dmg: 30, speed: 55, range: 260, cd: 1.4, size: 34, ranged: 'frost', onHit: { slow: 0.4, dur: 2 }, xp: 380, gold: 130, abilities: [{ type: 'volley', cd: 5, count: 16, proj: 'frost', dmg: 0.7 }, { type: 'summon', cd: 10, mob: 'esprit_givre', count: 4 }] },
-    treant_colossal: { name: 'Tréant colossal', boss: 2, shape: 'treant', color: '#24563a', hp: 9000, dmg: 55, speed: 32, range: 60, cd: 2, size: 70, xp: 900, gold: 350, abilities: [{ type: 'slam', cd: 6, radius: 220, dmg: 1.4, slow: 0.4 }, { type: 'summon', cd: 9, mob: 'treant', count: 3 }] },
+    sanglier_geant: { name: 'Sanglier géant', boss: 1, shape: 'boar', color: '#5e3a22', hp: 600, dmg: 22, speed: 55, range: 40, cd: 1.4, size: 38, xp: 120, gold: 40, abilities: [{ type: 'charge', cd: 7, dmg: 2 }] },
+    yeti: { name: 'Yéti', boss: 1, shape: 'golem', color: '#f2f6fa', hp: 900, dmg: 28, speed: 50, range: 46, cd: 1.6, size: 42, xp: 180, gold: 60, abilities: [{ type: 'slam', cd: 6, radius: 150, dmg: 1.5, slow: 0.4 }] },
+    loup_alpha: { name: 'Loup alpha', boss: 1, shape: 'wolf', color: '#5c5650', hp: 1100, dmg: 30, speed: 90, range: 40, cd: 1, size: 36, xp: 240, gold: 80, abilities: [{ type: 'summon', cd: 8, mob: 'loup_neige', count: 4 }] },
+    golem_ancien: { name: 'Golem de givre ancien', boss: 1, shape: 'golem', color: '#7cb8e8', hp: 1400, dmg: 40, speed: 38, range: 50, cd: 1.8, size: 48, xp: 320, gold: 110, abilities: [{ type: 'slam', cd: 6, radius: 180, dmg: 1.5, slow: 0.5 }, { type: 'volley', cd: 9, count: 12, proj: 'frost', dmg: 0.6 }] },
+    sorciere_givre: { name: 'Sorcière du givre', boss: 1, shape: 'wisp', color: '#d6f0ff', hp: 1500, dmg: 30, speed: 55, range: 260, cd: 1.4, size: 34, ranged: 'frost', onHit: { slow: 0.4, dur: 2 }, xp: 380, gold: 130, abilities: [{ type: 'volley', cd: 5, count: 16, proj: 'frost', dmg: 0.7 }, { type: 'summon', cd: 10, mob: 'esprit_givre', count: 4 }] },
+    treant_colossal: { name: 'Tréant colossal', boss: 2, shape: 'treant', color: '#24563a', hp: 2500, dmg: 55, speed: 32, range: 60, cd: 2, size: 70, xp: 900, gold: 350, abilities: [{ type: 'slam', cd: 6, radius: 220, dmg: 1.4, slow: 0.4 }, { type: 'summon', cd: 9, mob: 'treant', count: 3 }] },
 
-    crapaud_roi: { name: 'Crapaud-roi', boss: 1, shape: 'toad', color: '#3f8a1e', hp: 6500, dmg: 45, speed: 45, range: 240, cd: 1.6, size: 40, ranged: 'poison', onHit: { poison: 6, dur: 4 }, xp: 450, gold: 150, abilities: [{ type: 'volley', cd: 6, count: 14, proj: 'poison', dmg: 0.6 }] },
-    araignee_reine: { name: 'Araignée reine', boss: 1, shape: 'spider', color: '#2b3320', hp: 8000, dmg: 50, speed: 70, range: 46, cd: 1.2, size: 42, onHit: { poison: 6, dur: 4 }, xp: 520, gold: 170, abilities: [{ type: 'summon', cd: 7, mob: 'araignee', count: 6 }] },
-    champignon_titan: { name: 'Champignon titan', boss: 1, shape: 'shroom', color: '#9a2fe6', hp: 10000, dmg: 55, speed: 40, range: 50, cd: 1.6, size: 48, xp: 600, gold: 190, abilities: [{ type: 'slam', cd: 6, radius: 200, dmg: 1.2, poison: 8 }, { type: 'summon', cd: 9, mob: 'champignon', count: 4 }] },
-    abomination: { name: 'Abomination', boss: 1, shape: 'zombie', color: '#4f6e2a', hp: 13000, dmg: 70, speed: 42, range: 56, cd: 1.6, size: 52, xp: 700, gold: 220, abilities: [{ type: 'charge', cd: 7, dmg: 2 }, { type: 'slam', cd: 8, radius: 170, dmg: 1.3, poison: 6 }] },
-    liche_putride: { name: 'Liche putride', boss: 1, shape: 'wisp', color: '#a8ff5e', hp: 14000, dmg: 55, speed: 55, range: 280, cd: 1.3, size: 38, ranged: 'poison', onHit: { poison: 8, dur: 4 }, xp: 800, gold: 250, abilities: [{ type: 'volley', cd: 5, count: 18, proj: 'poison', dmg: 0.6 }, { type: 'summon', cd: 10, mob: 'mutant', count: 2 }] },
-    mere_spore: { name: 'La Mère-Spore', boss: 2, shape: 'mother', color: '#c6ff5e', hp: 32000, dmg: 80, speed: 28, range: 70, cd: 2, size: 80, xp: 2000, gold: 700, abilities: [{ type: 'volley', cd: 5, count: 20, proj: 'poison', dmg: 0.5 }, { type: 'summon', cd: 7, mob: 'champignon', count: 5 }, { type: 'slam', cd: 9, radius: 260, dmg: 1.2, poison: 10 }] },
+    crapaud_roi: { name: 'Crapaud-roi', boss: 1, shape: 'toad', color: '#3f8a1e', hp: 1800, dmg: 45, speed: 45, range: 240, cd: 1.6, size: 40, ranged: 'poison', onHit: { poison: 6, dur: 4 }, xp: 450, gold: 150, abilities: [{ type: 'volley', cd: 6, count: 14, proj: 'poison', dmg: 0.6 }] },
+    araignee_reine: { name: 'Araignée reine', boss: 1, shape: 'spider', color: '#2b3320', hp: 2000, dmg: 50, speed: 70, range: 46, cd: 1.2, size: 42, onHit: { poison: 6, dur: 4 }, xp: 520, gold: 170, abilities: [{ type: 'summon', cd: 7, mob: 'araignee', count: 6 }] },
+    champignon_titan: { name: 'Champignon titan', boss: 1, shape: 'shroom', color: '#9a2fe6', hp: 2200, dmg: 55, speed: 40, range: 50, cd: 1.6, size: 48, xp: 600, gold: 190, abilities: [{ type: 'slam', cd: 6, radius: 200, dmg: 1.2, poison: 8 }, { type: 'summon', cd: 9, mob: 'champignon', count: 4 }] },
+    abomination: { name: 'Abomination', boss: 1, shape: 'zombie', color: '#4f6e2a', hp: 2500, dmg: 70, speed: 42, range: 56, cd: 1.6, size: 52, xp: 700, gold: 220, abilities: [{ type: 'charge', cd: 7, dmg: 2 }, { type: 'slam', cd: 8, radius: 170, dmg: 1.3, poison: 6 }] },
+    liche_putride: { name: 'Liche putride', boss: 1, shape: 'wisp', color: '#a8ff5e', hp: 2600, dmg: 55, speed: 55, range: 280, cd: 1.3, size: 38, ranged: 'poison', onHit: { poison: 8, dur: 4 }, xp: 800, gold: 250, abilities: [{ type: 'volley', cd: 5, count: 18, proj: 'poison', dmg: 0.6 }, { type: 'summon', cd: 10, mob: 'mutant', count: 2 }] },
+    mere_spore: { name: 'La Mère-Spore', boss: 2, shape: 'mother', color: '#c6ff5e', hp: 4000, dmg: 80, speed: 28, range: 70, cd: 2, size: 80, xp: 2000, gold: 700, abilities: [{ type: 'volley', cd: 5, count: 20, proj: 'poison', dmg: 0.5 }, { type: 'summon', cd: 7, mob: 'champignon', count: 5 }, { type: 'slam', cd: 9, radius: 260, dmg: 1.2, poison: 10 }] },
 
-    seigneur_diablotin: { name: 'Seigneur diablotin', boss: 1, shape: 'imp', color: '#b8251a', hp: 18000, dmg: 75, speed: 80, range: 46, cd: 1, size: 36, onHit: { burn: 8, dur: 3 }, xp: 900, gold: 280, abilities: [{ type: 'summon', cd: 6, mob: 'diablotin', count: 6 }] },
-    salamandre_ancienne: { name: 'Salamandre ancienne', boss: 1, shape: 'salamander', color: '#ff5a1a', hp: 21000, dmg: 70, speed: 50, range: 280, cd: 1.4, size: 44, ranged: 'fire', onHit: { burn: 10, dur: 3 }, xp: 1000, gold: 300, abilities: [{ type: 'volley', cd: 5, count: 18, proj: 'fire', dmg: 0.6 }] },
-    cerbere: { name: 'Cerbère', boss: 1, shape: 'hound', color: '#3a1512', hp: 25000, dmg: 90, speed: 95, range: 50, cd: 0.9, size: 46, xp: 1100, gold: 330, abilities: [{ type: 'charge', cd: 6, dmg: 2 }, { type: 'summon', cd: 9, mob: 'chien_infernal', count: 3 }] },
-    golem_obsidienne: { name: 'Golem d’obsidienne', boss: 1, shape: 'golem', color: '#2a2030', hp: 32000, dmg: 110, speed: 36, range: 56, cd: 1.8, size: 54, xp: 1300, gold: 380, abilities: [{ type: 'slam', cd: 6, radius: 220, dmg: 1.4, burn: 10 }] },
-    phenix_noir: { name: 'Phénix noir', boss: 1, shape: 'wisp', color: '#ff3d1a', hp: 30000, dmg: 80, speed: 75, range: 300, cd: 1.2, size: 40, ranged: 'fire', onHit: { burn: 10, dur: 3 }, xp: 1400, gold: 400, abilities: [{ type: 'volley', cd: 4, count: 20, proj: 'fire', dmg: 0.55 }] },
-    geant_magma: { name: 'Géant de magma', boss: 2, shape: 'elemental', color: '#ff5a1a', hp: 70000, dmg: 140, speed: 30, range: 80, cd: 2, size: 90, aura: { burn: 8, radius: 160 }, xp: 4000, gold: 1200, abilities: [{ type: 'slam', cd: 6, radius: 280, dmg: 1.4, burn: 14 }, { type: 'volley', cd: 7, count: 22, proj: 'fire', dmg: 0.5 }, { type: 'summon', cd: 10, mob: 'elementaire', count: 2 }] },
+    seigneur_diablotin: { name: 'Seigneur diablotin', boss: 1, shape: 'imp', color: '#b8251a', hp: 2800, dmg: 75, speed: 80, range: 46, cd: 1, size: 36, onHit: { burn: 8, dur: 3 }, xp: 900, gold: 280, abilities: [{ type: 'summon', cd: 6, mob: 'diablotin', count: 6 }] },
+    salamandre_ancienne: { name: 'Salamandre ancienne', boss: 1, shape: 'salamander', color: '#ff5a1a', hp: 3000, dmg: 70, speed: 50, range: 280, cd: 1.4, size: 44, ranged: 'fire', onHit: { burn: 10, dur: 3 }, xp: 1000, gold: 300, abilities: [{ type: 'volley', cd: 5, count: 18, proj: 'fire', dmg: 0.6 }] },
+    cerbere: { name: 'Cerbère', boss: 1, shape: 'hound', color: '#3a1512', hp: 3200, dmg: 90, speed: 95, range: 50, cd: 0.9, size: 46, xp: 1100, gold: 330, abilities: [{ type: 'charge', cd: 6, dmg: 2 }, { type: 'summon', cd: 9, mob: 'chien_infernal', count: 3 }] },
+    golem_obsidienne: { name: 'Golem d’obsidienne', boss: 1, shape: 'golem', color: '#2a2030', hp: 3500, dmg: 110, speed: 36, range: 56, cd: 1.8, size: 54, xp: 1300, gold: 380, abilities: [{ type: 'slam', cd: 6, radius: 220, dmg: 1.4, burn: 10 }] },
+    phenix_noir: { name: 'Phénix noir', boss: 1, shape: 'wisp', color: '#ff3d1a', hp: 3400, dmg: 80, speed: 75, range: 300, cd: 1.2, size: 40, ranged: 'fire', onHit: { burn: 10, dur: 3 }, xp: 1400, gold: 400, abilities: [{ type: 'volley', cd: 4, count: 20, proj: 'fire', dmg: 0.55 }] },
+    geant_magma: { name: 'Géant de magma', boss: 2, shape: 'elemental', color: '#ff5a1a', hp: 5000, dmg: 140, speed: 30, range: 80, cd: 2, size: 90, aura: { burn: 8, radius: 160 }, xp: 4000, gold: 1200, abilities: [{ type: 'slam', cd: 6, radius: 280, dmg: 1.4, burn: 14 }, { type: 'volley', cd: 7, count: 22, proj: 'fire', dmg: 0.5 }, { type: 'summon', cd: 10, mob: 'elementaire', count: 2 }] },
 
     // Invocations alliées (dessinées avec le même style)
     ally_wolf: { name: 'Loup', ally: true, shape: 'wolf', color: '#9a8a74', hp: 0.6, dmg: 0.6, speed: 115, range: 22, cd: 0.8, size: 12 },
@@ -538,7 +540,8 @@
 
   // Améliorations d'équipe (votées pendant l'entracte avec les écus de la partie)
   const UPGRADES = {
-    walls: { name: 'Remparts', icon: '🧱', desc: '+15% PV max de la tour (et soin équivalent)', cost: 60, growth: 1.5, max: 10, unlock: 0 },
+    // toujours proposée au vote (tant qu'elle n'est pas au maximum)
+    walls: { name: 'Remparts', icon: '🧱', get desc() { return `+${BALANCE.TOWER_WALLS_HP} PV max pour la tour (et autant de soin)`; }, cost: 50, growth: 1.35, max: 15, unlock: 0 },
     ballista: { name: 'Baliste', icon: '🏹', desc: 'La tour tire sur les ennemis (+1 niveau de baliste)', cost: 80, growth: 1.6, max: 8, unlock: 0 },
     forge: { name: 'Forge', icon: '🔨', desc: '+10% dégâts pour tous les héros', cost: 100, growth: 1.55, max: 10, unlock: 0 },
     infirmary: { name: 'Infirmerie', icon: '⛑️', get desc() { return `Régénération près de la tour ; réanime 1 héros mort par manche dès le niveau ${BALANCE.INFIRMARY_REVIVE_LEVEL}, 2 au niveau ${BALANCE.INFIRMARY_REVIVE2_LEVEL}`; }, cost: 90, growth: 1.6, max: 6, unlock: 0 },
@@ -568,8 +571,8 @@
   const MODES = {
     classic: { name: 'Classique', waves: 100, rewards: 1, hazardMax: 99, powerScale: 1 },
     // powerScale : puissance des monstres de la manche n = celle de la manche n × powerScale en classique
-    // (les héros ont moins de manches pour profiter des améliorations d'équipe)
-    quick: { name: 'Partie rapide', waves: 35, rewards: 0.85, hazardMax: 1, powerScale: 1.5 }
+    // voteEvery : vote d'équipe toutes les N manches (sinon, réglage de l'admin)
+    quick: { name: 'Partie rapide', waves: 35, rewards: 0.85, hazardMax: 1, powerScale: 1, voteEvery: 1 }
   };
   const DIFFICULTIES = {
     facile: { name: 'Facile', icon: '🟢', mobHp: 0.7, mobDmg: 0.75, mobCount: 0.85, rewards: 0.7 },

@@ -6,13 +6,13 @@
 const GD = require('../shared/constants');
 
 const L = {
-  TOWER_BASE_HP: 'PV de la tour au départ', ULT_TIME: 'Temps de charge d’un ultime (s)', REVIVE_HP: 'Résurrection (vote / infirmerie) : part des PV max rendus', INFIRMARY_REVIVE_LEVEL: 'Infirmerie : niveau à partir duquel un héros mort est réanimé par manche', INFIRMARY_REVIVE2_LEVEL: 'Infirmerie : niveau à partir duquel deux héros morts sont réanimés par manche',
+  TOWER_BASE_HP: 'PV de la tour au départ', TOWER_WALLS_HP: 'Vote « Remparts » : PV de tour ajoutés par niveau', ULT_TIME: 'Temps de charge d’un ultime (s)', REVIVE_HP: 'Résurrection (vote / infirmerie) : part des PV max rendus', INFIRMARY_REVIVE_LEVEL: 'Infirmerie : niveau à partir duquel un héros mort est réanimé par manche', INFIRMARY_REVIVE2_LEVEL: 'Infirmerie : niveau à partir duquel deux héros morts sont réanimés par manche',
   WAVE_HP_LINEAR: 'PV monstres : hausse linéaire par manche', WAVE_HP_QUAD: 'PV monstres : hausse quadratique par manche', WAVE_DMG: 'Dégâts monstres : hausse par manche',
   HP_PER_HERO: 'PV monstres : bonus par héros présent', DMG_PER_HERO: 'Dégâts monstres : bonus par héros présent',
   WAVE_DURATION_BASE: 'Durée d’apparition des monstres : base (s)', WAVE_DURATION_PER_WAVE: 'Durée : en plus par manche (s)', WAVE_DURATION_PER_HERO: 'Durée : en plus par héros (s)', WAVE_DURATION_MAX: 'Durée : maximum (s)', MOB_COUNT_BASE: 'Nombre de monstres : base', MOB_COUNT_PER_WAVE: 'Nombre de monstres : en plus par manche',
   MOB_COUNT_PER_HERO: 'Nombre de monstres : facteur par héros', MOB_COUNT_HERO_CAP: 'Nombre de monstres : facteur joueurs max', MAX_WAVE_MOBS: 'Monstres max par manche',
   ELITE_BASE: 'Chance d’élite : base', ELITE_PER_WAVE: 'Chance d’élite : par manche', ELITE_MAX: 'Chance d’élite : maximum', ELITE_HP: 'Élites : multiplicateur de PV', ELITE_DMG: 'Élites : multiplicateur de dégâts',
-  BOSS_HP_BASE: 'PV des boss : base', BOSS_HP_PER_HERO: 'PV des boss : par héros', WAVE_XP_BASE: 'Fin de manche : XP de base', WAVE_XP_PER_WAVE: 'Fin de manche : XP par manche',
+  BOSS_HP_BASE: 'PV des boss : base', BOSS_WAVE_EXP: 'PV des boss : douceur de la croissance par manche (1 = comme les monstres)', BOSS_HP_PER_HERO: 'PV des boss : par héros', WAVE_XP_BASE: 'Fin de manche : XP de base', WAVE_XP_PER_WAVE: 'Fin de manche : XP par manche',
   WAVE_GRELONS_BASE: 'Fin de manche : Grêlons de base', WAVE_GRELONS_PER_WAVE: 'Fin de manche : Grêlons par manche', WAVE_ECUS_BASE: 'Fin de manche : écus de base (équipe)',
   WAVE_ECUS_PER_WAVE: 'Fin de manche : écus par manche', KILL_ECUS: 'Écus par élimination (part de la valeur du monstre)', HARVEST_INTERVAL: 'Paysans : secondes entre deux récoltes',
   HAZARD_BASE: 'Zones dangereuses : nombre de base par manche', HAZARD_PER_WAVE: 'Zones dangereuses : en plus par manche', HAZARD_MAX: 'Zones dangereuses : maximum',
@@ -27,7 +27,7 @@ const L = {
 const COL = {
   hp: 'PV', dmg: 'Dégâts', range: 'Portée', cd: 'Recharge (s)', speed: 'Vitesse', armor: 'Armure', crit: 'Critique', leash: 'Distance max tour',
   size: 'Taille', xp: 'XP', gold: 'Grêlons', from: 'Dès la manche', w: 'Fréquence', p: 'Probabilité', mult: 'Multiplicateur', recycle: 'Recyclage (× prix glaçon)',
-  cost: 'Coût (écus)', growth: 'Hausse du coût', max: 'Niveau max', unlock: 'Débloqué à (écus gagnés)', per: 'Effet par niveau', mobHp: 'PV des monstres ×', mobDmg: 'Dégâts des monstres ×', mobCount: 'Nombre de monstres ×', rewards: 'Récompenses (XP, Grêlons) ×', hazardMax: 'Zones dangereuses max', powerScale: 'Puissance : manche n ≈ manche n × ceci en classique'
+  cost: 'Coût (écus)', growth: 'Hausse du coût', max: 'Niveau max', unlock: 'Débloqué à (écus gagnés)', per: 'Effet par niveau', mobHp: 'PV des monstres ×', mobDmg: 'Dégâts des monstres ×', mobCount: 'Nombre de monstres ×', rewards: 'Récompenses (XP, Grêlons) ×', hazardMax: 'Zones dangereuses max', powerScale: 'Puissance : manche n ≈ manche n × ceci en classique', voteEvery: 'Vote toutes les N manches'
 };
 
 const numKeys = (o) => Object.keys(o).filter((k) => typeof o[k] === 'number');
@@ -45,7 +45,7 @@ function schema() {
   for (const [id, s] of Object.entries(GD.SETS)) for (const [n, b] of Object.entries(s.bonus)) for (const k of Object.keys(b)) setFields.push({ path: ['SETS', id, 'bonus', n, k], label: `${s.name} — ${n} pièces : ${GD.STAT_NAMES[k]} (+)` });
   return [
     { id: 'difficulty', title: '🎚️ Difficultés', note: 'Choisies par l’admin au lancement d’une partie. 1 = normal.', ...table('DIFFICULTIES', Object.keys(GD.DIFFICULTIES), ['mobHp', 'mobDmg', 'mobCount', 'rewards'], (id) => `${GD.DIFFICULTIES[id].icon} ${GD.DIFFICULTIES[id].name}`) },
-    { id: 'modes', title: '⚡ Modes de partie', note: 'Partie rapide : 35 manches (10-10-10-5).', ...table('MODES', Object.keys(GD.MODES), ['rewards', 'hazardMax', 'powerScale'], (id) => GD.MODES[id].name) },
+    { id: 'modes', title: '⚡ Modes de partie', note: 'Partie rapide : 35 manches (10-10-10-5).', ...table('MODES', Object.keys(GD.MODES), ['rewards', 'hazardMax', 'powerScale', 'voteEvery'], (id) => GD.MODES[id].name) },
     { id: 'general', title: '⚙️ Général', type: 'fields', fields: fields('BALANCE', Object.keys(GD.BALANCE)) },
     { id: 'progression', title: '📈 Progression', type: 'fields', fields: fields('PROGRESSION', numKeys(GD.PROGRESSION)) },
     { id: 'attributes', title: '📊 Points de stat (effet par point)', type: 'fields', fields: GD.ATTR_IDS.map((a) => ({ path: ['ATTRIBUTES', a, 'per'], label: `${GD.ATTRIBUTES[a].icon} ${GD.ATTRIBUTES[a].name} (${GD.ATTRIBUTES[a].what})` })) },

@@ -104,7 +104,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - Un set par famille de classes (5 pièces, arme comprise) : Rempart (soldat), Arcaniste (mage), Maître-bête (éleveur), Œil-de-faucon (archer), Lame-nuit (assassin), Moisson (paysan).
   - Trois sets universels (4 pièces), portables par toutes les classes : Voyageur, Givre éternel, Braise.
   - Porter 2, 4 ou 5 pièces d'un même set donne des bonus. Tout le détail est dans l'onglet **📜 Règles** du site.
-- **Votes d'équipe.** Toutes les **2 manches** (réglable dans l'admin), pendant l'entracte, les joueurs votent pour dépenser les écus de l'équipe (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus d'écus. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
+- **Votes d'équipe.** Toutes les **2 manches** en classique (réglable dans l'admin), **à chaque manche** en partie rapide. Le vote **🧱 Remparts** (+60 PV max à la tour, et autant de soin) est toujours proposé tant qu'il n'est pas au niveau maximum (15), pendant l'entracte, les joueurs votent pour dépenser les écus de l'équipe (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus d'écus. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
 
 ### Modes et difficultés
 
@@ -113,7 +113,7 @@ L'admin choisit le mode et la difficulté au lancement de chaque partie.
 | Mode | Manches | Particularités | Récompenses |
 |---|---|---|---|
 | Classique | 100 | le terrain change après chaque boss (toutes les 5 manches) | ×1 |
-| ⚡ Partie rapide | 35 | 4 ères de 10-10-10-5 (givre, corruption, feu, chaos) ; le terrain se corrompt à **chaque manche** ; **1 zone dangereuse max** ; boss aux manches 5, 10 (déracinement + Tréant colossal), 15, 20 (Mère-Spore), 25, 30 (Géant de magma) et 35 (les trois) ; contenu accéléré (monstres et boss de l'ère correspondante) mais **puissance adaptée au temps de jeu** : la manche n d'une partie rapide a la puissance d'une manche n×1,5 classique (réglable), et les boss avancés sont ramenés à la force du boss classique de ce niveau (le Tréant colossal de la manche 10 a la force d'un boss de manche 15) ; le trio final est un peu allégé | ×0,85 |
+| ⚡ Partie rapide | 35 | 4 ères de 10-10-10-5 (givre, corruption, feu, chaos) ; le terrain se corrompt à **chaque manche** ; **vote d'équipe à chaque manche** ; **1 zone dangereuse max** ; mêmes événements et boss aux manches 5, 10 (déracinement + Tréant colossal), 15, 20 (Mère-Spore), 25, 30 (Géant de magma) et 35 (les trois), mais la **puissance de la manche n est celle de la manche n du classique** : les boss sont ramenés à la force du boss classique de leur manche, et le trio final est allégé | ×0,85 |
 
 | Difficulté | PV monstres | Dégâts | Nombre | Récompenses (XP, Grêlons) |
 |---|---|---|---|---|

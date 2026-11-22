@@ -34,8 +34,12 @@ module.exports = {
     const n = Math.max(1, this.heroes.size);
     const diff = this.settings.difficulty;
     const pact = this.run.pactActive ? 1.5 : 1;
+    const curve = 1 + B.WAVE_HP_LINEAR * (w - 1) + B.WAVE_HP_QUAD * (w - 1) ** 2;
+    const mods = D.mobHp * diff * pact * (1 + B.HP_PER_HERO * (n - 1));
     return {
-      hp: (1 + B.WAVE_HP_LINEAR * (w - 1) + B.WAVE_HP_QUAD * (w - 1) ** 2) * D.mobHp * diff * pact * (1 + B.HP_PER_HERO * (n - 1)),
+      hp: curve * mods,
+      // les boss suivent une courbe plus douce (exposant < 1), sinon ils deviennent démesurés en fin de partie
+      bossCurveHp: Math.pow(curve, B.BOSS_WAVE_EXP) * mods,
       dmg: (1 + B.WAVE_DMG * (w - 1)) * D.mobDmg * Math.sqrt(diff) * (1 + B.DMG_PER_HERO * (n - 1)),
       bossHp: B.BOSS_HP_BASE + B.BOSS_HP_PER_HERO * Math.min(n, 80),
       count: Math.min(B.MOB_COUNT_HERO_CAP, 1 + B.MOB_COUNT_PER_HERO * (n - 1)) * pact * D.mobCount * Math.sqrt(diff)
@@ -111,7 +115,7 @@ module.exports = {
     const sc = opts.sc || this.scaling(this.powerWave(Math.max(1, this.run.wave)));
     const elite = !!opts.elite && !d.boss;
     const bf = d.ally ? { hp: 1, dmg: 1 } : this.bossFactor(type); // partie rapide : adaptation à la puissance de la manche
-    const hpMul = sc.hp * bf.hp * (d.boss ? sc.bossHp : this.run.hpBoost || 1) * (elite ? GD.BALANCE.ELITE_HP : 1);
+    const hpMul = (d.boss ? sc.bossCurveHp * sc.bossHp : sc.hp * (this.run.hpBoost || 1)) * bf.hp * (elite ? GD.BALANCE.ELITE_HP : 1);
     const m = {
       nid: this.nid++, type, x, y, boss: !!d.boss, elite,
       maxHp: Math.round(d.hp * hpMul), hp: 0,

@@ -488,13 +488,16 @@ class Game {
     if (voting) this.openVote();
   }
 
+  // partie rapide : vote à chaque manche ; classique : réglage de l'admin
+  voteEvery() { return Math.max(1, Math.round((GD.MODES[this.run.mode] || {}).voteEvery || this.settings.voteEvery || 2)); }
+
   isVoteWave(w) {
-    const n = Math.max(1, Math.round(this.settings.voteEvery || 2));
+    const n = this.voteEvery();
     return w > 0 && w % n === 0;
   }
 
   nextVoteWave() {
-    const n = Math.max(1, Math.round(this.settings.voteEvery || 2));
+    const n = this.voteEvery();
     return (Math.floor(this.run.cleared / n) + 1) * n;
   }
 
@@ -513,12 +516,14 @@ class Game {
     const r = this.run;
     const avail = Object.keys(UPGRADES).filter((id) => {
       const u = UPGRADES[id];
-      return !u.challenge && !u.revive && r.upgrades[id] < u.max && r.wealthEarned >= u.unlock;
+      return !u.challenge && !u.revive && id !== 'walls' && r.upgrades[id] < u.max && r.wealthEarned >= u.unlock;
     });
     // priorité aux améliorations abordables, puis les autres pour faire rêver
     const affordable = U.shuffle(avail.filter((id) => this.upgradeCost(id) <= r.treasury));
     const others = U.shuffle(avail.filter((id) => this.upgradeCost(id) > r.treasury));
     const opts = [...affordable, ...others].slice(0, 3);
+    // les PV de la tour peuvent toujours être améliorés par vote
+    if (r.upgrades.walls < UPGRADES.walls.max) opts.unshift('walls');
     // un héros est mort : l'équipe peut voter sa résurrection
     if ([...this.heroes.values()].some((h) => !h.alive)) opts.push('revive');
     opts.push('pact', 'save');
@@ -594,7 +599,7 @@ class Game {
     const u = UPGRADES[id];
     this.pushFeed(`${u.icon} ${u.name} niveau ${r.upgrades[id]} !`);
     if (id === 'walls') {
-      const add = Math.round(r.tower.max * 0.15);
+      const add = GD.BALANCE.TOWER_WALLS_HP;
       r.tower.max += add; r.tower.hp = Math.min(r.tower.max, r.tower.hp + add);
     }
     for (const h of this.heroes.values()) this.refreshHero(h);
@@ -1080,7 +1085,7 @@ class Game {
       tower: { hp: Math.ceil(r.tower.hp), max: r.tower.max }, treasury: r.treasury, wealthEarned: r.wealthEarned,
       upgrades: r.upgrades, heroes: this.heroes.size, mobs: this.mobs.length + r.queue.length + r.bossPending.length,
       canJoin: this.canJoin(), joinEndsAt: Number.isFinite(r.joinUntil) ? r.joinUntil : null,
-      voting: !!r.vote, nextVote: this.nextVoteWave(), voteEvery: this.settings.voteEvery,
+      voting: !!r.vote, nextVote: this.nextVoteWave(), voteEvery: this.voteEvery(),
       pact: r.pactActive ? 'active' : r.pactNext ? 'next' : null, era: GD.eraFor(r.mode, Math.max(1, r.wave)).name, ...this.modeInfo()
     };
   }
