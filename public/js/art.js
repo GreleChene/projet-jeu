@@ -954,15 +954,17 @@
     if (!RICH) return drawTowerRaw(ctx, x, y, o);
     const t = o.t || 0, hp = o.hp === undefined ? 1 : o.hp;
     const TP = TAU / 2, TN = 12, f = Math.floor(((t % TP) + TP) % TP / TP * TN);
-    const key = JSON.stringify(o.up || {}) + '|' + (hp < 0.33 ? 2 : hp < 0.66 ? 1 : 0) + '|' + f;
+    const sc = o.scale || 1;
+    const key = JSON.stringify(o.up || {}) + '|' + (hp < 0.33 ? 2 : hp < 0.66 ? 1 : 0) + '|' + f + '|' + sc;
     let c = TOWER_CACHE.get(key);
     if (!c) {
       if (TOWER_CACHE.size > 120) TOWER_CACHE.clear();
-      c = document.createElement('canvas'); c.width = 300; c.height = 330;
-      drawTowerRaw(c.getContext('2d'), 150, 270, { ...o, t: (f + 0.5) / TN * TP });
+      c = document.createElement('canvas'); c.width = Math.ceil(300 * sc); c.height = Math.ceil(330 * sc);
+      const x2 = c.getContext('2d'); x2.scale(sc, sc);
+      drawTowerRaw(x2, 150, 270, { ...o, t: (f + 0.5) / TN * TP });
       TOWER_CACHE.set(key, c);
     }
-    ctx.drawImage(c, x - 150, y - 270);
+    ctx.drawImage(c, Math.round(x - 150 * sc), Math.round(y - 270 * sc));
   }
   function drawTowerRaw(ctx, x, y, o) {
     const S = P.stone;

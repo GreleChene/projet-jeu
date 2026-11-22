@@ -37,7 +37,7 @@
   // en rendu détaillé (pixel art), héros et monstres sont nettement agrandis pour rester lisibles sur le stream
   const HERO_SCALE = STYLE.rich ? 2.1 : 1.3 * STYLE_SCALE, MOB_SCALE = STYLE.rich ? 1.55 : 1.2 * STYLE_SCALE, GRAVE_SCALE = 1.3 * STYLE_SCALE;
   const HERO_TOP = STYLE.rich ? A.heroTop(HERO_SCALE) : 52;
-  const BUILDING_SCALE = STYLE.rich ? 1.25 : 0.82;
+  const BUILDING_SCALE = STYLE.rich ? 1.25 : 0.82, TOWER_SCALE = STYLE.rich ? 1.45 : 1;
 
   /* ----------------------------- mise à l'échelle ----------------------------- */
   function fit() {
@@ -248,7 +248,7 @@
     drawZones(0);
     // entités triées en profondeur
     const list = [];
-    list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, hp: snap.tw[0] / snap.tw[1] }) });
+    list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, hp: snap.tw[0] / snap.tw[1], scale: TOWER_SCALE }) });
     // habitations des héros : [type, x, y, PV %, nid du propriétaire]
     for (const [ti, bx, by, hp, , variant] of snap.bd || []) {
       const def = GD.BUILDINGS[ti], fam = GD.CLASSES[def.family];

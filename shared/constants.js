@@ -50,22 +50,22 @@
     feu: { name: 'Mage de feu', tier: 2, parent: 'mage', color: '#ff6a1a', weapon: 'staff', projectile: 'fire', hp: 95, dmg: 18, range: 270, cd: 1.2, speed: 75, armor: 0.03, onHit: { burn: 0.25, dur: 3 }, ult: 'fireball', ultName: 'Boule de feu', ultDesc: 'Énorme boule de feu qui explose : 400% des dégâts en zone.', desc: 'Tout finit en cendres.' },
     soin: { name: 'Mage de soin', tier: 2, parent: 'mage', color: '#7dff8a', weapon: 'staff', projectile: 'holy', hp: 110, dmg: 10, range: 240, cd: 1.2, speed: 78, armor: 0.05, healer: true, ult: 'massheal', ultName: 'Bénédiction', ultDesc: 'Soigne tous les alliés dans un rayon de 350 px (50% PV max).', desc: 'Soigne régulièrement l’allié le plus blessé.' },
 
-    eleveur: { name: 'Éleveur', tier: 1, parent: 'habitant', color: '#2e9e57', weapon: 'whip', hp: 120, dmg: 9, range: 110, cd: 1.0, speed: 80, armor: 0.05, leash: 800, summons: { wolf: 1 }, desc: 'Combat aux côtés d’un loup apprivoisé.' },
-    dompteur: { name: 'Dompteur', tier: 2, parent: 'eleveur', color: '#d98c3a', weapon: 'whip', hp: 150, dmg: 11, range: 120, cd: 1.0, speed: 80, armor: 0.08, leash: 800, summons: { wolf: 2, bear: 1 }, ult: 'beastcall', ultName: 'Cri de la meute', ultDesc: 'Soigne ses bêtes et augmente leurs dégâts de 60% pendant 8 s.', desc: 'Loups et ours obéissent à sa voix.' },
-    necromancien: { name: 'Nécromancien', tier: 2, parent: 'eleveur', color: '#5b4a7a', weapon: 'scythe', hp: 130, dmg: 11, range: 140, cd: 1.0, speed: 78, armor: 0.05, leash: 800, raise: { chance: 0.35, max: 4 }, ult: 'revive', ultName: 'Relève-toi', ultDesc: 'Fait revenir un allié mort à 75% de ses PV ; le « zombie » perd 1% PV/s.', desc: 'Relève squelettes et zombies parmi les morts.' },
+    eleveur: { name: 'Éleveur', tier: 1, parent: 'habitant', color: '#2e9e57', weapon: 'whip', hp: 120, dmg: 9, range: 110, cd: 1.0, speed: 80, armor: 0.05, summons: { wolf: 1 }, desc: 'Combat aux côtés d’un loup apprivoisé.' },
+    dompteur: { name: 'Dompteur', tier: 2, parent: 'eleveur', color: '#d98c3a', weapon: 'whip', hp: 150, dmg: 11, range: 120, cd: 1.0, speed: 80, armor: 0.08, summons: { wolf: 2, bear: 1 }, ult: 'beastcall', ultName: 'Cri de la meute', ultDesc: 'Soigne ses bêtes et augmente leurs dégâts de 60% pendant 8 s.', desc: 'Loups et ours obéissent à sa voix.' },
+    necromancien: { name: 'Nécromancien', tier: 2, parent: 'eleveur', color: '#5b4a7a', weapon: 'scythe', hp: 130, dmg: 11, range: 140, cd: 1.0, speed: 78, armor: 0.05, raise: { chance: 0.35, max: 4 }, ult: 'revive', ultName: 'Relève-toi', ultDesc: 'Fait revenir un allié mort à 75% de ses PV ; le « zombie » perd 1% PV/s.', desc: 'Relève squelettes et zombies parmi les morts.' },
 
-    archer: { name: 'Archer', tier: 1, parent: 'habitant', color: '#27ae60', weapon: 'bow', projectile: 'arrow', hp: 100, dmg: 11, range: 340, cd: 0.9, speed: 85, armor: 0.02, leash: 800, desc: 'Tire de loin, reste près de la tour.' },
-    arbaletrier: { name: 'Arbalétrier', tier: 2, parent: 'archer', color: '#7f8c8d', weapon: 'crossbow', projectile: 'bolt', hp: 120, dmg: 17, range: 360, cd: 1.15, speed: 82, armor: 0.06, leash: 800, ult: 'rapidfire', ultName: 'Tir en rafale', ultDesc: 'Vitesse d’attaque ×3 pendant 6 s.', desc: 'Carreaux lourds, cadence implacable.' },
-    arclong: { name: 'Arc long', tier: 2, parent: 'archer', color: '#16a085', weapon: 'longbow', projectile: 'arrow', hp: 110, dmg: 15, range: 460, cd: 1.0, speed: 85, armor: 0.04, leash: 800, ult: 'tripleshot', ultName: 'Triple flèche', ultDesc: '3 flèches perforantes à 150% des dégâts de base.', desc: 'La plus longue portée du royaume.' },
+    archer: { name: 'Archer', tier: 1, parent: 'habitant', color: '#27ae60', weapon: 'bow', projectile: 'arrow', hp: 100, dmg: 11, range: 340, cd: 0.9, speed: 85, armor: 0.02, desc: 'Tire de très loin.' },
+    arbaletrier: { name: 'Arbalétrier', tier: 2, parent: 'archer', color: '#7f8c8d', weapon: 'crossbow', projectile: 'bolt', hp: 120, dmg: 17, range: 360, cd: 1.15, speed: 82, armor: 0.06, ult: 'rapidfire', ultName: 'Tir en rafale', ultDesc: 'Vitesse d’attaque ×3 pendant 6 s.', desc: 'Carreaux lourds, cadence implacable.' },
+    arclong: { name: 'Arc long', tier: 2, parent: 'archer', color: '#16a085', weapon: 'longbow', projectile: 'arrow', hp: 110, dmg: 15, range: 460, cd: 1.0, speed: 85, armor: 0.04, ult: 'tripleshot', ultName: 'Triple flèche', ultDesc: '3 flèches perforantes à 150% des dégâts de base.', desc: 'La plus longue portée du royaume.' },
 
     assassin: { name: 'Assassin', tier: 1, parent: 'habitant', color: '#34495e', weapon: 'daggers', hp: 95, dmg: 15, range: 34, cd: 0.7, speed: 118, armor: 0.02, crit: 0.25, desc: 'Rapide, coups critiques fréquents.' },
     ombre: { name: 'Ombre', tier: 2, parent: 'assassin', color: '#5b4a7a', weapon: 'daggers', hp: 115, dmg: 18, range: 34, cd: 0.65, speed: 122, armor: 0.04, crit: 0.3, stealth: { every: 10, dur: 3 }, ult: 'smoke', ultName: 'Écran de fumée', ultDesc: 'Nuage de fumée : les alliés à l’intérieur deviennent invisibles pour les monstres.', desc: 'Disparaît toutes les 10 s.' },
     fleche: { name: 'Flèche', tier: 2, parent: 'assassin', color: '#e74c3c', weapon: 'daggers', hp: 110, dmg: 19, range: 34, cd: 0.7, speed: 125, armor: 0.03, crit: 0.3, dash: { every: 6, range: 320 }, ult: 'chaindash', ultName: 'Danse mortelle', ultDesc: 'Dash critique derrière un ennemi ; s’il meurt, enchaîne sur un autre, sans limite.', desc: 'Toutes les 6 s, surgit derrière l’ennemi le plus faible.' },
 
-    paysan: { name: 'Paysan', tier: 1, parent: 'habitant', color: '#c8a24a', weapon: 'pitchfork', hp: 115, dmg: 7, range: 40, cd: 1.0, speed: 82, armor: 0.03, leash: 500, harvest: 'any', desc: 'Récolte des écus pour débloquer de meilleures améliorations.' },
-    agriculteur: { name: 'Agriculteur', tier: 2, parent: 'paysan', color: '#f1c40f', weapon: 'scythe', hp: 135, dmg: 9, range: 42, cd: 1.0, speed: 82, armor: 0.05, leash: 500, harvest: 'field', ult: 'harvestheal', ultName: 'Festin', ultDesc: 'Soigne tous les alliés de 35% de leurs PV max.', desc: 'Les champs nourrissent l’armée.' },
-    bucheron: { name: 'Bûcheron', tier: 2, parent: 'paysan', color: '#8b5a2b', weapon: 'axe', hp: 150, dmg: 11, range: 42, cd: 1.05, speed: 80, armor: 0.06, leash: 500, harvest: 'tree', ult: 'towerheal', ultName: 'Réparations', ultDesc: 'Soigne la tour de 12% de ses PV max.', desc: 'Du bois pour réparer les remparts.' },
-    mineur: { name: 'Mineur', tier: 2, parent: 'paysan', color: '#95a5a6', weapon: 'pickaxe', hp: 145, dmg: 10, range: 40, cd: 1.0, speed: 78, armor: 0.08, leash: 500, harvest: 'rock', ult: 'fortify', ultName: 'Fortification', ultDesc: 'Augmente les PV max de la tour de 6%.', desc: 'La pierre rend la tour plus solide.' }
+    paysan: { name: 'Paysan', tier: 1, parent: 'habitant', color: '#c8a24a', weapon: 'pitchfork', hp: 115, dmg: 7, range: 40, cd: 1.0, speed: 82, armor: 0.03, harvest: 'any', desc: 'Récolte des écus pour débloquer de meilleures améliorations.' },
+    agriculteur: { name: 'Agriculteur', tier: 2, parent: 'paysan', color: '#f1c40f', weapon: 'scythe', hp: 135, dmg: 9, range: 42, cd: 1.0, speed: 82, armor: 0.05, harvest: 'field', ult: 'harvestheal', ultName: 'Festin', ultDesc: 'Soigne tous les alliés de 35% de leurs PV max.', desc: 'Les champs nourrissent l’armée.' },
+    bucheron: { name: 'Bûcheron', tier: 2, parent: 'paysan', color: '#8b5a2b', weapon: 'axe', hp: 150, dmg: 11, range: 42, cd: 1.05, speed: 80, armor: 0.06, harvest: 'tree', ult: 'towerheal', ultName: 'Réparations', ultDesc: 'Soigne la tour de 12% de ses PV max.', desc: 'Du bois pour réparer les remparts.' },
+    mineur: { name: 'Mineur', tier: 2, parent: 'paysan', color: '#95a5a6', weapon: 'pickaxe', hp: 145, dmg: 10, range: 40, cd: 1.0, speed: 78, armor: 0.08, harvest: 'rock', ult: 'fortify', ultName: 'Fortification', ultDesc: 'Augmente les PV max de la tour de 6%.', desc: 'La pierre rend la tour plus solide.' }
   };
   const BASE_CLASSES = ['soldat', 'mage', 'eleveur', 'archer', 'assassin', 'paysan'];
 
@@ -231,11 +231,11 @@
   // mais jamais entièrement : le corps de la tour reste dégagé)
   const BUILDING_SPOTS = [];
   // (espacement prévu pour les grandes habitations du rendu détaillé)
-  for (let d = 130; d <= 410; d += 70) {
-    const step = Math.max(6, (100 / (d * 1.1)) * (180 / Math.PI));
+  for (let d = 105; d <= 380; d += 55) {
+    const step = Math.max(6, (82 / (d * 1.1)) * (180 / Math.PI));
     for (let a = 0; a < 360; a += step) {
       const p = ellipsePos(a, d);
-      if (Math.abs(p.x - WORLD.CX) < 125 && p.y > WORLD.CY - 260 && p.y < WORLD.CY + 210) continue; // derrière / devant la tour
+      if (Math.abs(p.x - WORLD.CX) < 100 && p.y > WORLD.CY - 340 && p.y < WORLD.CY + 150) continue; // derrière / devant la tour
       if (p.x < 50 || p.x > WORLD.W - 50 || p.y < 70 || p.y > WORLD.H - 40) continue;
       BUILDING_SPOTS.push({ a, d, ...p });
     }
@@ -246,14 +246,14 @@
   // l'anneau libre le plus proche de la tour ; les autres un emplacement au hasard (classes mélangées), un peu plus loin.
   function placeBuilding(family, taken, rnd) {
     const r = rnd || Math.random;
-    const free = BUILDING_SPOTS.filter((s) => !taken.some((t) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2 < 95 * 95));
-    if (!free.length) return ellipsePos(r() * 360, 440);
+    const free = BUILDING_SPOTS.filter((s) => !taken.some((t) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2 < 78 * 78)); // léger chevauchement toléré
+    if (!free.length) return ellipsePos(r() * 360, 420);
     let pool;
     if (SUPPORT_FAMILIES.includes(family)) {
       const dmin = Math.min(...free.map((s) => s.d));
       pool = free.filter((s) => s.d === dmin);
     } else {
-      pool = free.filter((s) => s.d > 130);
+      pool = free.filter((s) => s.d > 105);
       if (!pool.length) pool = free;
     }
     const s = pool[Math.floor(r() * pool.length)];

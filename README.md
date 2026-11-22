@@ -74,10 +74,10 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
 - **Classes évolutives.** Tout le monde commence *Habitant*. Au niveau 3, le joueur choisit une classe. Au niveau 8, il choisit une spécialisation, qui donne un **ultime** :
   - Soldat → Paladin (tourbillon en cercle) / Chevalier (charge à 200 %)
   - Mage → Glace (cône de froid) / Feu (boule de feu) / Soin (soin de zone de 350 px)
-  - Éleveur (laisse de 800 px) → Dompteur (renforce et soigne ses bêtes) / Nécromancien (relève un allié mort à 75 % de ses PV, qui perd ensuite 1 % de PV par seconde)
-  - Archer (laisse de 800 px) → Arbalétrier (cadence ×3) / Arc long (3 flèches perforantes à 150 %)
+  - Éleveur → Dompteur (renforce et soigne ses bêtes) / Nécromancien (relève un allié mort à 75 % de ses PV, qui perd ensuite 1 % de PV par seconde)
+  - Archer → Arbalétrier (cadence ×3) / Arc long (3 flèches perforantes à 150 %)
   - Assassin → Ombre (invisible toutes les 10 s, écran de fumée) / Flèche (dash critique toutes les 6 s, dash en chaîne sans limite)
-  - Paysan (laisse de 500 px, récolte les écus de l'équipe) → Agriculteur (soigne les alliés) / Bûcheron (soigne la tour) / Mineur (augmente les PV max de la tour)
+  - Paysan (récolte les écus de l'équipe) → Agriculteur (soigne les alliés) / Bûcheron (soigne la tour) / Mineur (augmente les PV max de la tour)
 - **Personnalisation (onglet 🎨).** Chaque joueur règle son héros en pixel art : couleur de peau (10 teintes, dont orange, rouge, bleu, vert et violet), coiffure (5 styles) et couleur des cheveux, yeux, nez et bouche (5 choix chacun), couleur de cape. Chaque choix est illustré par une vignette du visage ; c'est enregistré aussitôt et visible sur le stream, même en pleine bataille.
 - **IA personnalisable.** Le joueur règle la posture (dont **« Garde de son habitation »** : le héros reste près de sa maison et n'attaque que les monstres qui s'en approchent ; un paysan dans cette posture ne récolte pas), la cible prioritaire, le seuil de retraite et l'usage de l'ultime. Les changements s'appliquent en direct.
 - **Deux monnaies.**
