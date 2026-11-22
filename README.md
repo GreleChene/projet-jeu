@@ -151,7 +151,7 @@ npm run simulate -- 20 5 10 quick normal smart
 
 Ce simulateur fait jouer 20 parties à 5 bots de niveau 10, en partie rapide normale avec des votes raisonnables, et donne la manche atteinte. Le dernier argument, facultatif, permet d'essayer des valeurs sans toucher au jeu, par exemple `'{"BALANCE.MOB_DMG":0.5}'`.
 
-Calibrage actuel (5 joueurs de niveau 10, partie rapide normale) : environ 85 % des parties atteignent la manche 10 et environ la moitié la gagnent.
+Calibrage actuel (monstres : +5 % de PV et +2 % de dégâts par manche) : avec 5 joueurs de niveau 10 en partie rapide normale, toutes les parties simulées atteignent la manche 10 (médiane : manche 14).
 
 ## Architecture
 

@@ -163,9 +163,9 @@
     REVIVE_HP: 0.6, // vote « Résurrection » / Infirmerie : part des PV max rendus au héros réanimé
     INFIRMARY_REVIVE_LEVEL: 3, // à partir de ce niveau, l'Infirmerie réanime un héros mort à chaque fin de manche
     INFIRMARY_REVIVE2_LEVEL: 6, // à partir de ce niveau, elle en réanime deux
-    WAVE_HP_LINEAR: 0.1, // PV des monstres : × (1 + LIN×(m-1) + QUAD×(m-1)²)
-    WAVE_HP_QUAD: 0.0025,
-    WAVE_DMG: 0.03, // dégâts des monstres : × (1 + DMG×(m-1))
+    WAVE_HP_LINEAR: 0.05, // PV des monstres : +5 % par manche — × (1 + LIN×(m-1) + QUAD×(m-1)²)
+    WAVE_HP_QUAD: 0,
+    WAVE_DMG: 0.02, // dégâts des monstres : +2 % par manche — × (1 + DMG×(m-1))
     HP_PER_HERO: 0.03, // PV des monstres en plus par héros présent
     DMG_PER_HERO: 0.01, // dégâts des monstres en plus par héros présent
     WAVE_DURATION_BASE: 16, // durée d'apparition des monstres (s) = BASE + PAR_MANCHE×m + PAR_HÉROS×héros
