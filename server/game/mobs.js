@@ -27,7 +27,7 @@ module.exports = {
     return pool;
   },
 
-  // w = manche équivalente du mode classique (voir eqWave)
+  // w = manche de puissance (voir powerWave)
   scaling(w) {
     const B = GD.BALANCE;
     const D = GD.DIFFICULTIES[this.run.difficulty] || GD.DIFFICULTIES.normal;
@@ -44,19 +44,20 @@ module.exports = {
 
   buildWave(realWave) {
     const r = this.run;
-    const w = this.eqWave(realWave); // partie rapide : manche équivalente du mode classique
-    const sc = this.scaling(w);
+    const w = this.eqWave(realWave); // contenu : manche équivalente du classique (types de monstres, boss)
+    const pw = this.powerWave(realWave); // puissance : selon les manches réellement jouées
+    const sc = this.scaling(pw);
     const pool = this.mobPool(w);
     // au-delà de MAX_WAVE_MOBS, on renforce les monstres au lieu d'en ajouter
     const B = GD.BALANCE, MAX_WAVE_MOBS = B.MAX_WAVE_MOBS;
-    let total = Math.round((B.MOB_COUNT_BASE + B.MOB_COUNT_PER_WAVE * w) * sc.count);
+    let total = Math.round((B.MOB_COUNT_BASE + B.MOB_COUNT_PER_WAVE * pw) * sc.count);
     if (total > MAX_WAVE_MOBS) { r.hpBoost = total / MAX_WAVE_MOBS; total = MAX_WAVE_MOBS; } else r.hpBoost = 1;
-    const eliteChance = Math.min(B.ELITE_MAX, B.ELITE_BASE + w * B.ELITE_PER_WAVE);
+    const eliteChance = Math.min(B.ELITE_MAX, B.ELITE_BASE + pw * B.ELITE_PER_WAVE);
     r.queue = [];
     for (let i = 0; i < total; i++) r.queue.push({ type: U.pick(pool), elite: Math.random() < eliteChance });
     // les manches durent plus longtemps quand il y a plus de joueurs (et plus de monstres)
     const heroes = Math.max(1, this.heroes.size);
-    const duration = Math.min(B.WAVE_DURATION_MAX, B.WAVE_DURATION_BASE + w * B.WAVE_DURATION_PER_WAVE + (heroes - 1) * B.WAVE_DURATION_PER_HERO);
+    const duration = Math.min(B.WAVE_DURATION_MAX, B.WAVE_DURATION_BASE + pw * B.WAVE_DURATION_PER_WAVE + (heroes - 1) * B.WAVE_DURATION_PER_HERO);
     r.packInterval = 2.2;
     r.packSize = Math.max(1, Math.ceil(total / (duration / r.packInterval)));
     r.spawnT = 1.5;
@@ -83,7 +84,7 @@ module.exports = {
     if (r.queue.length && r.spawnT <= 0 && this.mobs.length < this.settings.maxAliveMobs) {
       r.spawnT = r.packInterval;
       const a = Math.random() * Math.PI * 2;
-      const sc = this.scaling(this.eqWave(r.wave));
+      const sc = this.scaling(this.powerWave(r.wave));
       for (let i = 0; i < r.packSize && r.queue.length; i++) {
         const q = r.queue.pop();
         const p = this.edgePoint(a + U.rand(-0.15, 0.15));
@@ -107,13 +108,14 @@ module.exports = {
 
   spawnMob(type, x, y, opts = {}) {
     const d = MOBS[type];
-    const sc = opts.sc || this.scaling(this.eqWave(Math.max(1, this.run.wave)));
+    const sc = opts.sc || this.scaling(this.powerWave(Math.max(1, this.run.wave)));
     const elite = !!opts.elite && !d.boss;
-    const hpMul = sc.hp * (d.boss ? sc.bossHp : this.run.hpBoost || 1) * (elite ? GD.BALANCE.ELITE_HP : 1);
+    const bf = d.ally ? { hp: 1, dmg: 1 } : this.bossFactor(type); // partie rapide : adaptation à la puissance de la manche
+    const hpMul = sc.hp * bf.hp * (d.boss ? sc.bossHp : this.run.hpBoost || 1) * (elite ? GD.BALANCE.ELITE_HP : 1);
     const m = {
       nid: this.nid++, type, x, y, boss: !!d.boss, elite,
       maxHp: Math.round(d.hp * hpMul), hp: 0,
-      dmg: d.dmg * sc.dmg * (elite ? GD.BALANCE.ELITE_DMG : 1), speed: d.speed * U.rand(0.92, 1.08), range: d.range, cd: d.cd,
+      dmg: d.dmg * sc.dmg * bf.dmg * (elite ? GD.BALANCE.ELITE_DMG : 1), speed: d.speed * U.rand(0.92, 1.08), range: d.range, cd: d.cd,
       size: d.size * (elite ? 1.3 : 1), atkT: U.rand(0, d.cd), facing: Math.atan2(WORLD.CY - y, WORLD.CX - x),
       status: {}, target: null, targetId: 'tower', retargetT: 0, attackAnim: 0, auraT: 0, charging: null,
       abil: (d.abilities || []).map((a) => ({ ...a, t: a.cd * 0.5 }))

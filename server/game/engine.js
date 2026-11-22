@@ -114,7 +114,31 @@ class Game {
   closeJoin() { this.run.joinUntil = 0; this.pushFeed('Les inscriptions à la bataille sont fermées.'); }
 
   maxWave() { return (GD.MODES[this.run.mode] || GD.MODES.classic).waves; }
+  // Contenu (monstres, boss, terrain) : manche équivalente du classique
   eqWave(w) { return GD.equivalentWave(this.run.mode, w); }
+  // Puissance (PV, dégâts, nombre, récompenses) : suit le nombre réel de manches jouées
+  powerWave(w) { return Math.max(1, Math.round(w * ((GD.MODES[this.run.mode] || GD.MODES.classic).powerScale || 1))); }
+
+  /*
+   * Partie rapide : un boss prévu pour une manche classique avancée arrive plus tôt.
+   * On ramène ses PV et dégâts de base à ceux du boss classique correspondant à la puissance de la manche.
+   */
+  bossFactor(type) {
+    if (this.run.mode !== 'quick') return { hp: 1, dmg: 1 };
+    const pw = this.powerWave(this.run.wave);
+    const d0 = MOBS[type];
+    if (!d0.boss) {
+      // monstres d'une ère plus avancée que la puissance de la manche : un peu affaiblis (×0,75 par ère d'écart)
+      const powerEra = Math.min(3, Math.ceil(pw / 30));
+      const k = Math.pow(0.75, Math.max(0, (d0.era || 1) - powerEra));
+      return { hp: k, dmg: k };
+    }
+    const refWave = Math.min(100, Math.max(5, Math.floor(pw / 5) * 5));
+    const ref = MOBS[(BOSS_WAVES[refWave] || ['sanglier_geant'])[0]], d = MOBS[type];
+    // plusieurs boss en même temps (finale) : chacun est un peu moins résistant
+    const together = (BOSS_WAVES[this.eqWave(this.run.wave)] || [type]).length;
+    return { hp: Math.min(1, ref.hp / d.hp) / Math.sqrt(together), dmg: Math.min(1, ref.dmg / d.dmg) };
+  }
   modeInfo() {
     const M = GD.MODES[this.run.mode] || GD.MODES.classic, D = GD.DIFFICULTIES[this.run.difficulty] || GD.DIFFICULTIES.normal;
     return { mode: this.run.mode, modeName: M.name, difficulty: this.run.difficulty, difficultyName: D.name, maxWave: M.waves };
@@ -438,7 +462,8 @@ class Game {
     // récompenses de fin de manche
     for (const h of this.heroes.values()) {
       const B = GD.BALANCE;
-      this.reward(h, B.WAVE_XP_BASE + r.wave * B.WAVE_XP_PER_WAVE, B.WAVE_GRELONS_BASE + Math.ceil(r.wave * B.WAVE_GRELONS_PER_WAVE));
+      const pw = this.powerWave(r.wave);
+      this.reward(h, B.WAVE_XP_BASE + pw * B.WAVE_XP_PER_WAVE, B.WAVE_GRELONS_BASE + Math.ceil(pw * B.WAVE_GRELONS_PER_WAVE));
       // un glaçon (coffre) par manche passée
       const pu = !h.isBot && this.db.userById(h.userId);
       if (pu) { h.runGlacons = (h.runGlacons || 0) + GD.GLACONS.PER_WAVE; this.savePending(h); this.fx(['text', Math.round(h.x), Math.round(h.y) - 80, '+1 🧊', '#bfe6ff']); }
@@ -451,7 +476,7 @@ class Game {
     const revives = inf >= B.INFIRMARY_REVIVE2_LEVEL ? 2 : inf >= B.INFIRMARY_REVIVE_LEVEL ? 1 : 0;
     const dead = U.shuffle([...this.heroes.values()].filter((h) => !h.alive)).slice(0, revives);
     for (const h of dead) { this.reviveHero(h); this.pushFeed(`⛑️ L’infirmerie réanime ${h.name} !`); }
-    const bonus = Math.round((GD.BALANCE.WAVE_ECUS_BASE + r.wave * GD.BALANCE.WAVE_ECUS_PER_WAVE) * (r.pactActive ? 2 : 1));
+    const bonus = Math.round((GD.BALANCE.WAVE_ECUS_BASE + this.powerWave(r.wave) * GD.BALANCE.WAVE_ECUS_PER_WAVE) * (r.pactActive ? 2 : 1));
     this.addTreasury(bonus);
     r.pactActive = false;
     if (r.wave >= this.maxWave()) return this.victory();

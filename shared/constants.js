@@ -566,8 +566,10 @@
    * une seule zone dangereuse à la fois ; récompenses un peu moins intéressantes.
    */
   const MODES = {
-    classic: { name: 'Classique', waves: 100, rewards: 1, hazardMax: 99 },
-    quick: { name: 'Partie rapide', waves: 35, rewards: 0.85, hazardMax: 1 }
+    classic: { name: 'Classique', waves: 100, rewards: 1, hazardMax: 99, powerScale: 1 },
+    // powerScale : puissance des monstres de la manche n = celle de la manche n × powerScale en classique
+    // (les héros ont moins de manches pour profiter des améliorations d'équipe)
+    quick: { name: 'Partie rapide', waves: 35, rewards: 0.85, hazardMax: 1, powerScale: 1.5 }
   };
   const DIFFICULTIES = {
     facile: { name: 'Facile', icon: '🟢', mobHp: 0.7, mobDmg: 0.75, mobCount: 0.85, rewards: 0.7 },

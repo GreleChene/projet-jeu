@@ -113,7 +113,7 @@ L'admin choisit le mode et la difficulté au lancement de chaque partie.
 | Mode | Manches | Particularités | Récompenses |
 |---|---|---|---|
 | Classique | 100 | le terrain change après chaque boss (toutes les 5 manches) | ×1 |
-| ⚡ Partie rapide | 35 | 4 ères de 10-10-10-5 (givre, corruption, feu, chaos) ; le terrain se corrompt à **chaque manche** ; **1 zone dangereuse max** ; boss aux manches 5, 10 (déracinement + Tréant colossal), 15, 20 (Mère-Spore), 25, 30 (Géant de magma) et 35 (les trois) ; monstres accélérés (chaque manche vaut 3 manches classiques) | ×0,85 |
+| ⚡ Partie rapide | 35 | 4 ères de 10-10-10-5 (givre, corruption, feu, chaos) ; le terrain se corrompt à **chaque manche** ; **1 zone dangereuse max** ; boss aux manches 5, 10 (déracinement + Tréant colossal), 15, 20 (Mère-Spore), 25, 30 (Géant de magma) et 35 (les trois) ; contenu accéléré (monstres et boss de l'ère correspondante) mais **puissance adaptée au temps de jeu** : la manche n d'une partie rapide a la puissance d'une manche n×1,5 classique (réglable), et les boss avancés sont ramenés à la force du boss classique de ce niveau (le Tréant colossal de la manche 10 a la force d'un boss de manche 15) ; le trio final est un peu allégé | ×0,85 |
 
 | Difficulté | PV monstres | Dégâts | Nombre | Récompenses (XP, Grêlons) |
 |---|---|---|---|---|
