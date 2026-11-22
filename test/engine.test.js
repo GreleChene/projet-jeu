@@ -29,7 +29,8 @@ test('manche 30 : les sapins se déracinent et le Tréant colossal apparaît', (
   g.setWave(30);
   assert.ok(g.run.uprooted);
   assert.ok(g.mobs.some((m) => m.type === 'treant'));
-  run(g, 120);
+  assert.ok(g.run.bossPending.includes('treant_colossal'), 'le Tréant colossal arrive en fin de manche');
+  run(g, 240);
   assert.ok(g.run.cleared >= 30 || g.mobs.some((m) => m.type === 'treant_colossal'));
 });
 

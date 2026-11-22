@@ -165,7 +165,7 @@
     INFIRMARY_REVIVE2_LEVEL: 6, // à partir de ce niveau, elle en réanime deux
     WAVE_HP_LINEAR: 0.1, // PV des monstres : × (1 + LIN×(m-1) + QUAD×(m-1)²)
     WAVE_HP_QUAD: 0.0025,
-    WAVE_DMG: 0.045, // dégâts des monstres : × (1 + DMG×(m-1))
+    WAVE_DMG: 0.03, // dégâts des monstres : × (1 + DMG×(m-1))
     HP_PER_HERO: 0.03, // PV des monstres en plus par héros présent
     DMG_PER_HERO: 0.01, // dégâts des monstres en plus par héros présent
     WAVE_DURATION_BASE: 16, // durée d'apparition des monstres (s) = BASE + PAR_MANCHE×m + PAR_HÉROS×héros
@@ -173,8 +173,8 @@
     WAVE_DURATION_PER_HERO: 1.2,
     WAVE_DURATION_MAX: 120,
     MOB_COUNT_BASE: 6, // nombre de monstres : (BASE + PAR_MANCHE×m) × facteur joueurs
-    MOB_COUNT_PER_WAVE: 1.5,
-    MOB_COUNT_PER_HERO: 0.25,
+    MOB_COUNT_PER_WAVE: 1.0,
+    MOB_COUNT_PER_HERO: 0.15,
     MOB_COUNT_HERO_CAP: 12,
     MAX_WAVE_MOBS: 450,
     ELITE_BASE: 0.02, // chance d'élite : BASE + PAR_MANCHE×m (max ELITE_MAX)
@@ -184,6 +184,8 @@
     ELITE_DMG: 1.5,
     BOSS_HP_BASE: 0.5, // PV des boss : × (BASE + PAR_HÉROS × héros)
     BOSS_HP_PER_HERO: 0.12,
+    MOB_DMG: 0.45, // multiplicateur des dégâts de tous les monstres (calibré : 5 héros niv. 10 atteignent la manche 10 d'une partie rapide normale)
+    BOSS_DMG: 0.6, // multiplicateur des dégâts des boss (en plus)
     BOSS_WAVE_EXP: 0.7, // les PV des boss suivent la croissance par manche à la puissance 0,7 (plus douce)
     TOWER_WALLS_HP: 60, // vote « Remparts » : PV max ajoutés à la tour (et soignés) par niveau
     WAVE_XP_BASE: 10, // récompense de fin de manche (par héros)

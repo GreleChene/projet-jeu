@@ -129,8 +129,10 @@ class Game {
     const d0 = MOBS[type];
     if (!d0.boss) {
       // monstres d'une ère plus avancée que la puissance de la manche : un peu affaiblis (×0,75 par ère d'écart)
+      // monstres « en avance » sur la puissance de la manche (ère plus avancée, ou apparition prévue plus tard) : affaiblis
       const powerEra = Math.min(3, Math.ceil(pw / 30));
-      const k = Math.pow(0.75, Math.max(0, (d0.era || 1) - powerEra));
+      let k = Math.pow(0.75, Math.max(0, (d0.era || 1) - powerEra));
+      if ((d0.era || 1) === powerEra && d0.from > pw) k *= Math.max(0.45, 1 - (d0.from - pw) * 0.05);
       return { hp: k, dmg: k };
     }
     const refWave = Math.min(100, Math.max(5, Math.floor(pw / 5) * 5));

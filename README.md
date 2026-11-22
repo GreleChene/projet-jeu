@@ -143,6 +143,16 @@ L'onglet **📊 Équilibrage** de la page admin affiche toutes les valeurs du je
 
 Chaque modification est enregistrée dans la base et appliquée **immédiatement** au serveur, aux pages des joueurs et au stream, sans redémarrage ni passage par le code. Un bouton « ↺ » remet la valeur d'origine.
 
+## Simulateur d'équilibrage
+
+```bash
+npm run simulate -- 20 5 10 quick normal smart
+```
+
+Ce simulateur fait jouer 20 parties à 5 bots de niveau 10, en partie rapide normale avec des votes raisonnables, et donne la manche atteinte. Le dernier argument, facultatif, permet d'essayer des valeurs sans toucher au jeu, par exemple `'{"BALANCE.MOB_DMG":0.5}'`.
+
+Calibrage actuel (5 joueurs de niveau 10, partie rapide normale) : environ 85 % des parties atteignent la manche 10 et environ la moitié la gagnent.
+
 ## Architecture
 
 ```

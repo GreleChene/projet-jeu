@@ -40,7 +40,7 @@ module.exports = {
       hp: curve * mods,
       // les boss suivent une courbe plus douce (exposant < 1), sinon ils deviennent démesurés en fin de partie
       bossCurveHp: Math.pow(curve, B.BOSS_WAVE_EXP) * mods,
-      dmg: (1 + B.WAVE_DMG * (w - 1)) * D.mobDmg * Math.sqrt(diff) * (1 + B.DMG_PER_HERO * (n - 1)),
+      dmg: (1 + B.WAVE_DMG * (w - 1)) * B.MOB_DMG * D.mobDmg * Math.sqrt(diff) * (1 + B.DMG_PER_HERO * (n - 1)),
       bossHp: B.BOSS_HP_BASE + B.BOSS_HP_PER_HERO * Math.min(n, 80),
       count: Math.min(B.MOB_COUNT_HERO_CAP, 1 + B.MOB_COUNT_PER_HERO * (n - 1)) * pact * D.mobCount * Math.sqrt(diff)
     };
@@ -73,7 +73,8 @@ module.exports = {
       const trees = Terrain.frostTrees(this.terrain, r.seed);
       r.uprooted = true;
       this.terrainChanged();
-      const max = Math.min(trees.length, 12 + this.heroes.size * 3, 70);
+      const quick = this.run.mode === 'quick';
+      const max = Math.min(trees.length, quick ? 4 + this.heroes.size * 2 : 12 + this.heroes.size * 3, 70);
       U.shuffle(trees);
       for (let i = 0; i < trees.length; i++) {
         if (i < max) this.spawnMob('treant', trees[i].x, trees[i].y, {});
@@ -119,7 +120,7 @@ module.exports = {
     const m = {
       nid: this.nid++, type, x, y, boss: !!d.boss, elite,
       maxHp: Math.round(d.hp * hpMul), hp: 0,
-      dmg: d.dmg * sc.dmg * bf.dmg * (elite ? GD.BALANCE.ELITE_DMG : 1), speed: d.speed * U.rand(0.92, 1.08), range: d.range, cd: d.cd,
+      dmg: d.dmg * sc.dmg * bf.dmg * (d.boss ? GD.BALANCE.BOSS_DMG : 1) * (elite ? GD.BALANCE.ELITE_DMG : 1), speed: d.speed * U.rand(0.92, 1.08), range: d.range, cd: d.cd,
       size: d.size * (elite ? 1.3 : 1), atkT: U.rand(0, d.cd), facing: Math.atan2(WORLD.CY - y, WORLD.CX - x),
       status: {}, target: null, targetId: 'tower', retargetT: 0, attackAnim: 0, auraT: 0, charging: null,
       abil: (d.abilities || []).map((a) => ({ ...a, t: a.cd * 0.5 }))
@@ -292,7 +293,9 @@ module.exports = {
       }
       case 'summon': {
         if (this.mobs.length > this.settings.maxAliveMobs) return;
-        const n = ab.count + Math.floor(this.heroes.size / 10);
+        // invocations proportionnées à la taille de l'équipe (petit groupe = moins de renforts)
+        const hn = this.heroes.size;
+        const n = Math.max(1, Math.round(ab.count * Math.min(1, Math.max(0.4, hn / 8)))) + Math.floor(hn / 10);
         for (let i = 0; i < n; i++) {
           const a = (i / n) * Math.PI * 2;
           this.spawnMob(ab.mob, m.x + Math.cos(a) * (m.size + 20), m.y + Math.sin(a) * (m.size + 20), {});
