@@ -8,11 +8,33 @@
   const { WORLD, NET, MOBS, MOB_IDS, CLASSES, UPGRADES } = GD;
   const HF = NET.HF, MF = NET.MF;
   const cv = document.getElementById('view');
-  const ctx = cv.getContext('2d');
-  const FONT_T = '"Cinzel", Georgia, serif';
-  const FONT_B = '"Nunito", system-ui, sans-serif';
+  const mainCtx = cv.getContext('2d');
+  let ctx = mainCtx;
+
+  /* ----------------------------- styles graphiques (à l'essai : /stream?style=...) -----------------------------
+   * hd      : ancien rendu (sprites simples), via /stream?style=hd
+   * detail  : rendu par défaut — héros détaillés, tour et bâtiments en 3/4, monstres en pixel art
+   * pixel   : mêmes sprites, rendu en pixel art ×2, couleurs vives
+   * eclat   : mêmes sprites, lueurs et halos lumineux (bloom léger) sur les sorts, projectiles et boss
+   */
+  const STYLES = {
+    hd: {},
+    detail: { rich: true, glow: 0.8, scale: 1.08 },
+    pixel: { rich: true, px: 2, glow: 1, pixelFont: true, scale: 1.12, nums: 1.3, filter: 'saturate(1.2) contrast(1.05)' },
+    eclat: { rich: true, bloom: 0.3, glow: 1.3, scale: 1.08, nums: 1.2, filter: 'saturate(1.15)' }
+  };
+  const STYLE_ID = new URLSearchParams(location.search).get('style') || 'detail';
+  const STYLE = STYLES[STYLE_ID] || STYLES.hd;
+  if (STYLE.rich) A.setDetail(true);
+  const FONT_T = STYLE.pixelFont ? '"Silkscreen", "Pixelify Sans", monospace' : '"Cinzel", Georgia, serif';
+  const FONT_B = STYLE.pixelFont ? '"Pixelify Sans", monospace' : '"Nunito", system-ui, sans-serif';
+  const layer = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const PX = STYLE.px || 1;
+  const smallW = Math.round(WORLD.W / PX), smallH = Math.round(WORLD.H / PX);
+  const smC = PX > 1 ? layer(smallW, smallH) : null, smX = smC && smC.getContext('2d');
+  const STYLE_SCALE = STYLE.scale || 1;
   // Échelle d'affichage (purement visuelle) des personnages et des monstres
-  const HERO_SCALE = 1.3, MOB_SCALE = 1.2;
+  const HERO_SCALE = 1.3 * STYLE_SCALE, MOB_SCALE = 1.2 * STYLE_SCALE;
 
   /* ----------------------------- mise à l'échelle ----------------------------- */
   function fit() {
@@ -211,8 +233,10 @@
   }
 
   function draw() {
+    ctx = mainCtx;
     ctx.save();
-    if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    const sx = shake > 0 ? (Math.random() - 0.5) * shake : 0, sy = shake > 0 ? (Math.random() - 0.5) * shake : 0;
+    ctx.translate(sx, sy);
     if (terrain) ctx.drawImage(terrain.canvas, 0, 0);
     else { ctx.fillStyle = P.biome.prairie.ground[0]; ctx.fillRect(0, 0, WORLD.W, WORLD.H); }
     if (terrain) A.drawLavaGlow(ctx, terrain.lava, time);
@@ -235,12 +259,144 @@
 
     drawZones(1);
     for (const p of snap.p) A.drawProjectile(ctx, NET.PROJ_KINDS[p[0]], p[1], p[2], p[3] / 100, time);
-    drawFx();
+    if (STYLE.glow) drawGlows();
+    drawFx(false);
+    ctx.restore();
+    post();
+    ctx.save();
+    ctx.translate(sx, sy);
+    drawFx(true);
     drawAmbient();
     drawLabels();
-    drawVignette();
     ctx.restore();
+    drawVignette();
+    if (STYLE.grain) drawGrain();
     drawHud();
+  }
+
+  /* ----------------------------- post-traitement des styles ----------------------------- */
+  function post() {
+    const W = WORLD.W, H = WORLD.H;
+    if (PX > 1) {
+      smX.imageSmoothingEnabled = true;
+      smX.globalCompositeOperation = 'copy';
+      smX.drawImage(cv, 0, 0, smallW, smallH);
+      smX.globalCompositeOperation = 'source-over';
+      if (STYLE.aberr) aberrate(smC, STYLE.aberr);
+      mainCtx.save();
+      mainCtx.imageSmoothingEnabled = false;
+      if (STYLE.filter) mainCtx.filter = STYLE.filter;
+      mainCtx.drawImage(smC, 0, 0, W, H);
+      mainCtx.restore();
+    } else {
+      if (STYLE.bloom) bloom();
+      if (STYLE.aberr) aberrate(cv, STYLE.aberr);
+      if (STYLE.filter) { mainCtx.save(); mainCtx.filter = STYLE.filter; mainCtx.globalCompositeOperation = 'copy'; mainCtx.drawImage(cv, 0, 0); mainCtx.restore(); }
+    }
+    if (STYLE.lights) drawLights();
+  }
+
+  // Aberration chromatique : le rouge et le bleu sont décalés de part et d'autre
+  const abCache = new Map();
+  function aberrate(canvas, off) {
+    const w = canvas.width, h = canvas.height, key = w + 'x' + h;
+    if (!abCache.has(key)) abCache.set(key, [layer(w, h), layer(w, h)]);
+    const [r, b] = abCache.get(key);
+    const tint = (c, col) => {
+      const x = c.getContext('2d');
+      x.globalCompositeOperation = 'copy'; x.drawImage(canvas, 0, 0);
+      x.globalCompositeOperation = 'multiply'; x.fillStyle = col; x.fillRect(0, 0, w, h);
+    };
+    tint(r, '#ff0000'); tint(b, '#0000ff');
+    const x = canvas.getContext('2d');
+    x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
+    x.globalCompositeOperation = 'multiply'; x.fillStyle = '#00ff00'; x.fillRect(0, 0, w, h);
+    x.globalCompositeOperation = 'lighter'; x.drawImage(r, off, 0); x.drawImage(b, -off, 0);
+    x.restore();
+  }
+
+  // Bloom : copie floue et réduite ajoutée par-dessus (les zones claires « bavent » de lumière)
+  let bloomC = null;
+  function bloom() {
+    if (!bloomC) bloomC = layer(WORLD.W / 4, WORLD.H / 4);
+    const b = bloomC.getContext('2d');
+    b.globalCompositeOperation = 'copy';
+    b.filter = 'blur(4px) brightness(0.75) contrast(2.2)';
+    b.drawImage(cv, 0, 0, bloomC.width, bloomC.height);
+    b.filter = 'none';
+    mainCtx.save();
+    mainCtx.globalCompositeOperation = 'screen'; mainCtx.globalAlpha = STYLE.bloom;
+    mainCtx.drawImage(bloomC, 0, 0, WORLD.W, WORLD.H);
+    mainCtx.restore();
+  }
+
+  // Obscurité percée par les sources de lumière (tour, héros, projectiles, boss)
+  let lightC = null;
+  function drawLights() {
+    const k = 1 / 8;
+    if (!lightC) lightC = layer(WORLD.W * k, WORLD.H * k);
+    const l = lightC.getContext('2d');
+    l.globalCompositeOperation = 'copy';
+    l.fillStyle = 'rgba(6,5,14,0.8)'; l.fillRect(0, 0, lightC.width, lightC.height);
+    l.globalCompositeOperation = 'destination-out';
+    const hole = (x, y, r, a) => {
+      const g = l.createRadialGradient(x * k, y * k, 0, x * k, y * k, r * k);
+      g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(0.6, `rgba(0,0,0,${a * 0.7})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+      l.fillStyle = g; l.fillRect((x - r) * k, (y - r) * k, r * 2 * k, r * 2 * k);
+    };
+    hole(WORLD.CX, WORLD.CY, 380 + Math.sin(time * 3) * 8, 1);
+    for (const h of heroes.values()) if (!(h.f & HF.DEAD)) hole(h.x, h.y - 20, 190, 0.9);
+    for (const p of snap.p) hole(p[1], p[2], 60, 0.7);
+    for (const m of mobs.values()) if (m.row[5] & MF.BOSS) hole(m.x, m.y - 30, 200, 0.6);
+    for (const z of snap.z) { const kind = NET.ZONE_KINDS[z[0]]; if (kind === 'lava' || kind === 'toxic' || kind === 'fire') hole(z[1], z[2], z[3] * 1.1, 0.55); }
+    mainCtx.save();
+    mainCtx.imageSmoothingEnabled = true;
+    mainCtx.drawImage(lightC, 0, 0, WORLD.W, WORLD.H);
+    mainCtx.restore();
+  }
+
+  // Grain de pellicule
+  let grainC = null;
+  function drawGrain() {
+    if (!grainC) {
+      grainC = layer(256, 256);
+      const g = grainC.getContext('2d'), img = g.createImageData(256, 256);
+      for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+      g.putImageData(img, 0, 0);
+      grainC.pattern = mainCtx.createPattern(grainC, 'repeat');
+    }
+    mainCtx.save();
+    mainCtx.globalAlpha = STYLE.grain; mainCtx.globalCompositeOperation = 'overlay';
+    mainCtx.translate(-Math.random() * 256, -Math.random() * 256);
+    mainCtx.fillStyle = grainC.pattern; mainCtx.fillRect(0, 0, WORLD.W + 256, WORLD.H + 256);
+    mainCtx.restore();
+  }
+
+  // Halo lumineux additif sous les projectiles, les élites et les boss (façon « bullet heaven »)
+  function drawGlows() {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const G = STYLE.glow;
+    const halo = (x, y, r, color, a) => {
+      r *= G;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, A.rgba(color, a)); g.addColorStop(1, A.rgba(color, 0));
+      ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    };
+    const PC = { arrow: '#ffe7a0', bolt: '#9fd3ff', orb: '#c58cff', ice: '#bfe6ff', ballista: '#ffe7a0', fire: '#ff9a3c', frost: '#bfe6ff', poison: '#9dff6a', holy: '#fff3a0', rock: '#d9b98a' };
+    for (const p of snap.p) {
+      const kind = NET.PROJ_KINDS[p[0]] || '';
+      const key = Object.keys(PC).find((k) => kind.includes(k));
+      halo(p[1], p[2], 24, key ? PC[key] : '#ffffff', 0.45);
+    }
+    for (const m of mobs.values()) {
+      const f = m.row[5];
+      if (f & MF.BOSS) halo(m.x, m.y - 30, 110, '#ff4d6d', 0.18 + 0.06 * Math.sin(time * 3));
+      else if (f & MF.ELITE) halo(m.x, m.y - 14, 34, '#ffd34d', 0.22);
+    }
+    for (const h of heroes.values()) if (h.f & HF.ULT) halo(h.x, h.y - 20, 60, '#ffffff', 0.22);
+    halo(WORLD.CX, WORLD.CY - 66, 40, '#ffd76a', 0.35); // fenêtre de la tour
+    ctx.restore();
   }
 
   function drawHeroEnt(id, h) {
@@ -276,7 +432,7 @@
     if (!ally && f & MF.BURN && Math.random() < 0.15) fx.push({ k: 'part', x: m.x, y: m.y - size, vx: 0, vy: -60, dur: 0.4, t: 0, color: P.fx.burn, size: 3 });
     if (!ally && f & MF.POISON && Math.random() < 0.1) fx.push({ k: 'part', x: m.x, y: m.y - size, vx: 0, vy: -40, dur: 0.5, t: 0, color: P.fx.poison, size: 3 });
     if (!ally && f & MF.SLOW) { ctx.fillStyle = A.rgba(P.fx.frost, 0.35); ctx.beginPath(); ctx.ellipse(m.x, m.y, size, size * 0.35, 0, 0, Math.PI * 2); ctx.fill(); }
-    if (r[4] < 100 && !boss) bar(m.x - size, m.y - size * 2.2 - 6, size * 2, 4, r[4] / 100, ally ? P.ui.ok : elite ? P.ui.gold : P.ui.danger);
+    if (r[4] < 100 && !boss) bar(m.x - size, m.y - size * A.mobTop(type) - 6, size * 2, 4, r[4] / 100, ally ? P.ui.ok : elite ? P.ui.gold : P.ui.danger);
   }
 
   // Vignettage léger (pré-calculé) pour donner de la profondeur
@@ -287,7 +443,7 @@
       vignette.width = WORLD.W; vignette.height = WORLD.H;
       const v = vignette.getContext('2d');
       const g = v.createRadialGradient(WORLD.CX, WORLD.CY, WORLD.H * 0.45, WORLD.CX, WORLD.CY, WORLD.W * 0.62);
-      g.addColorStop(0, 'rgba(20,12,30,0)'); g.addColorStop(1, 'rgba(20,12,30,0.38)');
+      g.addColorStop(0, 'rgba(20,12,30,0)'); g.addColorStop(1, `rgba(8,4,16,${STYLE.vig || 0.38})`);
       v.fillStyle = g; v.fillRect(0, 0, WORLD.W, WORLD.H);
     }
     ctx.drawImage(vignette, 0, 0);
@@ -413,8 +569,9 @@
     ctx.restore();
   }
 
-  function drawFx() {
+  function drawFx(textLayer) {
     for (const f of fx) {
+      if ((f.k === 'num' || f.k === 'text') !== textLayer) continue;
       const k = f.t / f.dur;
       ctx.save();
       switch (f.k) {
@@ -422,7 +579,7 @@
           ctx.globalAlpha = 1 - k; ctx.fillStyle = f.color; ctx.fillRect(f.x - f.size / 2, f.y - f.size / 2, f.size, f.size); break;
         case 'num': {
           ctx.globalAlpha = 1 - k * k;
-          const size = f.c === 1 ? 22 : f.c === 2 ? 16 : 14;
+          const size = Math.round((f.c === 1 ? 22 : f.c === 2 ? 16 : 14) * (STYLE.nums || 1));
           ctx.font = `900 ${size}px ${FONT_B}`; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
           const y = f.y - k * 30;
           const s = (f.c === 2 ? '+' : f.c >= 3 ? '-' : '') + f.v;

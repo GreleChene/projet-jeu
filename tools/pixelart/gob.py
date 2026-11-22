@@ -1,0 +1,62 @@
+PAL = {
+  'h': '#2a5219', 'H': '#3f7a2a', 'G': '#5c9e3a', 'g': '#78b84a',
+  'D': '#0f1f09', 'S': '#8fd14f', 's': '#6aa83a', 'L': '#b9ea78',
+  'Y': '#f5c518', 'y': '#c99a10', 'k': '#120c0a', 'W': '#ffffff', 'r': '#7a2a2a',
+  'B': '#6b4a30', 'b': '#4a3220', 'T': '#8f6a44', 'A': '#c9a040',
+  'M': '#c3c8cf', 'm': '#7d828b', 'w': '#7a5534', 'n': '#9a7550',
+}
+BASE = [
+ "     hh",
+ "     hHh   hhhh",
+ "      hHhhhHHHHhh",
+ "      hHHHHGGGHHHh",
+ "       hHGGGggGGHHh",
+ "      hHGGgggggGHHHh",
+ "     hHGGgggGGGGHHHh",
+ "     hHGggGGGGHHHHHHh",
+ "    hHGGgGGGHHHHDDDDHh",
+ "    hHGGGGGHHHDDDDDDDDh",
+ "    hHGGGGHHHDDLLLSSSSDh",
+ "   hHGGGGHHHDDLSSSSSSSDh",
+ "   hHGGGGHHHDSWYYSSWYYSh",
+ "   hHGGGHHHHDSYYYkSYYYkh",
+ "   hHGGGHHHHDSyYYkSyYYkh",
+ "   hHGGHHHHHDSSyySSSyySh",
+ "   hHGGHHHHHDDSSSSSSSSSh",
+ "  hHHGHHHHHHHDSSrkkrSSh",
+ "  hHHHHHHHHHHHDDSSSSDDh",
+ "  hhHHHHHHHHHHHHDDDDHh",
+ "  sShhHHHHHHHHHHHHHHh",
+ " sSSShbBBBTTTTBBBbhSSS",
+ " sSSs bBBTTTTTTBBbsSSSSSmmM",
+ " sSs  bBBBBBBBBBBbsSSSSnwMMMMMMm",
+ "  ss  bbbbbbAAbbbb  sSnmmmmmmmk",
+ "      bBBBBBBBBBBb",
+ "      bBTbBBTbBBTb",
+ "      sSSS    sSSS",
+ "     sSSSb    bSSSs",
+ "    bBbBb      bBbBb",
+ "   bBTBBBb    bBTBBBb",
+ "   bbbbbbb    bbbbbbb",
+]
+WALK2 = {
+ 27: "       sSSS  sSSS",
+ 28: "       sSSSbbSSSs",
+ 29: "      bBbBbbBbBb",
+ 30: "     bBTBBBbBTBBBb",
+ 31: "     bbbbbbbbbbbbb",
+}
+ATK = {
+ 22: " sSSs bBBTTTTTTBBbsSSSSSSSSmmM",
+ 23: " sSs  bBBBBBBBBBBbsSSSSSSSnwMMMMMMm",
+ 24: "  ss  bbbbbbAAbbbb  sSSSSnmmmmmmmk",
+}
+ARCH = {
+ 21: " sSSShbBBBTTTTBBBbhSSS  w",
+ 22: " sSSs bBBTTTTTTBBbsSSSSwW",
+ 23: " sSs  bBBBBBBBBBBbsSSSSwW",
+ 24: "  ss  bbbbbbAAbbbb  sSSwW",
+ 25: "      bBBBBBBBBBBb     wW",
+ 26: "      bBTbBBTbBBTb    w",
+}
+SPRITES = {'goblin': {'base': BASE, 'frames': [{}, WALK2, ATK, ARCH]}}

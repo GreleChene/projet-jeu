@@ -169,9 +169,17 @@ shared/             partagé serveur ↔ navigateur
   terrain.js        génération déterministe du terrain et des biomes
 public/
   js/art.js         toute la direction artistique (un seul module de dessin)
+  js/sprites.js     sprites pixel art des monstres (GÉNÉRÉ par tools/pixelart)
   js/stream.js      écran du stream    js/player.js  page joueur    js/admin.js  admin
 test/               tests du moteur (npm test)
+tools/pixelart/     sources des sprites pixel art des monstres (Python + Pillow)
 ```
+
+### Graphismes
+
+- **Rendu par défaut** (`/stream`) : héros détaillés (visage, bras, coiffures), tour en pierre avec bannières et torches, habitations en vue 3/4, **monstres en pixel art** dessinés pixel par pixel. Les monstres, la tour et les bâtiments sont pré-rendus en cache par étape d'animation, ce qui garde le stream fluide même avec des centaines de monstres.
+- **Variantes** : `/stream?style=hd` (ancien rendu simple), `?style=pixel` (tout l'écran pixelisé), `?style=eclat` (lueurs et halo lumineux).
+- **Modifier un monstre** : les sprites sont décrits dans `tools/pixelart/` (`gob.py`, `s_beasts.py`, `s_giants.py`, `s_corrupt.py`, `s_inferno.py`, `s_casters.py`). `python3 build.py wolf,golem apercu.png` produit une planche d'aperçu, `python3 export.py` régénère `public/js/sprites.js`. Les variantes de couleur (loup des neiges, golem d'obsidienne…) sont des palettes dans les mêmes fichiers.
 
 **Cohérence graphique.** Toutes les couleurs viennent de `GameData.PALETTE`, et tous les dessins passent par `public/js/art.js`. Le style est le même partout : aplats, contour sombre unique, ombre portée et proportions « chibi ». Le stream, les aperçus de la page joueur et la boutique utilisent les mêmes fonctions de dessin.
 
