@@ -932,7 +932,8 @@ class Game {
       }
       const def = GD.BUILDINGS.find((x) => x.family === family) || GD.BUILDINGS[1];
       const pos = GD.placeBuilding(family, [...r.buildings, ...this.nodes]);
-      const b = { id: this.nid++, owners: [h.id], family, name: def.name, ...pos, hp: 0, max: 0, size: 28, isBuilding: true, special: 0, fireT: 1, trapT: 0 };
+      const variant = GD.BUILDING_VARIANTS[h.cls];
+      const b = { id: this.nid++, owners: [h.id], family, variant: variant ? variant.key : null, name: variant ? variant.name : def.name, ...pos, hp: 0, max: 0, size: 28, isBuilding: true, special: 0, fireT: 1, trapT: 0 };
       this.recomputeBuilding(b, true);
       r.buildings.push(b);
       if (this.phase !== 'lobby') this.fx(['bbuild', Math.round(b.x), Math.round(b.y)]);
@@ -1065,7 +1066,7 @@ class Game {
       pact: r.pactActive ? 1 : r.pactNext ? 2 : 0,
       // habitations : [index du type, x, y, PV %, nids des occupants]
       era: GD.eraFor(r.mode, Math.max(1, r.wave)).name, mi: this.modeInfo(),
-      bd: r.buildings.map((b) => [BUILDING_INDEX[b.family], Math.round(b.x), Math.round(b.y), Math.ceil((100 * b.hp) / b.max), b.owners.map((id) => (this.heroes.get(id) || {}).nid)]),
+      bd: r.buildings.map((b) => [BUILDING_INDEX[b.family], Math.round(b.x), Math.round(b.y), Math.ceil((100 * b.hp) / b.max), b.owners.map((id) => (this.heroes.get(id) || {}).nid), b.variant || 0]),
       jn: this.canJoin() ? (Number.isFinite(r.joinUntil) ? Math.ceil((r.joinUntil - Date.now()) / 1000) : -1) : 0,
       bosses, h: heroes, m: mobs, a: allies, p: proj, z: zones, e: ev
     };

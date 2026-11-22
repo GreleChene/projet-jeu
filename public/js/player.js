@@ -704,7 +704,8 @@
         ctx.clearRect(0, 0, w, h);
         const fam = GD.familyOf(me.cls);
         ctx.save(); ctx.translate(w / 2, h * 0.78); ctx.scale(1.9, 1.9);
-        window.Art.drawBuilding(ctx, fam, 0, 0, { hp: 1, t, color: GD.CLASSES[fam].color });
+        const v = GD.BUILDING_VARIANTS[me.cls];
+        window.Art.drawBuilding(ctx, v ? v.key : fam, 0, 0, { hp: 1, t, color: GD.CLASSES[fam].color });
         ctx.restore();
         window.Art.drawHero(ctx, w / 2 + 70, h * 0.86, { cls: me.cls, look: me.look, gear: myGear(), t, scale: 1.4, moving: false, facing: Math.PI });
       }
@@ -714,7 +715,7 @@
 
   function renderHouse() {
     const fam = GD.familyOf(me.cls);
-    const def = GD.BUILDINGS.find((b) => b.family === fam) || GD.BUILDINGS[1];
+    const def = GD.BUILDING_VARIANTS[me.cls] || GD.BUILDINGS.find((b) => b.family === fam) || GD.BUILDINGS[1];
     const hs = GD.houseOf(me);
     $('#houseTitle').textContent = `Mon habitation : ${def.name}`;
     $('#houseGold').replaceChildren(hail(), `${me.gold} Grêlons`);

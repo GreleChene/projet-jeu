@@ -223,9 +223,9 @@
     const list = [];
     list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, hp: snap.tw[0] / snap.tw[1] }) });
     // habitations des héros : [type, x, y, PV %, nid du propriétaire]
-    for (const [ti, bx, by, hp] of snap.bd || []) {
+    for (const [ti, bx, by, hp, , variant] of snap.bd || []) {
       const def = GD.BUILDINGS[ti], fam = GD.CLASSES[def.family];
-      list.push({ y: by + 4, d: () => { ctx.save(); ctx.translate(bx, by); ctx.scale(0.82, 0.82); A.drawBuilding(ctx, def.family, 0, 0, { hp: hp / 100, t: time + bx, color: fam ? fam.color : P.ui.gold }); ctx.restore(); } });
+      list.push({ y: by + 4, d: () => { ctx.save(); ctx.translate(bx, by); ctx.scale(0.82, 0.82); A.drawBuilding(ctx, variant || def.family, 0, 0, { hp: hp / 100, t: time + bx, color: fam ? fam.color : P.ui.gold }); ctx.restore(); } });
     }
     for (const [id, h] of heroes) list.push({ y: h.y, d: () => drawHeroEnt(id, h) });
     for (const m of mobs.values()) list.push({ y: m.y, d: () => drawMobEnt(m, false) });

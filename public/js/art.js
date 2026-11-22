@@ -616,6 +616,32 @@
         rrect(ctx, 26, -8, 16, 14, 4, '#e2c56a', 1.8); // botte de foin
         flag(-30, -30, o.color);
         break;
+      case 'mine': { // mine : butte rocheuse, entrée étayée, wagonnet de minerai
+        poly(ctx, [-40, 6, -32, -26, -12, -40, 12, -42, 32, -26, 40, 6], S[1], 2.5);
+        poly(ctx, [-26, -18, -10, -32, 6, -30], S[0], 1.5);
+        ctx.beginPath(); ctx.moveTo(-13, 6); ctx.lineTo(-13, -14); ctx.arc(0, -14, 13, Math.PI, 0); ctx.lineTo(13, 6); ctx.closePath(); fillStroke(ctx, '#1d1626', 2);
+        line(ctx, -15, 6, -15, -16, W[1], 3); line(ctx, 15, 6, 15, -16, W[1], 3); line(ctx, -17, -17, 17, -17, W[1], 3);
+        line(ctx, 14, 8, 46, 8, S[2], 1.5);
+        rrect(ctx, 24, -6, 18, 11, 2, W[2], 1.6);
+        poly(ctx, [26, -6, 30, -12, 35, -8, 40, -12, 41, -6], '#f2c14e', 1.2);
+        circle(ctx, 28, 6, 2.5, S[3], 1); circle(ctx, 38, 6, 2.5, S[3], 1);
+        circle(ctx, 0, -40, 3, '#ffd76a', 1.2); // lanterne
+        break;
+      }
+      case 'scierie': { // scierie : cabane en rondins, tas de bûches, lame de scie
+        rrect(ctx, -30, -30, 50, 36, 3, W[0], 2.5);
+        ctx.strokeStyle = 'rgba(29,22,38,.35)'; ctx.lineWidth = 1.4;
+        for (let y = -24; y < 6; y += 6) { ctx.beginPath(); ctx.moveTo(-29, y); ctx.lineTo(19, y); ctx.stroke(); }
+        poly(ctx, [-36, -28, -5, -50, 26, -28], W[2], 2.5);
+        rrect(ctx, -12, -16, 14, 22, 2, W[2], 2);
+        for (const [lx, ly] of [[28, 2], [38, 2], [33, -7]]) { circle(ctx, lx, ly, 5, '#c99a5b', 1.6); circle(ctx, lx, ly, 2, W[1], 0.01); }
+        ctx.save(); ctx.translate(-30, -6); ctx.rotate(t * 2);
+        circle(ctx, 0, 0, 8, '#d8dde3', 1.6);
+        ctx.fillStyle = OL; for (let i = 0; i < 8; i++) { ctx.rotate(Math.PI / 4); ctx.fillRect(7, -1, 3, 2); }
+        ctx.restore();
+        circle(ctx, -30, -6, 2, S[2], 1);
+        break;
+      }
       case 'habitant': { // chaumière + fumée
         rrect(ctx, -26, -26, 52, 32, 4, '#e8dcc0', 2.5);
         ctx.beginPath(); ctx.moveTo(-34, -22); ctx.quadraticCurveTo(0, -60, 34, -22); ctx.closePath(); fillStroke(ctx, '#d9b85a', 2.5);

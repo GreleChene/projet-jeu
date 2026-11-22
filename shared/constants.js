@@ -229,7 +229,7 @@
   // Emplacements possibles : anneaux autour de la tour, y compris au nord (la tour peut alors les cacher en partie,
   // mais jamais entièrement : le corps de la tour reste dégagé)
   const BUILDING_SPOTS = [];
-  for (let d = 150; d <= 380; d += 46) {
+  for (let d = 115; d <= 300; d += 46) {
     const step = Math.max(6, (66 / (d * 1.1)) * (180 / Math.PI));
     for (let a = 0; a < 360; a += step) {
       const p = ellipsePos(a, d);
@@ -238,13 +238,27 @@
       BUILDING_SPOTS.push({ a, d, ...p });
     }
   }
-  // Choisit un emplacement libre au hasard (les classes sont mélangées), sans chevaucher les habitations existantes
+  // Classes de soutien (ferme, mine, scierie, chaumière) : au plus près de la tour
+  const SUPPORT_FAMILIES = ['paysan', 'habitant'];
+  // Choisit un emplacement libre, sans chevaucher les habitations existantes : les classes de soutien prennent
+  // l'anneau libre le plus proche de la tour ; les autres un emplacement au hasard (classes mélangées), un peu plus loin.
   function placeBuilding(family, taken, rnd) {
+    const r = rnd || Math.random;
     const free = BUILDING_SPOTS.filter((s) => !taken.some((t) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2 < 62 * 62));
-    if (!free.length) return ellipsePos(Math.random() * 360, 420);
-    const s = free[Math.floor((rnd || Math.random)() * free.length)];
+    if (!free.length) return ellipsePos(r() * 360, 340);
+    let pool;
+    if (SUPPORT_FAMILIES.includes(family)) {
+      const dmin = Math.min(...free.map((s) => s.d));
+      pool = free.filter((s) => s.d === dmin);
+    } else {
+      pool = free.filter((s) => s.d > 115);
+      if (!pool.length) pool = free;
+    }
+    const s = pool[Math.floor(r() * pool.length)];
     return { x: s.x, y: s.y };
   }
+  // Variante d'habitation selon la spécialisation (les paysans spécialisés ont leur propre bâtiment)
+  const BUILDING_VARIANTS = { mineur: { key: 'mine', name: 'Mine' }, bucheron: { key: 'scierie', name: 'Scierie' } };
   /*
    * Améliorations d'habitation (achetées avec des Grêlons, conservées d'une partie à l'autre).
    * PV : s'additionnent quand l'habitation est partagée. Soin : moyenne des occupants (pas de double soin).
@@ -463,7 +477,7 @@
   /* IA personnalisable                                                  */
   /* ------------------------------------------------------------------ */
   const AI_OPTIONS = {
-    stance: { offensive: 'Offensive (chasse partout)', balanced: 'Équilibrée', defensive: 'Défensive (près de la tour)' },
+    stance: { offensive: 'Offensive (chasse partout)', balanced: 'Équilibrée', defensive: 'Défensive (près de la tour)', home: 'Garde de son habitation (reste près d’elle)' },
     target: { nearest: 'Le plus proche', weakest: 'Le plus faible', strongest: 'Le plus fort (élites, boss)', tower: 'Ceux qui attaquent la tour' },
     retreat: { 0: 'Jamais', 25: 'Sous 25% PV', 50: 'Sous 50% PV' },
     ult: { asap: 'Dès qu’il est prêt', smart: 'Au bon moment (groupe / urgence)', boss: 'Garder pour les boss' }
@@ -620,5 +634,5 @@
     for (const [k, v] of Object.entries(overrides || {})) { try { setPath(k.split('.'), v); } catch (e) { /* chemin obsolète */ } }
   }
 
-  return { MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

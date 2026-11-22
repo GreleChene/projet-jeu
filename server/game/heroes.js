@@ -48,6 +48,14 @@ module.exports = {
 
   heroIdle(h, dt, speedMul) {
     const st = h.ai.stance;
+    if (st === 'home') {
+      // garde de son habitation : tourne autour d'elle
+      const b = this.buildingOfHero(h) || { x: WORLD.CX, y: WORLD.CY };
+      h.idleAngle += dt * 0.4;
+      const tx = b.x + Math.cos(h.idleAngle) * 42, ty = b.y + 20 + Math.sin(h.idleAngle) * 16;
+      if ((h.x - tx) ** 2 + (h.y - ty) ** 2 > 64) this.moveToward(h, tx, ty, h.speed * 0.7 * speedMul, dt);
+      return;
+    }
     let r = st === 'defensive' ? 115 : st === 'offensive' ? 290 : 195;
     r = Math.min(r, h.leash - 20);
     h.idleAngle += dt * 0.03;
@@ -183,7 +191,7 @@ module.exports = {
     }
 
     // Paysans : récolte quand aucune menace proche
-    if (c.harvest && (!t || U.dist(h, t) > 260)) {
+    if (c.harvest && ai.stance !== 'home' && (!t || U.dist(h, t) > 260)) {
       this.harvest(h, c, dt, speed);
       h.atkT -= dt;
       this.clampHero(h);
@@ -215,6 +223,9 @@ module.exports = {
     const leash = h.leash + h.range;
     const hunt = st === 'offensive' ? 5000 : st === 'balanced' ? 520 : 0;
     const defR = st === 'defensive' ? 360 : 420;
+    // garde de son habitation : seulement les ennemis proches d'elle
+    const home = st === 'home' ? this.buildingOfHero(h) || { x: WORLD.CX, y: WORLD.CY } : null;
+    const homeR = 230 + h.range;
     let best = null, bs = Infinity;
     for (const m of this.mobs) {
       if (m.hp <= 0) continue;
@@ -223,7 +234,8 @@ module.exports = {
       if (m.x < -10 || m.y < -10 || m.x > WORLD.W + 10 || m.y > WORLD.H + 10) continue;
       const dh = Math.sqrt((m.x - h.x) ** 2 + (m.y - h.y) ** 2);
       const dTower = Math.sqrt(dt2);
-      if (dh > hunt && dTower > defR) continue;
+      if (home) { if ((m.x - home.x) ** 2 + (m.y - home.y) ** 2 > homeR * homeR) continue; }
+      else if (dh > hunt && dTower > defR) continue;
       let s;
       switch (pr) {
         case 'weakest': s = m.hp + dh * 0.15; break;
