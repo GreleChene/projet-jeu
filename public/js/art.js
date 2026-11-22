@@ -1082,22 +1082,13 @@
       line(ctx, -26, -150, 26, -150, P.wood[0], 3);
       line(ctx, 0, -158, 0, -142, S[3], 2);
     }
-    // toit
-    poly(ctx, [-34, -138, 0, -205, 34, -138], '#7a2e3a', 3);
-    if (RICH) {
-      // tuiles en écailles
-      ctx.save(); ctx.beginPath(); ctx.moveTo(-34, -138); ctx.lineTo(0, -205); ctx.lineTo(34, -138); ctx.closePath(); ctx.clip();
-      ctx.strokeStyle = rgba(OL, 0.4); ctx.lineWidth = 1.2;
-      for (let r = 0; r < 8; r++) { const yy = -140 - r * 8; for (let i = -5; i <= 5; i++) { ctx.beginPath(); ctx.arc(i * 8 + (r % 2) * 4, yy, 4, 0, Math.PI); ctx.stroke(); } }
-      ctx.fillStyle = 'rgba(255,255,255,.14)'; ctx.beginPath(); ctx.moveTo(-34, -138); ctx.lineTo(0, -205); ctx.lineTo(-8, -138); ctx.closePath(); ctx.fill();
-      ctx.restore();
-      ctx.beginPath(); ctx.moveTo(-34, -138); ctx.lineTo(0, -205); ctx.lineTo(34, -138); ctx.closePath(); ctx.lineWidth = 3; ctx.strokeStyle = OL; ctx.stroke();
-      circle(ctx, 0, -206, 3.5, P.ui.gold, 1.4);
-    }
-    // drapeau
-    line(ctx, 0, -205, 0, -232, P.wood[2], 2);
+    // toit (seulement dans l'ancien rendu ; en rendu détaillé la tour est couronnée de ses créneaux)
+    if (!RICH) poly(ctx, [-34, -138, 0, -205, 34, -138], '#7a2e3a', 3);
+    // drapeau (au sommet du toit, ou planté sur les créneaux en rendu détaillé)
+    const fb = RICH ? -140 : -205;
+    line(ctx, 0, fb, 0, fb - 27, P.wood[2], 2);
     const wave = Math.sin(t * 4) * 3;
-    poly(ctx, [0, -232, 22, -228 + wave, 0, -220], up.banner > 0 ? P.ui.gold : P.capes[0], 1.6);
+    poly(ctx, [0, fb - 27, 22, fb - 23 + wave, 0, fb - 15], up.banner > 0 ? P.ui.gold : P.capes[0], 1.6);
     // autel arcanique
     if (up.shrine > 0) {
       ctx.save(); ctx.globalAlpha = 0.5 + Math.sin(t * 3) * 0.3;
@@ -1793,5 +1784,5 @@
     ctx.restore();
   }
 
-  window.Art = { setDetail, mobTop, heroPortrait, drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
+  window.Art = { setDetail, mobTop, heroPortrait, heroTop: (s) => 29 * Math.max(1, Math.round(s * 1.45)), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
 })();

@@ -34,7 +34,9 @@
   const smC = PX > 1 ? layer(smallW, smallH) : null, smX = smC && smC.getContext('2d');
   const STYLE_SCALE = STYLE.scale || 1;
   // Échelle d'affichage (purement visuelle) des personnages et des monstres
-  const HERO_SCALE = 1.3 * STYLE_SCALE, MOB_SCALE = 1.2 * STYLE_SCALE;
+  // en rendu détaillé (pixel art), héros et monstres sont nettement agrandis pour rester lisibles sur le stream
+  const HERO_SCALE = STYLE.rich ? 2.1 : 1.3 * STYLE_SCALE, MOB_SCALE = STYLE.rich ? 1.55 : 1.2 * STYLE_SCALE, GRAVE_SCALE = 1.3 * STYLE_SCALE;
+  const HERO_TOP = STYLE.rich ? A.heroTop(HERO_SCALE) : 52;
 
   /* ----------------------------- mise à l'échelle ----------------------------- */
   function fit() {
@@ -402,16 +404,16 @@
   function drawHeroEnt(id, h) {
     const info = roster.get(id);
     if (!info) return;
-    if (h.f & HF.DEAD) { ctx.save(); ctx.translate(h.x, h.y); ctx.scale(HERO_SCALE, HERO_SCALE); A.drawGrave(ctx, 0, 0, time); ctx.restore(); return; }
+    if (h.f & HF.DEAD) { ctx.save(); ctx.translate(h.x, h.y); ctx.scale(GRAVE_SCALE, GRAVE_SCALE); A.drawGrave(ctx, 0, 0, time); ctx.restore(); return; }
     if (h.f & HF.ULT) {
       ctx.save(); ctx.globalAlpha = 0.35 + 0.2 * Math.sin(time * 6);
-      ctx.beginPath(); ctx.ellipse(h.x, h.y + 1, 21, 8, 0, 0, Math.PI * 2); ctx.fillStyle = CLASSES[info.cls].color; ctx.fill(); ctx.restore();
+      ctx.beginPath(); ctx.ellipse(h.x, h.y + 1, HERO_TOP * 0.42, HERO_TOP * 0.16, 0, 0, Math.PI * 2); ctx.fillStyle = CLASSES[info.cls].color; ctx.fill(); ctx.restore();
     }
     A.drawHero(ctx, h.x, h.y, {
       cls: info.cls, look: info.look, gear: info.gear, facing: h.facing, t: time, seed: h.seed, scale: HERO_SCALE, moving: h.moving,
       attack: Math.max(0, h.attackT), zombie: !!(h.f & HF.ZOMBIE), stealth: !!(h.f & HF.STEALTH)
     });
-    if (h.f & HF.SHIELD) { ctx.save(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(h.x, h.y - 21, 28, 0, Math.PI * 2); ctx.strokeStyle = P.fx.frost; ctx.lineWidth = 3; ctx.stroke(); ctx.restore(); }
+    if (h.f & HF.SHIELD) { ctx.save(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(h.x, h.y - HERO_TOP * 0.42, HERO_TOP * 0.56, 0, Math.PI * 2); ctx.strokeStyle = P.fx.frost; ctx.lineWidth = 3; ctx.stroke(); ctx.restore(); }
     if (h.f & HF.FURY && Math.random() < 0.3) fx.push({ k: 'part', x: h.x + (Math.random() - 0.5) * 16, y: h.y - 10, vx: 0, vy: -60, dur: 0.4, t: 0, color: P.fx.burn, size: 3 });
     if (h.f & HF.POISON && Math.random() < 0.15) fx.push({ k: 'part', x: h.x + (Math.random() - 0.5) * 16, y: h.y - 20, vx: 0, vy: -40, dur: 0.5, t: 0, color: P.fx.poison, size: 3 });
     if (h.f & HF.BURN && Math.random() < 0.2) fx.push({ k: 'part', x: h.x + (Math.random() - 0.5) * 16, y: h.y - 20, vx: 0, vy: -70, dur: 0.4, t: 0, color: P.fx.burn, size: 3 });
@@ -478,7 +480,7 @@
       const info = roster.get(id);
       if (!info) continue;
       const dead = h.f & HF.DEAD;
-      const y = h.y - (dead ? 38 : 64);
+      const y = h.y - (dead ? 38 : HERO_TOP + 12);
       ctx.globalAlpha = dead ? 0.6 : h.f & HF.STEALTH ? 0.45 : 1;
       ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
       ctx.strokeText(info.name, h.x, y);
