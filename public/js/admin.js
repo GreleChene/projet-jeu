@@ -49,6 +49,8 @@
     if (action === 'start') {
       if (!confirm('Lancer une nouvelle partie ? La partie en cours sera remplacée.')) return;
       body.wave = Number($('#startWave').value) || 1;
+      body.mode = $('#startMode').value;
+      body.difficulty = $('#startDiff').value;
     }
     if (action === 'stop' && !confirm('Arrêter la partie en cours ?')) return;
     if (action === 'wave') body.wave = Number($('#gotoWave').value) || 1;
@@ -70,7 +72,7 @@
     $('#runState').replaceChildren(
       el('div', { class: 'stats3' },
         el('div', { class: 'stat' }, el('b', {}, PHASES[r.phase] + (r.paused ? ' ⏸' : '')), el('span', { class: 'small muted' }, 'état')),
-        el('div', { class: 'stat' }, el('b', {}, r.wave), el('span', { class: 'small muted' }, r.era)),
+        el('div', { class: 'stat' }, el('b', {}, `${r.wave}/${r.maxWave}`), el('span', { class: 'small muted' }, `${r.modeName} · ${r.difficultyName} · ${r.era}`)),
         el('div', { class: 'stat' }, el('b', {}, r.mobs), el('span', { class: 'small muted' }, 'ennemis')),
         el('div', { class: 'stat' }, el('b', {}, `${r.tower.hp}`), el('span', { class: 'small muted' }, `PV tour / ${r.tower.max}`)),
         el('div', { class: 'stat' }, el('b', {}, '🪙 ' + r.treasury), el('span', { class: 'small muted' }, 'écus de l’équipe')),

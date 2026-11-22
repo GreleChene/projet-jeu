@@ -180,3 +180,25 @@ test('Infirmerie niveau 6 : deux héros réanimés par manche', () => {
   g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
   assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 2);
 });
+
+test('partie rapide : 35 manches, boss et terrain accélérés, 1 zone max ; difficultés', () => {
+  const GD = require('../shared/constants');
+  const g = makeGame();
+  for (let i = 0; i < 3; i++) g.addBot({ cls: 'archer', level: 20 });
+  g.startRun(1, { mode: 'quick', difficulty: 'difficile' });
+  assert.strictEqual(g.maxWave(), 35);
+  g.setWave(10);
+  assert.ok(g.run.bossPending.includes('treant_colossal') && g.run.uprooted, 'manche 10 = déracinement + Tréant colossal');
+  g.setWave(15);
+  assert.ok(g.terrain.frost === 1 && g.terrain.poison > 0.3, 'corruption à chaque manche');
+  for (const w of [20, 25, 30, 33]) { g.setWave(w); assert.ok(g.zones.filter((z) => ['ice', 'toxic', 'lava'].includes(z.kind)).length <= 1); }
+  g.setWave(35);
+  assert.deepStrictEqual(g.run.bossPending.sort(), ['geant_magma', 'mere_spore', 'treant_colossal']);
+  const hard = g.scaling(30).hp;
+  g.run.difficulty = 'facile';
+  assert.ok(g.scaling(30).hp < hard * 0.6, 'monstres plus faibles en facile');
+  // récompenses : facile + rapide < normal + classique
+  const [h] = [...g.heroes.values()];
+  h.runXp = 0; g.reward(h, 100, 100);
+  assert.ok(Math.abs(h.runXp - 100 * GD.MODES.quick.rewards * GD.DIFFICULTIES.facile.rewards) <= 1);
+});

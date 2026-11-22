@@ -40,6 +40,10 @@
           <h2>Partie</h2>
           <div id="runState"></div>
           <div class="row" style="margin-top:12px">
+            <select id="startMode" style="width:auto"><option value="classic">Classique (100 manches)</option><option value="quick">Partie rapide (35 manches)</option></select>
+            <select id="startDiff" style="width:auto"><option value="facile">🟢 Facile</option><option value="normal" selected>🟡 Normal</option><option value="difficile">🔴 Difficile</option></select>
+          </div>
+          <div class="row" style="margin-top:8px">
             <button class="primary" data-act="start">▶️ Lancer une partie</button>
             <label style="margin:0">dès la manche</label><input id="startWave" type="number" min="1" max="100" value="1" style="width:80px">
           </div>

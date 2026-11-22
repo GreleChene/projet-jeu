@@ -39,6 +39,12 @@
    * État visuel du terrain d'après la dernière manche terminée.
    * Chaque ère compte 6 boss (manches 5,10,…,30) : chaque boss vaincu fait avancer la couche d'1/6.
    */
+  // Partie rapide : le terrain avance à chaque manche (ères de 10 manches, puis chaos à partir de la 30e)
+  function terrainStateQuick(cleared, uprooted) {
+    const p = (from) => Math.max(0, Math.min(1, (cleared - (from - 1)) / 10));
+    return { frost: p(1), poison: p(11), fire: p(21), mix: cleared >= 30, uprooted: !!uprooted };
+  }
+
   function terrainState(cleared, uprooted) {
     const step = (from) => Math.max(0, Math.min(6, Math.floor((Math.min(cleared, from + 29) - (from - 1)) / 5))) / 6;
     return {
@@ -137,5 +143,5 @@
     return rivers;
   }
 
-  return { COLS, ROWS, hash2, valueNoise, mulberry32, terrainState, tileDepth, tileBiome, tileDecor, frostTrees, resourceNodes, lavaRivers };
+  return { COLS, ROWS, hash2, valueNoise, mulberry32, terrainState, terrainStateQuick, tileDepth, tileBiome, tileDecor, frostTrees, resourceNodes, lavaRivers };
 });

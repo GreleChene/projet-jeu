@@ -27,7 +27,7 @@ const L = {
 const COL = {
   hp: 'PV', dmg: 'Dégâts', range: 'Portée', cd: 'Recharge (s)', speed: 'Vitesse', armor: 'Armure', crit: 'Critique', leash: 'Distance max tour',
   size: 'Taille', xp: 'XP', gold: 'Grêlons', from: 'Dès la manche', w: 'Fréquence', p: 'Probabilité', mult: 'Multiplicateur', recycle: 'Recyclage (× prix glaçon)',
-  cost: 'Coût (écus)', growth: 'Hausse du coût', max: 'Niveau max', unlock: 'Débloqué à (écus gagnés)', per: 'Effet par niveau'
+  cost: 'Coût (écus)', growth: 'Hausse du coût', max: 'Niveau max', unlock: 'Débloqué à (écus gagnés)', per: 'Effet par niveau', mobHp: 'PV des monstres ×', mobDmg: 'Dégâts des monstres ×', mobCount: 'Nombre de monstres ×', rewards: 'Récompenses (XP, Grêlons) ×', hazardMax: 'Zones dangereuses max'
 };
 
 const numKeys = (o) => Object.keys(o).filter((k) => typeof o[k] === 'number');
@@ -44,6 +44,8 @@ function schema() {
   const setFields = [];
   for (const [id, s] of Object.entries(GD.SETS)) for (const [n, b] of Object.entries(s.bonus)) for (const k of Object.keys(b)) setFields.push({ path: ['SETS', id, 'bonus', n, k], label: `${s.name} — ${n} pièces : ${GD.STAT_NAMES[k]} (+)` });
   return [
+    { id: 'difficulty', title: '🎚️ Difficultés', note: 'Choisies par l’admin au lancement d’une partie. 1 = normal.', ...table('DIFFICULTIES', Object.keys(GD.DIFFICULTIES), ['mobHp', 'mobDmg', 'mobCount', 'rewards'], (id) => `${GD.DIFFICULTIES[id].icon} ${GD.DIFFICULTIES[id].name}`) },
+    { id: 'modes', title: '⚡ Modes de partie', note: 'Partie rapide : 35 manches (10-10-10-5).', ...table('MODES', Object.keys(GD.MODES), ['rewards', 'hazardMax'], (id) => GD.MODES[id].name) },
     { id: 'general', title: '⚙️ Général', type: 'fields', fields: fields('BALANCE', Object.keys(GD.BALANCE)) },
     { id: 'progression', title: '📈 Progression', type: 'fields', fields: fields('PROGRESSION', numKeys(GD.PROGRESSION)) },
     { id: 'attributes', title: '📊 Points de stat (effet par point)', type: 'fields', fields: GD.ATTR_IDS.map((a) => ({ path: ['ATTRIBUTES', a, 'per'], label: `${GD.ATTRIBUTES[a].icon} ${GD.ATTRIBUTES[a].name} (${GD.ATTRIBUTES[a].what})` })) },

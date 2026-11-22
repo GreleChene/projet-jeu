@@ -143,6 +143,7 @@
         el('div', { class: 'stat' }, el('b', {}, '🪙 ' + r.treasury), el('span', { class: 'small muted' }, 'écus de l’équipe'))
       ),
       el('p', {}, `${PHASES[r.phase] || r.phase}${r.paused ? ' (pause)' : ''}${r.phase === 'intermission' ? ` · prochaine manche dans ${r.timer}s` : ''}${r.phase === 'wave' ? ` · ${r.mobs} ennemis` : ''}`),
+      r.phase !== 'lobby' ? el('p', { class: 'small' }, `${r.modeName} · ${(GD.DIFFICULTIES[r.difficulty] || {}).icon || ''} ${r.difficultyName} · manche ${r.wave}/${r.maxWave}`) : '',
       el('p', { class: 'small muted' }, r.era + (r.phase !== 'lobby' && !r.voting ? ` · prochain vote après la manche ${r.nextVote}` : '')),
       el('label', {}, 'Tour'),
       el('div', { class: 'bar' + (r.tower.hp / r.tower.max < 0.3 ? ' red' : '') }, el('span', { style: `width:${(100 * r.tower.hp) / r.tower.max}%` }), el('div', { class: 'label' }, `${r.tower.hp} / ${r.tower.max}`)),
@@ -760,6 +761,11 @@
       sec('🏰 Le but du jeu', el('p', {}, 'Une tour se dresse au centre de l’écran. Des vagues de monstres arrivent de tous les bords : si la tour (200 PV au départ) tombe, la partie est perdue. Il y a 100 manches à survivre.'),
         el('p', {}, 'Quand tu rejoins une bataille, la classe, les statistiques, les compétences, l’équipement et l’habitation de ton héros sont figés jusqu’à la fin de la partie (l’apparence et l’IA restent modifiables). Toutes les récompenses de la partie (XP, Grêlons, glaçons) sont versées à la fin de la partie, ou quand ton héros la quitte.'),
         el('p', {}, 'Ton héros se bat tout seul grâce à son IA. Toi, tu choisis sa classe, ses statistiques, son équipement et son comportement depuis ce site, et tu votes avec l’équipe.')),
+      sec('⚡ Modes et difficultés', ul([
+        `Classique : ${GD.MODES.classic.waves} manches, le terrain change après chaque boss (toutes les 5 manches).`,
+        `Partie rapide : ${GD.MODES.quick.waves} manches en 4 ères (10 givre, 10 corruption, 10 feu, 5 chaos) ; le terrain se corrompt à chaque manche, une seule zone dangereuse à la fois, monstres et boss accélérés ; récompenses ×${GD.MODES.quick.rewards}.`,
+        ...Object.values(GD.DIFFICULTIES).map((d) => `${d.icon} ${d.name} : monstres ×${d.mobHp} PV, ×${d.mobDmg} dégâts, ×${d.mobCount} nombre ; récompenses (XP, Grêlons) ×${d.rewards}.`),
+        'L’admin choisit le mode et la difficulté au lancement de chaque partie.'])),
       sec('🧬 Classes', el('p', {}, `Tout le monde commence Habitant, avec un arbre d’initiation (une compétence liée à chaque classe). Au niveau ${PR.CLASS_LEVEL}, choisis ta classe : son initiation est conservée, les points des autres te sont rendus. Tu gagnes 1 point de compétence tous les ${PR.SKILL_EVERY} niveaux. L’arbre de ta classe a une branche par spécialisation : 5 compétences passives (3 rangs), l’ultime au bout (niveau ${PR.ULT_LEVEL} requis, il te fait devenir la spécialisation), puis une maîtrise. Dès que tu places un point dans une branche, les autres se bloquent. La reconversion remet tout à zéro (changement de classe possible) mais fait perdre ${Math.round(PR.SKILL_RESPEC_LOSS * 100)}% des points attribués.`),
         ul(GD.BASE_CLASSES.map((b) => [el('b', { style: `color:${GD.CLASSES[b].color}` }, GD.CLASSES[b].name), ` → ${GD.specsOf(b).map((s) => `${GD.CLASSES[s].name} (${GD.CLASSES[s].ultName})`).join(' / ')}${GD.CLASSES[b].leash ? ` · reste à moins de ${GD.CLASSES[b].leash} px de la tour` : ''}`]))),
       sec('📊 Niveaux & statistiques', el('p', {}, `Les éliminations et les manches passées rapportent de l’XP. Monter de niveau n’augmente pas directement les statistiques : chaque niveau donne ${PR.POINTS_PER_LEVEL} point de stat à répartir librement (réinitialisation gratuite) et ${PR.GLACONS_PER_LEVEL} glaçon 🧊. Seuls les points de stat et l’équipement renforcent ton héros :`),

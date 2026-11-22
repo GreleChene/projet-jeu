@@ -27,21 +27,24 @@ module.exports = {
     return pool;
   },
 
+  // w = manche équivalente du mode classique (voir eqWave)
   scaling(w) {
     const B = GD.BALANCE;
+    const D = GD.DIFFICULTIES[this.run.difficulty] || GD.DIFFICULTIES.normal;
     const n = Math.max(1, this.heroes.size);
     const diff = this.settings.difficulty;
     const pact = this.run.pactActive ? 1.5 : 1;
     return {
-      hp: (1 + B.WAVE_HP_LINEAR * (w - 1) + B.WAVE_HP_QUAD * (w - 1) ** 2) * diff * pact * (1 + B.HP_PER_HERO * (n - 1)),
-      dmg: (1 + B.WAVE_DMG * (w - 1)) * Math.sqrt(diff) * (1 + B.DMG_PER_HERO * (n - 1)),
+      hp: (1 + B.WAVE_HP_LINEAR * (w - 1) + B.WAVE_HP_QUAD * (w - 1) ** 2) * D.mobHp * diff * pact * (1 + B.HP_PER_HERO * (n - 1)),
+      dmg: (1 + B.WAVE_DMG * (w - 1)) * D.mobDmg * Math.sqrt(diff) * (1 + B.DMG_PER_HERO * (n - 1)),
       bossHp: B.BOSS_HP_BASE + B.BOSS_HP_PER_HERO * Math.min(n, 80),
-      count: Math.min(B.MOB_COUNT_HERO_CAP, 1 + B.MOB_COUNT_PER_HERO * (n - 1)) * pact * Math.sqrt(diff)
+      count: Math.min(B.MOB_COUNT_HERO_CAP, 1 + B.MOB_COUNT_PER_HERO * (n - 1)) * pact * D.mobCount * Math.sqrt(diff)
     };
   },
 
-  buildWave(w) {
+  buildWave(realWave) {
     const r = this.run;
+    const w = this.eqWave(realWave); // partie rapide : manche équivalente du mode classique
     const sc = this.scaling(w);
     const pool = this.mobPool(w);
     // au-delà de MAX_WAVE_MOBS, on renforce les monstres au lieu d'en ajouter
@@ -80,7 +83,7 @@ module.exports = {
     if (r.queue.length && r.spawnT <= 0 && this.mobs.length < this.settings.maxAliveMobs) {
       r.spawnT = r.packInterval;
       const a = Math.random() * Math.PI * 2;
-      const sc = this.scaling(r.wave);
+      const sc = this.scaling(this.eqWave(r.wave));
       for (let i = 0; i < r.packSize && r.queue.length; i++) {
         const q = r.queue.pop();
         const p = this.edgePoint(a + U.rand(-0.15, 0.15));
@@ -104,7 +107,7 @@ module.exports = {
 
   spawnMob(type, x, y, opts = {}) {
     const d = MOBS[type];
-    const sc = opts.sc || this.scaling(Math.max(1, this.run.wave));
+    const sc = opts.sc || this.scaling(this.eqWave(Math.max(1, this.run.wave)));
     const elite = !!opts.elite && !d.boss;
     const hpMul = sc.hp * (d.boss ? sc.bossHp : this.run.hpBoost || 1) * (elite ? GD.BALANCE.ELITE_HP : 1);
     const m = {

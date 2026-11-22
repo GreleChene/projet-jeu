@@ -506,10 +506,15 @@
   function drawHud() {
     const s = snap;
     if (!s) return;
-    const era = GD.eraOfWave(Math.max(1, s.w));
+    const era = { name: s.era || GD.eraOfWave(Math.max(1, s.w)).name };
+    const mi = s.mi || { maxWave: 100, mode: 'classic', difficulty: 'normal' };
     // bandeau central
     panel(WORLD.CX - 330, 14, 660, 104);
-    const title = s.ph === 'lobby' ? 'EN ATTENTE' : `MANCHE ${s.w}`;
+    const title = s.ph === 'lobby' ? 'EN ATTENTE' : `MANCHE ${s.w} / ${mi.maxWave}`;
+    if (s.ph !== 'lobby' && (mi.mode !== 'classic' || mi.difficulty !== 'normal')) {
+      const D = GD.DIFFICULTIES[mi.difficulty] || {};
+      era.name += `  ·  ${mi.mode === 'quick' ? '⚡ Partie rapide' : 'Classique'} · ${D.name || ''}`;
+    }
     text(title, WORLD.CX, 54, 32, P.ui.gold, 'center');
     text(s.ph === 'lobby' ? 'Préparez vos héros !' : era.name + (s.pact === 1 ? '  ·  💀 PACTE DE SANG' : ''), WORLD.CX, 78, 16, s.pact === 1 ? P.ui.danger : P.ui.muted, 'center', 'b');
     bar(WORLD.CX - 300, 90, 600, 16, s.tw[0] / s.tw[1], s.tw[0] / s.tw[1] < 0.3 ? P.ui.danger : P.ui.ok);

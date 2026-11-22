@@ -560,6 +560,33 @@
     { id: 'fire', name: 'Les Terres brûlées', from: 61, to: 90 },
     { id: 'mix', name: 'Le Chaos', from: 91, to: 100 }
   ];
+  /*
+   * Modes de partie et difficultés (choisis par l'admin au lancement).
+   * Partie rapide : 35 manches en 4 ères de 10-10-10-5 ; le terrain se corrompt à chaque manche ;
+   * une seule zone dangereuse à la fois ; récompenses un peu moins intéressantes.
+   */
+  const MODES = {
+    classic: { name: 'Classique', waves: 100, rewards: 1, hazardMax: 99 },
+    quick: { name: 'Partie rapide', waves: 35, rewards: 0.85, hazardMax: 1 }
+  };
+  const DIFFICULTIES = {
+    facile: { name: 'Facile', icon: '🟢', mobHp: 0.7, mobDmg: 0.75, mobCount: 0.85, rewards: 0.7 },
+    normal: { name: 'Normal', icon: '🟡', mobHp: 1, mobDmg: 1, mobCount: 1, rewards: 1 },
+    difficile: { name: 'Difficile', icon: '🔴', mobHp: 1.45, mobDmg: 1.3, mobCount: 1.2, rewards: 1.4 }
+  };
+  // Manche « équivalente » du mode classique (monstres, boss, puissance) : en partie rapide,
+  // chaque ère de 10 manches couvre une ère classique de 30 manches ; les 5 dernières couvrent 91-100.
+  function equivalentWave(mode, w) {
+    if (mode !== 'quick') return w;
+    if (w <= 30) { const era = Math.ceil(w / 10) - 1, i = w - era * 10; return era * 30 + i * 3; }
+    return 90 + (w - 30) * 2;
+  }
+  // Ère affichée pour une manche (partie rapide : 1-10, 11-20, 21-30, 31-35)
+  function eraFor(mode, w) {
+    if (mode !== 'quick') return eraOfWave(w);
+    return ERAS[Math.min(3, Math.floor((Math.max(1, w) - 1) / 10))];
+  }
+
   const eraOfWave = (w) => ERAS.find((e) => w >= e.from && w <= e.to) || ERAS[ERAS.length - 1];
 
   /* Codes réseau compacts (instantanés serveur -> écran) */
@@ -571,7 +598,7 @@
   };
 
   // Modifie une valeur d'équilibrage (chemin = ['MOBS', 'gobelin', 'hp'])
-  const ROOTS = () => ({ BALANCE, PROGRESSION, ATTRIBUTES, GLACONS, RARITIES, CLASSES, MOBS, UPGRADES, TEMPLATES, SETS, HOUSE_UPGRADES, HOUSE_SPECIALS });
+  const ROOTS = () => ({ MODES, DIFFICULTIES, BALANCE, PROGRESSION, ATTRIBUTES, GLACONS, RARITIES, CLASSES, MOBS, UPGRADES, TEMPLATES, SETS, HOUSE_UPGRADES, HOUSE_SPECIALS });
   function getPath(path) {
     let o = ROOTS()[path[0]];
     for (let i = 1; i < path.length && o != null; i++) o = o[path[i]];
@@ -586,5 +613,5 @@
     for (const [k, v] of Object.entries(overrides || {})) { try { setPath(k.split('.'), v); } catch (e) { /* chemin obsolète */ } }
   }
 
-  return { HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

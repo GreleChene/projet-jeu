@@ -75,7 +75,9 @@ class Game {
       timer: 0, // compte à rebours de l'entracte
       vote: null,
       joinUntil: 0,
-      startedAt: Date.now()
+      startedAt: Date.now(),
+      mode: this.nextMode || 'classic', // classic | quick
+      difficulty: this.nextDifficulty || 'normal' // facile | normal | difficile
     };
     this.nodes = Terrain.resourceNodes(this.run.seed);
     this.mobs = []; this.allies = []; this.projectiles = []; this.zones = [];
@@ -84,7 +86,7 @@ class Game {
   }
 
   terrainChanged() {
-    this.terrain = Terrain.terrainState(this.run.cleared, this.run.uprooted);
+    this.terrain = this.run.mode === 'quick' ? Terrain.terrainStateQuick(this.run.cleared, this.run.uprooted) : Terrain.terrainState(this.run.cleared, this.run.uprooted);
     this.terrainVersion = (this.terrainVersion || 0) + 1;
   }
 
@@ -111,10 +113,20 @@ class Game {
 
   closeJoin() { this.run.joinUntil = 0; this.pushFeed('Les inscriptions à la bataille sont fermées.'); }
 
-  startRun(fromWave = 1) {
+  maxWave() { return (GD.MODES[this.run.mode] || GD.MODES.classic).waves; }
+  eqWave(w) { return GD.equivalentWave(this.run.mode, w); }
+  modeInfo() {
+    const M = GD.MODES[this.run.mode] || GD.MODES.classic, D = GD.DIFFICULTIES[this.run.difficulty] || GD.DIFFICULTIES.normal;
+    return { mode: this.run.mode, modeName: M.name, difficulty: this.run.difficulty, difficultyName: D.name, maxWave: M.waves };
+  }
+
+  // opts : { mode: 'classic' | 'quick', difficulty: 'facile' | 'normal' | 'difficile' }
+  startRun(fromWave = 1, opts = {}) {
+    if (opts.mode && GD.MODES[opts.mode]) this.nextMode = opts.mode;
+    if (opts.difficulty && GD.DIFFICULTIES[opts.difficulty]) this.nextDifficulty = opts.difficulty;
     this.removePlayerHeroes();
     this.resetRun();
-    this.run.cleared = Math.max(0, Math.min(99, (fromWave | 0) - 1));
+    this.run.cleared = Math.max(0, Math.min(this.maxWave() - 1, (fromWave | 0) - 1));
     this.run.wave = this.run.cleared;
     // si on démarre plus loin (test), on donne quelques écus et d'améliorations cohérentes
     if (this.run.cleared > 0) this.run.treasury = this.run.wealthEarned = this.run.cleared * 25;
@@ -161,12 +173,12 @@ class Game {
   }
 
   setWave(n) {
-    n = U.clamp(n | 0, 1, 100);
+    n = U.clamp(n | 0, 1, this.maxWave());
     this.mobs = []; this.projectiles = []; this.zones = [];
     this.run.queue = []; this.run.bossPending = [];
     this.run.cleared = n - 1;
     this.run.wave = n - 1;
-    this.run.uprooted = n > 30;
+    this.run.uprooted = this.eqWave(n) > 30;
     this.terrainChanged();
     if (this.phase === 'lobby' || this.phase === 'gameover' || this.phase === 'victory') this.phase = 'intermission';
     this.closeVote(true);
@@ -324,7 +336,8 @@ class Game {
 
   // Gain d'XP et de Grêlons (monnaie personnelle persistante)
   reward(h, xp, gold) {
-    const mult = (1 + 0.2 * this.run.upgrades.banner) * (this.run.pactActive ? 2 : 1);
+    const M = GD.MODES[this.run.mode] || GD.MODES.classic, D = GD.DIFFICULTIES[this.run.difficulty] || GD.DIFFICULTIES.normal;
+    const mult = (1 + 0.2 * this.run.upgrades.banner) * (this.run.pactActive ? 2 : 1) * M.rewards * D.rewards;
     xp = Math.round(xp * mult * (h.xpMult || 1)); gold = Math.round(gold * mult);
     // tout est mis de côté et versé à la fin de la partie (payout)
     h.runXp += xp; h.runGold += gold;
@@ -404,23 +417,24 @@ class Game {
     this.phase = 'wave';
     this.buildWave(n);
     this.spawnHazards(n);
-    const era = GD.eraOfWave(n);
-    const boss = BOSS_WAVES[n];
-    if (n === 100) this.announce('MANCHE 100', 'Les trois fléaux se lèvent ensemble…');
-    else if (n === 30) this.announce('MANCHE 30', 'Les arbres se déracinent !');
+    const eq = this.eqWave(n);
+    const era = GD.eraFor(r.mode, n), prevEra = GD.eraFor(r.mode, n - 1);
+    const boss = BOSS_WAVES[eq];
+    if (eq === 100) this.announce(`MANCHE ${n}`, 'Les trois fléaux se lèvent ensemble…');
+    else if (eq === 30) this.announce(`MANCHE ${n}`, 'Les arbres se déracinent !');
     else if (boss) this.announce(`MANCHE ${n}`, 'Un boss approche…');
-    else if (n === era.from) this.announce(`MANCHE ${n}`, era.name);
+    else if (n === 1 || era !== prevEra) this.announce(`MANCHE ${n}`, era.name);
     else this.announce(`MANCHE ${n}`, r.pactActive ? 'Pacte de sang : ennemis renforcés !' : '');
-    if (n === 31) this.pushFeed('La corruption s’étend : attention au poison !');
-    if (n === 61) this.pushFeed('La terre s’embrase…');
+    if (era !== prevEra && era.id === 'poison') this.pushFeed('La corruption s’étend : attention au poison !');
+    if (era !== prevEra && era.id === 'fire') this.pushFeed('La terre s’embrase…');
   }
 
   waveCleared() {
     const r = this.run;
     this.zones = this.zones.filter((z) => !HAZARD_KINDS.includes(z.kind));
     r.cleared = Math.max(r.cleared, r.wave);
-    const wasBoss = !!BOSS_WAVES[r.wave];
-    if (wasBoss) this.terrainChanged();
+    const wasBoss = !!BOSS_WAVES[this.eqWave(r.wave)];
+    if (wasBoss || r.mode === 'quick') this.terrainChanged(); // partie rapide : corruption à chaque manche
     // récompenses de fin de manche
     for (const h of this.heroes.values()) {
       const B = GD.BALANCE;
@@ -440,7 +454,7 @@ class Game {
     const bonus = Math.round((GD.BALANCE.WAVE_ECUS_BASE + r.wave * GD.BALANCE.WAVE_ECUS_PER_WAVE) * (r.pactActive ? 2 : 1));
     this.addTreasury(bonus);
     r.pactActive = false;
-    if (r.wave >= 100) return this.victory();
+    if (r.wave >= this.maxWave()) return this.victory();
     this.phase = 'intermission';
     // Les viewers votent toutes les « voteEvery » manches ; sinon, courte pause
     const voting = this.isVoteWave(r.wave);
@@ -786,7 +800,7 @@ class Game {
   spawnHazards(w) {
     this.zones = this.zones.filter((z) => !HAZARD_KINDS.includes(z.kind));
     const B = GD.BALANCE;
-    const want = Math.min(B.HAZARD_MAX, Math.floor(B.HAZARD_BASE + w * B.HAZARD_PER_WAVE));
+    const want = Math.min(B.HAZARD_MAX, (GD.MODES[this.run.mode] || GD.MODES.classic).hazardMax, Math.floor(B.HAZARD_BASE + this.eqWave(w) * B.HAZARD_PER_WAVE));
     const KIND = { frost: 'ice', poison: 'toxic', fire: 'lava' };
     const placed = [];
     const avoid = [{ x: WORLD.CX, y: WORLD.CY, r: 190 }, ...this.run.buildings.map((b) => ({ x: b.x, y: b.y, r: 60 }))];
@@ -1018,6 +1032,7 @@ class Game {
       vote: r.vote ? { o: r.vote.options, c: this.voteCounts(), cost: Object.fromEntries(r.vote.options.map((o) => [o, UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0])) } : null,
       pact: r.pactActive ? 1 : r.pactNext ? 2 : 0,
       // habitations : [index du type, x, y, PV %, nids des occupants]
+      era: GD.eraFor(r.mode, Math.max(1, r.wave)).name, mi: this.modeInfo(),
       bd: r.buildings.map((b) => [BUILDING_INDEX[b.family], Math.round(b.x), Math.round(b.y), Math.ceil((100 * b.hp) / b.max), b.owners.map((id) => (this.heroes.get(id) || {}).nid)]),
       jn: this.canJoin() ? (Number.isFinite(r.joinUntil) ? Math.ceil((r.joinUntil - Date.now()) / 1000) : -1) : 0,
       bosses, h: heroes, m: mobs, a: allies, p: proj, z: zones, e: ev
@@ -1041,7 +1056,7 @@ class Game {
       upgrades: r.upgrades, heroes: this.heroes.size, mobs: this.mobs.length + r.queue.length + r.bossPending.length,
       canJoin: this.canJoin(), joinEndsAt: Number.isFinite(r.joinUntil) ? r.joinUntil : null,
       voting: !!r.vote, nextVote: this.nextVoteWave(), voteEvery: this.settings.voteEvery,
-      pact: r.pactActive ? 'active' : r.pactNext ? 'next' : null, era: GD.eraOfWave(Math.max(1, r.wave)).name
+      pact: r.pactActive ? 'active' : r.pactNext ? 'next' : null, era: GD.eraFor(r.mode, Math.max(1, r.wave)).name, ...this.modeInfo()
     };
   }
 

@@ -560,7 +560,7 @@ app.get('/api/admin/state', admin, (req, res) => {
 app.post('/api/admin/game/:action', admin, (req, res) => {
   const b = req.body || {};
   switch (req.params.action) {
-    case 'start': game.startRun(b.wave || 1); break;
+    case 'start': game.startRun(b.wave || 1, { mode: b.mode, difficulty: b.difficulty }); break;
     case 'stop': game.stopRun(); break;
     case 'pause': game.paused = true; break;
     case 'resume': game.paused = false; break;

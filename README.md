@@ -106,6 +106,23 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - Porter 2, 4 ou 5 pièces d'un même set donne des bonus. Tout le détail est dans l'onglet **📜 Règles** du site.
 - **Votes d'équipe.** Toutes les **2 manches** (réglable dans l'admin), pendant l'entracte, les joueurs votent pour dépenser les écus de l'équipe (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus d'écus. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
 
+### Modes et difficultés
+
+L'admin choisit le mode et la difficulté au lancement de chaque partie.
+
+| Mode | Manches | Particularités | Récompenses |
+|---|---|---|---|
+| Classique | 100 | le terrain change après chaque boss (toutes les 5 manches) | ×1 |
+| ⚡ Partie rapide | 35 | 4 ères de 10-10-10-5 (givre, corruption, feu, chaos) ; le terrain se corrompt à **chaque manche** ; **1 zone dangereuse max** ; boss aux manches 5, 10 (déracinement + Tréant colossal), 15, 20 (Mère-Spore), 25, 30 (Géant de magma) et 35 (les trois) ; monstres accélérés (chaque manche vaut 3 manches classiques) | ×0,85 |
+
+| Difficulté | PV monstres | Dégâts | Nombre | Récompenses (XP, Grêlons) |
+|---|---|---|---|---|
+| 🟢 Facile | ×0,7 | ×0,75 | ×0,85 | ×0,7 |
+| 🟡 Normal | ×1 | ×1 | ×1 | ×1 |
+| 🔴 Difficile | ×1,45 | ×1,3 | ×1,2 | ×1,4 |
+
+Les difficultés s'appliquent aussi à la partie rapide, et leurs effets se multiplient (partie rapide en facile : récompenses ×0,6). Tous ces multiplicateurs sont réglables dans l'onglet Équilibrage.
+
 ### Progression du terrain
 
 | Manches | Biome | Boss |
