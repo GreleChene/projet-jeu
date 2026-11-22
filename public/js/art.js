@@ -1676,7 +1676,10 @@
     }
 
     // 4. points de récolte
-    for (const n of T.resourceNodes(seed)) drawNode(ctx, n);
+    for (const n of T.resourceNodes(seed)) {
+      if (!RICH) { drawNode(ctx, n); continue; }
+      ctx.save(); ctx.translate(n.x, n.y); ctx.scale(1.5, 1.5); drawNode(ctx, { ...n, x: 0, y: 0 }); ctx.restore();
+    }
 
     // 5. décor (trié par y pour le chevauchement)
     const decor = [];
@@ -1685,7 +1688,14 @@
       if (d) decor.push({ ...d, b: grid[ty][tx], x: (tx + 0.5) * TS + d.ox, y: (ty + 0.5) * TS + d.oy });
     }
     decor.sort((a, b) => a.y - b.y);
-    for (const d of decor) drawDecor(ctx, d, st);
+    // en rendu détaillé, arbres et rochers sont agrandis pour rester à l'échelle des personnages
+    const DK = RICH ? { tree: 1.55, rock: 1.5, small: 1.3 } : null;
+    for (const d of decor) {
+      if (!DK) { drawDecor(ctx, d, st); continue; }
+      ctx.save(); ctx.translate(d.x, d.y); const k = DK[d.kind] || 1.3; ctx.scale(k, k);
+      drawDecor(ctx, { ...d, x: 0, y: 0 }, st);
+      ctx.restore();
+    }
     return { canvas: cv, lava };
   }
 

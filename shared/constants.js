@@ -230,11 +230,12 @@
   // Emplacements possibles : anneaux autour de la tour, y compris au nord (la tour peut alors les cacher en partie,
   // mais jamais entièrement : le corps de la tour reste dégagé)
   const BUILDING_SPOTS = [];
-  for (let d = 115; d <= 300; d += 46) {
-    const step = Math.max(6, (66 / (d * 1.1)) * (180 / Math.PI));
+  // (espacement prévu pour les grandes habitations du rendu détaillé)
+  for (let d = 130; d <= 410; d += 70) {
+    const step = Math.max(6, (100 / (d * 1.1)) * (180 / Math.PI));
     for (let a = 0; a < 360; a += step) {
       const p = ellipsePos(a, d);
-      if (p.x > 905 && p.x < 1015 && p.y > 300 && p.y < 590) continue; // derrière / devant le corps de la tour
+      if (Math.abs(p.x - WORLD.CX) < 125 && p.y > WORLD.CY - 260 && p.y < WORLD.CY + 210) continue; // derrière / devant la tour
       if (p.x < 50 || p.x > WORLD.W - 50 || p.y < 70 || p.y > WORLD.H - 40) continue;
       BUILDING_SPOTS.push({ a, d, ...p });
     }
@@ -245,14 +246,14 @@
   // l'anneau libre le plus proche de la tour ; les autres un emplacement au hasard (classes mélangées), un peu plus loin.
   function placeBuilding(family, taken, rnd) {
     const r = rnd || Math.random;
-    const free = BUILDING_SPOTS.filter((s) => !taken.some((t) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2 < 62 * 62));
-    if (!free.length) return ellipsePos(r() * 360, 340);
+    const free = BUILDING_SPOTS.filter((s) => !taken.some((t) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2 < 95 * 95));
+    if (!free.length) return ellipsePos(r() * 360, 440);
     let pool;
     if (SUPPORT_FAMILIES.includes(family)) {
       const dmin = Math.min(...free.map((s) => s.d));
       pool = free.filter((s) => s.d === dmin);
     } else {
-      pool = free.filter((s) => s.d > 115);
+      pool = free.filter((s) => s.d > 130);
       if (!pool.length) pool = free;
     }
     const s = pool[Math.floor(r() * pool.length)];
