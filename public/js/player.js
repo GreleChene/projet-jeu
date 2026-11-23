@@ -3,7 +3,7 @@
   'use strict';
   const GD = window.GameData, P = GD.PALETTE;
   if (window.Art && window.Art.setDetail) window.Art.setDetail(true); // même rendu que le stream
-  const { api, $, $$, el, toast, heroCanvas, balanceReady, onBalance } = window.UI;
+  const { api, $, $$, el, toast, heroCanvas } = window.UI;
 
   let me = null;
   let live = null; // dernier état envoyé par le serveur
@@ -54,7 +54,7 @@
     location.reload();
   });
 
-  balanceReady.then(() => api('/api/me')).then((d) => start(d.user)).catch(() => $('#auth').classList.remove('hidden'));
+  api('/api/me').then((d) => start(d.user)).catch(() => $('#auth').classList.remove('hidden'));
 
   /* ============================== Démarrage ============================== */
   function start(user) {
@@ -84,9 +84,6 @@
 
   function connect() {
     socket = io({ transports: ['websocket', 'polling'] });
-    // l'admin a modifié l'équilibrage : on rafraîchit l'affichage (stats, règles, prix…)
-    let balT = null;
-    onBalance(socket, () => { clearTimeout(balT); balT = setTimeout(async () => { try { setUser((await api('/api/me')).user); } catch (e) { renderAll(); } }, 300); });
     socket.on('state', (s) => { live = s; renderLive(); });
     // notifications (achat, don, échange…)
     socket.on('notify', async (text) => {

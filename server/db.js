@@ -22,13 +22,13 @@ function legacyPrice(id) {
   return 0;
 }
 
-let data = { users: {}, sessions: {}, settings: {}, market: [], trades: [], balance: {} };
+let data = { users: {}, sessions: {}, settings: {}, market: [], trades: [] };
 let dirty = false;
 
 function load() {
   try {
     data = JSON.parse(fs.readFileSync(config.DATA_FILE, 'utf8'));
-    data.users ||= {}; data.sessions ||= {}; data.settings ||= {}; data.market ||= []; data.trades ||= []; data.balance ||= {};
+    data.users ||= {}; data.sessions ||= {}; data.settings ||= {}; data.market ||= []; data.trades ||= []; delete data.balance; // ancien onglet « Équilibrage » supprimé
     for (const u of Object.values(data.users)) migrateUser(u);
     dirty = true; // enregistre les migrations éventuelles
   } catch (e) {

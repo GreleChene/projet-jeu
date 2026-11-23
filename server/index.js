@@ -12,8 +12,6 @@ const Game = require('./game/engine');
 const GD = require('../shared/constants');
 
 db.load();
-const balance = require('./balance');
-balance.init(db);
 
 // Compte administrateur unique : « admin ». Seul ce compte a accès à l'administration.
 const ADMIN_PSEUDO = 'admin';
@@ -635,19 +633,6 @@ app.delete('/api/admin/users/:id', admin, (req, res) => {
   game.removeHero(req.params.id);
   db.deleteUser(req.params.id);
   res.json({ ok: true });
-});
-
-/* ============================== Équilibrage en direct ============================== */
-// Valeurs modifiées par l'admin (appliquées par chaque page au chargement)
-app.get('/api/balance', (req, res) => res.json({ overrides: db.data.balance }));
-app.get('/api/admin/balance', admin, (req, res) => res.json({ groups: balance.view(db) }));
-app.post('/api/admin/balance', admin, (req, res) => {
-  const { key, value, reset } = req.body || {};
-  const r = balance.set(db, String(key || ''), value, !!reset);
-  if (r.error) return res.status(400).json(r);
-  for (const h of game.heroes.values()) game.refreshHero(h);
-  io.emit('balance', { key: r.key, value: r.value === undefined ? null : r.value });
-  res.json(r);
 });
 
 /* ============================== Fichiers statiques ============================== */

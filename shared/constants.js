@@ -156,7 +156,7 @@
   };
 
   /*
-   * Réglages généraux d'équilibrage (tous modifiables en direct depuis l'admin, onglet Équilibrage)
+   * Réglages généraux d'équilibrage (à modifier ici, dans le code)
    */
   const BALANCE = {
     TOWER_BASE_HP: 200,
@@ -647,21 +647,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128 }
   };
 
-  // Modifie une valeur d'équilibrage (chemin = ['MOBS', 'gobelin', 'hp'])
-  const ROOTS = () => ({ MODES, DIFFICULTIES, BALANCE, PROGRESSION, ATTRIBUTES, GLACONS, RARITIES, CLASSES, MOBS, UPGRADES, TEMPLATES, SETS, HOUSE_UPGRADES, HOUSE_SPECIALS });
-  function getPath(path) {
-    let o = ROOTS()[path[0]];
-    for (let i = 1; i < path.length && o != null; i++) o = o[path[i]];
-    return o;
-  }
-  function setPath(path, value) {
-    let o = ROOTS()[path[0]];
-    for (let i = 1; i < path.length - 1; i++) { if (o[path[i]] == null) o[path[i]] = {}; o = o[path[i]]; }
-    o[path[path.length - 1]] = value;
-  }
-  function applyBalance(overrides) {
-    for (const [k, v] of Object.entries(overrides || {})) { try { setPath(k.split('.'), v); } catch (e) { /* chemin obsolète */ } }
-  }
-
-  return { BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, getPath, setPath, applyBalance, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

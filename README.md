@@ -16,7 +16,7 @@ npm start
 |---|---|---|
 | Joueur | `http://localhost:3000/` | inscription (pseudo + mot de passe), classe, statistiques, armures, IA, votes |
 | Stream | `http://localhost:3000/stream` | **source Navigateur OBS en 1920×1080** (publique, en lecture seule) |
-| Admin | `http://localhost:3000/admin` | lancer, mettre en pause ou arrêter une partie, aller à une manche, régler, bots de test (classe et niveau au choix), comptes (donner de l'XP, des Grêlons ou des glaçons), **onglet Équilibrage** |
+| Admin | `http://localhost:3000/admin` | lancer, mettre en pause ou arrêter une partie, aller à une manche, régler, bots de test (classe et niveau au choix), comptes (donner de l'XP, des Grêlons ou des glaçons) |
 
 **Administration :** au premier démarrage, le compte **`admin`** est créé avec le mot de passe **`123456`**. C'est le **seul** compte qui a accès à `/admin` et à l'API d'administration ; la page redirige tous les autres vers l'accueil, et personne ne peut s'inscrire sous le pseudo « admin ». Change ce mot de passe dès la mise en ligne (onglet « Compte » de la page joueur, connecté en tant qu'`admin`).
 
@@ -67,9 +67,9 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
 
     Pour les effets de bâtiment (Vigie, Pièges), c'est le meilleur niveau des occupants qui compte.
   - Une **reconversion** remet ces améliorations à zéro et rembourse 75 % des Grêlons dépensés.
-  - Coûts et effets sont réglables dans l'onglet Équilibrage.
-- **Zones de biome.** À chaque manche, de petites zones apparaissent au hasard, sur des tuiles du biome correspondant et sans se chevaucher : glace (ralentit les héros), poison (−1 % des PV max toutes les 3 s), lave (−1 % toutes les 2 s). Pendant les manches 91 à 100, les trois types coexistent. Tout est réglable dans l'onglet Équilibrage.
-- **Adaptation au nombre de joueurs.** La puissance des monstres (PV et dégâts), leur nombre et la durée des manches augmentent avec le nombre de héros. Tout est réglable dans l'onglet Équilibrage.
+  - Coûts et effets se règlent dans `shared/constants.js` (`HOUSE_UPGRADES`, `HOUSE_SPECIALS`).
+- **Zones de biome.** À chaque manche, de petites zones apparaissent au hasard, sur des tuiles du biome correspondant et sans se chevaucher : glace (ralentit les héros), poison (−1 % des PV max toutes les 3 s), lave (−1 % toutes les 2 s). Pendant les manches 91 à 100, les trois types coexistent. Tout se règle dans `shared/constants.js` (`BALANCE`).
+- **Adaptation au nombre de joueurs.** La puissance des monstres (PV et dégâts), leur nombre et la durée des manches augmentent avec le nombre de héros (réglages `BALANCE` dans `shared/constants.js`).
 - **Niveaux et statistiques.** Monter de niveau n'augmente pas les statistiques. Chaque niveau rapporte **1 point de stat** (Vie, Force, Défense, Agilité, Vitesse, Critique), réinitialisable gratuitement, et **1 glaçon**. Seuls les points de stat et l'équipement renforcent un héros. Les comptes existants ont reçu rétroactivement 1 glaçon par niveau déjà gagné.
 - **Classes évolutives.** Tout le monde commence *Habitant*. Au niveau 3, le joueur choisit une classe. Au niveau 8, il choisit une spécialisation, qui donne un **ultime** :
   - Soldat → Paladin (tourbillon en cercle) / Chevalier (charge à 200 %)
@@ -122,7 +122,7 @@ L'admin choisit le mode et la difficulté au lancement de chaque partie.
 | 🟡 Normal | ×1 | ×1 | ×1 | ×1 |
 | 🔴 Difficile | ×1,45 | ×1,3 | ×1,2 | ×1,4 |
 
-Les difficultés s'appliquent aussi à la partie rapide, et leurs effets se multiplient (partie rapide en facile : récompenses ×0,6). Tous ces multiplicateurs sont réglables dans l'onglet Équilibrage.
+Les difficultés s'appliquent aussi à la partie rapide, et leurs effets se multiplient (partie rapide en facile : récompenses ×0,6). Tous ces multiplicateurs se règlent dans `shared/constants.js` (`MODES`, `DIFFICULTIES`).
 
 ### Progression du terrain
 
@@ -133,33 +133,11 @@ Les difficultés s'appliquent aussi à la partie rapide, et leurs effets se mult
 | 61–90 | **Terres brûlées** et coulées de lave (décor) | 90 : **Géant de magma** |
 | 91–100 | Mélange des trois terrains, avec tous les monstres | 100 : les trois grands boss ensemble |
 
-## Équilibrage en direct (admin)
-
-L'onglet **📊 Équilibrage** de la page admin affiche toutes les valeurs du jeu et permet de les modifier :
-- les réglages généraux (PV de la tour, croissance des monstres par manche, élites, boss, récompenses, récolte…) ;
-- la progression (niveaux, XP, points et glaçons par niveau) et l'effet de chaque point de stat ;
-- les glaçons (prix, contenu) et les raretés (probabilités, multiplicateurs, recyclage) ;
-- les stats de chaque classe, de chaque monstre et boss, et des capacités des boss ;
-- chaque pièce d'équipement, les bonus de sets et les améliorations de la tour.
-
-Chaque modification est enregistrée dans la base et appliquée **immédiatement** au serveur, aux pages des joueurs et au stream, sans redémarrage ni passage par le code. Un bouton « ↺ » remet la valeur d'origine.
-
-## Simulateur d'équilibrage
-
-```bash
-npm run simulate -- 20 5 10 quick normal smart
-```
-
-Ce simulateur fait jouer 20 parties à 5 bots de niveau 10, en partie rapide normale avec des votes raisonnables, et donne la manche atteinte. Le dernier argument, facultatif, permet d'essayer des valeurs sans toucher au jeu, par exemple `'{"BALANCE.MOB_DMG":0.5}'`.
-
-Calibrage actuel (monstres : +5 % de PV et +2 % de dégâts par manche) : avec 5 joueurs de niveau 10 en partie rapide normale, toutes les parties simulées atteignent la manche 10 (médiane : manche 14).
-
 ## Architecture
 
 ```
 server/             Node.js (Express + Socket.IO)
   index.js          API comptes / joueur / admin, sessions, temps réel
-  balance.js        équilibrage modifiable en direct depuis l'admin
   twitch.js         lecture du chat Twitch (!join, !lier, votes)
   db.js             stockage JSON (écriture atomique)
   game/engine.js    boucle de jeu autoritaire (20 Hz), manches, votes, réseau

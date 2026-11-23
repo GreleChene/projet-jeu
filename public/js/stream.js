@@ -63,9 +63,6 @@
   fetch('/api/info').then((r) => r.json()).then((d) => { if (d.publicUrl) joinUrl = d.publicUrl.replace(/^https?:\/\//, ''); }).catch(() => {});
 
   const socket = io({ transports: ['websocket', 'polling'] });
-  // équilibrage modifié en direct par l'admin (tailles des monstres, noms…)
-  fetch('/api/balance').then((r) => r.json()).then((d) => GD.applyBalance(d.overrides)).catch(() => {});
-  socket.on('balance', (p) => GD.setPath(p.key.split('.'), p.value));
   socket.on('connect', () => socket.emit('watch'));
   socket.on('roster', (r) => { roster = new Map(r.heroes.map((h) => [h.n, h])); });
   socket.on('snap', onSnap);
