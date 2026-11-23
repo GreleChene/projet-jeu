@@ -160,7 +160,7 @@
    */
   const BALANCE = {
     TOWER_BASE_HP: 200,
-    ULT_TIME: 28, // secondes pour charger un ultime
+    ULT_TIME: 60, // secondes pour charger un ultime
     REVIVE_HP: 0.6, // vote « Résurrection » / Infirmerie : part des PV max rendus au héros réanimé
     INFIRMARY_REVIVE_LEVEL: 3, // à partir de ce niveau, l'Infirmerie réanime un héros mort à chaque fin de manche
     INFIRMARY_REVIVE2_LEVEL: 6, // à partir de ce niveau, elle en réanime deux
