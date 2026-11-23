@@ -199,8 +199,8 @@
     WAVE_XP_PER_WAVE: 4,
     WAVE_GRELONS_BASE: 2,
     WAVE_GRELONS_PER_WAVE: 0.5,
-    WAVE_ECUS_BASE: 15, // écus pour l'équipe en fin de manche
-    WAVE_ECUS_PER_WAVE: 3,
+    WAVE_ECUS_BASE: 30, // écus pour l'équipe en fin de manche (de quoi acheter tôt les premières améliorations)
+    WAVE_ECUS_PER_WAVE: 2,
     KILL_ECUS: 0.5, // part de la valeur d'un monstre versée en écus à l'équipe
     HARVEST_INTERVAL: 3, // paysans : une récolte toutes les X secondes
     HARVEST_BASE: 1.5,
@@ -600,7 +600,7 @@
   // Améliorations d'équipe (votées pendant l'entracte avec les écus de la partie)
   const UPGRADES = {
     // toujours proposée au vote (tant qu'elle n'est pas au maximum)
-    walls: { name: 'Remparts', icon: '🧱', get desc() { return `+${Math.round(BALANCE.TOWER_WALLS_PCT * 1000) / 10} % de PV max pour la tour (et autant de soin)`; }, cost: 50, growth: 1.35, max: 15, unlock: 0 },
+    walls: { name: 'Remparts', icon: '🧱', get desc() { return `+${Math.round(BALANCE.TOWER_WALLS_PCT * 1000) / 10} % de PV max pour la tour (et autant de soin)`; }, cost: 30, growth: 1.18, max: 15, unlock: 0 },
     ballista: { name: 'Baliste', icon: '🏹', desc: 'La tour tire sur les ennemis (+1 niveau de baliste)', cost: 80, growth: 1.6, max: 8, unlock: 0 },
     forge: { name: 'Forge', icon: '🔨', desc: '+10% dégâts pour tous les héros', cost: 100, growth: 1.55, max: 10, unlock: 0 },
     infirmary: { name: 'Infirmerie', icon: '⛑️', get desc() { return `Régénération près de la tour ; réanime 1 héros mort par manche dès le niveau ${BALANCE.INFIRMARY_REVIVE_LEVEL}, 2 au niveau ${BALANCE.INFIRMARY_REVIVE2_LEVEL}`; }, cost: 90, growth: 1.6, max: 6, unlock: 0 },
