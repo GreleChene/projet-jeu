@@ -6,7 +6,7 @@
 const GD = require('../shared/constants');
 
 const L = {
-  TOWER_BASE_HP: 'PV de la tour au départ', TOWER_WALLS_HP: 'Vote « Remparts » : PV de tour ajoutés par niveau', ULT_TIME: 'Temps de charge d’un ultime (s)', REVIVE_HP: 'Résurrection (vote / infirmerie) : part des PV max rendus', INFIRMARY_REVIVE_LEVEL: 'Infirmerie : niveau à partir duquel un héros mort est réanimé par manche', INFIRMARY_REVIVE2_LEVEL: 'Infirmerie : niveau à partir duquel deux héros morts sont réanimés par manche',
+  TOWER_BASE_HP: 'PV de la tour au départ', TOWER_WALLS_PCT: 'Vote « Remparts » : part des PV max de la tour ajoutée par niveau (0,02 = +2 %)', FORTIFY_PCT: 'Ultime du Mineur : part des PV max de la tour ajoutée (0,01 = +1 %)', FORTIFY_ULT_TIME: 'Ultime du Mineur : temps de charge (s)', ULT_TIME: 'Temps de charge d’un ultime (s)', REVIVE_HP: 'Résurrection (vote / infirmerie) : part des PV max rendus', INFIRMARY_REVIVE_LEVEL: 'Infirmerie : niveau à partir duquel un héros mort est réanimé par manche', INFIRMARY_REVIVE2_LEVEL: 'Infirmerie : niveau à partir duquel deux héros morts sont réanimés par manche',
   WAVE_HP_LINEAR: 'PV monstres : hausse linéaire par manche', WAVE_HP_QUAD: 'PV monstres : hausse quadratique par manche', WAVE_DMG: 'Dégâts monstres : hausse par manche',
   HP_PER_HERO: 'PV monstres : bonus par héros présent', DMG_PER_HERO: 'Dégâts monstres : bonus par héros présent',
   WAVE_DURATION_BASE: 'Durée d’apparition des monstres : base (s)', WAVE_DURATION_PER_WAVE: 'Durée : en plus par manche (s)', WAVE_DURATION_PER_HERO: 'Durée : en plus par héros (s)', WAVE_DURATION_MAX: 'Durée : maximum (s)', MOB_COUNT_BASE: 'Nombre de monstres : base', MOB_COUNT_PER_WAVE: 'Nombre de monstres : en plus par manche',

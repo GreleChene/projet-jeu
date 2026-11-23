@@ -77,7 +77,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - Éleveur → Dompteur (renforce et soigne ses bêtes) / Nécromancien (relève un allié mort à 75 % de ses PV, qui perd ensuite 1 % de PV par seconde)
   - Archer → Arbalétrier (cadence ×3) / Arc long (3 flèches perforantes à 150 %)
   - Assassin → Ombre (invisible toutes les 10 s, écran de fumée) / Flèche (dash critique toutes les 6 s, dash en chaîne sans limite)
-  - Paysan (récolte les écus de l'équipe) → Agriculteur (soigne les alliés) / Bûcheron (soigne la tour) / Mineur (augmente les PV max de la tour)
+  - Paysan (récolte les écus de l'équipe) → Agriculteur (soigne les alliés) / Bûcheron (soigne la tour) / Mineur (augmente les PV max de la tour de 1 %, ultime plus long à recharger : 75 s)
 - **Personnalisation (onglet 🎨).** Chaque joueur règle son héros en pixel art : couleur de peau (10 teintes, dont orange, rouge, bleu, vert et violet), coiffure (5 styles) et couleur des cheveux, yeux, nez et bouche (5 choix chacun), couleur de cape. Chaque choix est illustré par une vignette du visage ; c'est enregistré aussitôt et visible sur le stream, même en pleine bataille.
 - **IA personnalisable.** Le joueur règle la posture (dont **« Garde de son habitation »** : le héros reste près de sa maison et n'attaque que les monstres qui s'en approchent ; un paysan dans cette posture ne récolte pas), la cible prioritaire, le seuil de retraite et l'usage de l'ultime. Les changements s'appliquent en direct.
 - **Deux monnaies.**
@@ -105,7 +105,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - Un set par famille de classes (5 pièces, arme comprise) : Rempart (soldat), Arcaniste (mage), Maître-bête (éleveur), Œil-de-faucon (archer), Lame-nuit (assassin), Moisson (paysan).
   - Trois sets universels (4 pièces), portables par toutes les classes : Voyageur, Givre éternel, Braise.
   - Porter 2, 4 ou 5 pièces d'un même set donne des bonus. Tout le détail est dans l'onglet **📜 Règles** du site.
-- **Votes d'équipe.** Toutes les **2 manches** en classique (réglable dans l'admin), **à chaque manche** en partie rapide. Le vote **🧱 Remparts** (+60 PV max à la tour, et autant de soin) est toujours proposé tant qu'il n'est pas au niveau maximum (15). Pendant l'entracte, les joueurs votent pour dépenser les écus de l'équipe (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus d'écus. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
+- **Votes d'équipe.** Toutes les **2 manches** en classique (réglable dans l'admin), **à chaque manche** en partie rapide. Le vote **🧱 Remparts** (+2 % de PV max à la tour, et autant de soin) est toujours proposé tant qu'il n'est pas au niveau maximum (15). Pendant l'entracte, les joueurs votent pour dépenser les écus de l'équipe (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus d'écus. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
 
 ### Modes et difficultés
 

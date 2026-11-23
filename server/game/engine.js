@@ -601,7 +601,7 @@ class Game {
     const u = UPGRADES[id];
     this.pushFeed(`${u.icon} ${u.name} niveau ${r.upgrades[id]} !`);
     if (id === 'walls') {
-      const add = GD.BALANCE.TOWER_WALLS_HP;
+      const add = Math.max(1, Math.round(r.tower.max * GD.BALANCE.TOWER_WALLS_PCT));
       r.tower.max += add; r.tower.hp = Math.min(r.tower.max, r.tower.hp + add);
     }
     for (const h of this.heroes.values()) this.refreshHero(h);

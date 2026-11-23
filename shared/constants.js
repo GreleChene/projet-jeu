@@ -65,7 +65,7 @@
     paysan: { name: 'Paysan', tier: 1, parent: 'habitant', color: '#c8a24a', weapon: 'pitchfork', hp: 115, dmg: 7, range: 40, cd: 1.0, speed: 82, armor: 0.03, harvest: 'any', desc: 'Récolte des écus pour débloquer de meilleures améliorations.' },
     agriculteur: { name: 'Agriculteur', tier: 2, parent: 'paysan', color: '#f1c40f', weapon: 'scythe', hp: 135, dmg: 9, range: 42, cd: 1.0, speed: 82, armor: 0.05, harvest: 'field', ult: 'harvestheal', ultName: 'Festin', ultDesc: 'Soigne tous les alliés de 35% de leurs PV max.', desc: 'Les champs nourrissent l’armée.' },
     bucheron: { name: 'Bûcheron', tier: 2, parent: 'paysan', color: '#8b5a2b', weapon: 'axe', hp: 150, dmg: 11, range: 42, cd: 1.05, speed: 80, armor: 0.06, harvest: 'tree', ult: 'towerheal', ultName: 'Réparations', ultDesc: 'Soigne la tour de 12% de ses PV max.', desc: 'Du bois pour réparer les remparts.' },
-    mineur: { name: 'Mineur', tier: 2, parent: 'paysan', color: '#95a5a6', weapon: 'pickaxe', hp: 145, dmg: 10, range: 40, cd: 1.0, speed: 78, armor: 0.08, harvest: 'rock', ult: 'fortify', ultName: 'Fortification', ultDesc: 'Augmente les PV max de la tour de 6%.', desc: 'La pierre rend la tour plus solide.' }
+    mineur: { name: 'Mineur', tier: 2, parent: 'paysan', color: '#95a5a6', weapon: 'pickaxe', hp: 145, dmg: 10, range: 40, cd: 1.0, speed: 78, armor: 0.08, harvest: 'rock', ult: 'fortify', ultName: 'Fortification', get ultDesc() { return `Augmente les PV max de la tour de ${Math.round(BALANCE.FORTIFY_PCT * 1000) / 10} % (recharge ${BALANCE.FORTIFY_ULT_TIME} s).`; }, desc: 'La pierre rend la tour plus solide.' }
   };
   const BASE_CLASSES = ['soldat', 'mage', 'eleveur', 'archer', 'assassin', 'paysan'];
 
@@ -188,7 +188,9 @@
     MOB_DMG: 0.45, // multiplicateur des dégâts de tous les monstres (calibré : 5 héros niv. 10 atteignent la manche 10 d'une partie rapide normale)
     BOSS_DMG: 0.6, // multiplicateur des dégâts des boss (en plus)
     BOSS_WAVE_EXP: 0.7, // les PV des boss suivent la croissance par manche à la puissance 0,7 (plus douce)
-    TOWER_WALLS_HP: 60, // vote « Remparts » : PV max ajoutés à la tour (et soignés) par niveau
+    TOWER_WALLS_PCT: 0.02, // vote « Remparts » : part des PV max de la tour ajoutée (et soignée) par niveau
+    FORTIFY_PCT: 0.01, // ultime du Mineur « Fortification » : part des PV max de la tour ajoutée
+    FORTIFY_ULT_TIME: 75, // temps de charge de l'ultime du Mineur (s), plus long que les autres ultimes
     WAVE_XP_BASE: 10, // récompense de fin de manche (par héros)
     WAVE_XP_PER_WAVE: 4,
     WAVE_GRELONS_BASE: 2,
@@ -583,7 +585,7 @@
   // Améliorations d'équipe (votées pendant l'entracte avec les écus de la partie)
   const UPGRADES = {
     // toujours proposée au vote (tant qu'elle n'est pas au maximum)
-    walls: { name: 'Remparts', icon: '🧱', get desc() { return `+${BALANCE.TOWER_WALLS_HP} PV max pour la tour (et autant de soin)`; }, cost: 50, growth: 1.35, max: 15, unlock: 0 },
+    walls: { name: 'Remparts', icon: '🧱', get desc() { return `+${Math.round(BALANCE.TOWER_WALLS_PCT * 1000) / 10} % de PV max pour la tour (et autant de soin)`; }, cost: 50, growth: 1.35, max: 15, unlock: 0 },
     ballista: { name: 'Baliste', icon: '🏹', desc: 'La tour tire sur les ennemis (+1 niveau de baliste)', cost: 80, growth: 1.6, max: 8, unlock: 0 },
     forge: { name: 'Forge', icon: '🔨', desc: '+10% dégâts pour tous les héros', cost: 100, growth: 1.55, max: 10, unlock: 0 },
     infirmary: { name: 'Infirmerie', icon: '⛑️', get desc() { return `Régénération près de la tour ; réanime 1 héros mort par manche dès le niveau ${BALANCE.INFIRMARY_REVIVE_LEVEL}, 2 au niveau ${BALANCE.INFIRMARY_REVIVE2_LEVEL}`; }, cost: 90, growth: 1.6, max: 6, unlock: 0 },
