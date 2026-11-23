@@ -1062,7 +1062,7 @@ class Game {
     const allies = this.allies.map((a) => [a.nid, MOB_INDEX[a.type], round(a.x), round(a.y), Math.ceil((100 * a.hp) / a.maxHp), (a.attackAnim > 0 ? 4 : 0) | (a.zombieOwner ? 1 : 0), Math.round(a.facing * 100)]);
     const proj = this.projectiles.map((p) => [PROJ_INDEX[p.kind], round(p.x), round(p.y), Math.round(Math.atan2(p.vy, p.vx) * 100)]);
     const zones = this.zones.map((z) => [ZONE_INDEX[z.kind], round(z.x), round(z.y), round(z.r), Math.round(z.t * 10), z.x2 !== undefined ? round(z.x2) : 0, z.y2 !== undefined ? round(z.y2) : 0]);
-    const bosses = this.mobs.filter((m) => m.boss).map((m) => [MOB_INDEX[m.type], Math.ceil((1000 * m.hp) / m.maxHp)]);
+    const bosses = this.mobs.filter((m) => m.boss).map((m) => [MOB_INDEX[m.type], Math.ceil((1000 * m.hp) / m.maxHp), Math.ceil(m.hp), Math.ceil(m.maxHp)]);
     const ev = this.events;
     this.events = [];
     this.numBudget = 0;

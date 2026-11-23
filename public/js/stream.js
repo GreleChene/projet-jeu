@@ -532,6 +532,12 @@
     ctx.fillStyle = color || P.ui.text; ctx.fillText(s, x, y);
   }
 
+  // PV lisibles : 12 345, puis 1,2 M au-delà du million
+  function fmtHp(v) {
+    if (v >= 1e6) return (v / 1e6).toFixed(v >= 1e7 ? 0 : 1).replace('.', ',') + ' M';
+    return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
   function drawHud() {
     const s = snap;
     if (!s) return;
@@ -597,7 +603,8 @@
         const d = MOBS[MOB_IDS[b[0]]];
         panel(WORLD.CX - w / 2 - 16, y - 26, w + 32, 44);
         text(d.name, WORLD.CX, y - 6, 16, '#ff8fa0', 'center');
-        bar(WORLD.CX - w / 2, y + 2, w, 9, b[1] / 1000, '#e2504c');
+        bar(WORLD.CX - w / 2, y + 1, w, 14, b[1] / 1000, '#e2504c');
+        if (b[2] != null) text(`${fmtHp(b[2])} / ${fmtHp(b[3])} PV`, WORLD.CX, y + 12, 12, '#ffffff', 'center', 'b');
       });
     }
     if (s.vote) drawVote(s);
