@@ -402,16 +402,24 @@
     faucon: { name: 'Œil-de-faucon', of: 'de l’Œil-de-faucon', families: ['archer'], style: 'leather', main: '#3f5a3a', trim: '#c8a24a', bonus: { 2: { crit: 0.05 }, 4: { atkspd: 0.15 }, 5: { dmg: 0.15 } } },
     lamenuit: { name: 'Lame-nuit', of: 'de la Lame-nuit', families: ['assassin'], style: 'leather', main: '#2b2433', trim: '#e74c3c', bonus: { 2: { speed: 0.1 }, 4: { crit: 0.1 }, 5: { dmg: 0.2 } } },
     moisson: { name: 'Moisson', of: 'de la Moisson', families: ['paysan'], style: 'worker', main: '#a35a2a', trim: '#f1c40f', bonus: { 2: { hp: 0.15 }, 4: { harvest: 0.3 }, 5: { armor: 0.1 } } },
-    voyageur: { name: 'Voyageur', of: 'du Voyageur', families: null, style: 'leather', main: '#9a6a3e', trim: '#5e3a1f', bonus: { 2: { speed: 0.06 }, 4: { hp: 0.1 } } },
-    givre: { name: 'Givre éternel', of: 'du Givre éternel', families: null, style: 'heavy', main: '#bfe6ff', trim: '#2f6fd1', bonus: { 2: { armor: 0.05 }, 4: { hp: 0.12 } } },
-    braise: { name: 'Braise', of: 'de Braise', families: null, style: 'cloth', main: '#9b2f4a', trim: '#ff7a1a', bonus: { 2: { dmg: 0.06 }, 4: { crit: 0.06 } } }
+    // sets universels (toutes classes) : 5 pièces, arme comprise (un peu moins forte qu'une arme de classe)
+    voyageur: { name: 'Voyageur', of: 'du Voyageur', families: null, style: 'leather', main: '#9a6a3e', trim: '#5e3a1f', weapon: { dmg: 0.09, speed: 0.03 }, bonus: { 2: { speed: 0.06 }, 4: { hp: 0.1 }, 5: { dmg: 0.06 } } },
+    givre: { name: 'Givre éternel', of: 'du Givre éternel', families: null, style: 'heavy', main: '#bfe6ff', trim: '#2f6fd1', weapon: { dmg: 0.09, armor: 0.02 }, bonus: { 2: { armor: 0.05 }, 4: { hp: 0.12 }, 5: { dmg: 0.06 } } },
+    braise: { name: 'Braise', of: 'de Braise', families: null, style: 'cloth', main: '#9b2f4a', trim: '#ff7a1a', weapon: { dmg: 0.11 }, bonus: { 2: { dmg: 0.06 }, 4: { crit: 0.06 }, 5: { dmg: 0.06 } } },
+    // armes de l'Habitant (avant le choix de classe) : arme seule, sans armure
+    milice: { name: 'Milicien', of: 'du Milicien', families: ['habitant'], weaponOnly: true, style: 'worker', main: '#8a6a40', trim: '#c9a040', weapon: { dmg: 0.12, hp: 0.03 }, bonus: {} },
+    pelerin: { name: 'Pèlerin', of: 'du Pèlerin', families: ['habitant'], weaponOnly: true, style: 'leather', main: '#6b5a3a', trim: '#8fc0e0', weapon: { dmg: 0.1, speed: 0.04 }, bonus: {} }
   };
   // Modèles d'objets : une pièce par emplacement et par set (les sets de classe ont aussi une arme)
   const TEMPLATES = {};
   for (const [sid, set] of Object.entries(SETS)) {
     for (const slot of SLOTS) {
-      if (slot === 'weapon' && !set.families) continue;
+      if (set.weaponOnly && slot !== 'weapon') continue;
       const base = SLOT_BASE[slot], m = STYLE_MODS[set.style];
+      if (slot === 'weapon' && set.weapon) { // arme aux statistiques propres (sets universels, Habitant)
+        TEMPLATES[`${sid}_${slot}`] = { set: sid, slot, style: set.style, families: set.families, name: `Arme ${set.of}`, hp: 0, armor: 0, dmg: 0, speed: 0, ...set.weapon };
+        continue;
+      }
       TEMPLATES[`${sid}_${slot}`] = {
         set: sid, slot, style: set.style, families: set.families,
         name: slot === 'weapon' ? `Arme ${set.of}` : `${STYLE_NOUNS[set.style][slot]} ${set.of}`,
@@ -419,6 +427,7 @@
       };
     }
   }
+  const setSize = (sid) => Object.values(TEMPLATES).filter((t) => t.set === sid).length;
   const STAT_NAMES = { hp: 'PV', dmg: 'dégâts', armor: 'défense', speed: 'vitesse', crit: 'critique', atkspd: 'vitesse d’attaque', ult: 'charge de l’ultime', harvest: 'récolte' };
 
   // Un objet (modèle) est-il utilisable par cette classe ?
@@ -441,6 +450,8 @@
     const t = TEMPLATES[item && item.t];
     if (!t) return '?';
     if (t.slot !== 'weapon') return t.name;
+    // arme universelle : prend la forme de l'arme de la classe du joueur
+    if (!t.families) return `${(cls && CLASSES[cls] && WEAPON_KIND[CLASSES[cls].weapon]) || 'Arme'} ${SETS[t.set].of}`;
     const fam = t.families[0];
     const c = cls && familyOf(cls) === fam ? CLASSES[cls] : CLASSES[fam];
     return `${WEAPON_KIND[c.weapon] || 'Arme'} ${SETS[t.set].of}`;
@@ -647,5 +658,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128 }
   };
 
-  return { BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

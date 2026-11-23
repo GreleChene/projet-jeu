@@ -354,7 +354,7 @@ app.post('/api/glacons/open', auth, (req, res) => {
   res.json({ user: publicUser(u), item });
 });
 
-// Contenu d'un glaçon : 60% universel, 35% set de sa classe, 5% set d'une autre classe
+// Contenu d'un glaçon : 60% universel, 35% set de sa classe (moins si la classe a moins de 5 objets), 5% set d'une autre classe
 function rollItem(cls) {
   const all = Object.keys(GD.TEMPLATES);
   const fam = GD.familyOf(cls);
@@ -363,10 +363,12 @@ function rollItem(cls) {
   const others = all.filter((t) => GD.TEMPLATES[t].families && !GD.TEMPLATES[t].families.includes(fam));
   const x = Math.random();
   const G = GD.GLACONS;
+  // la part « classe » est réduite si la classe a peu d'objets (ex. Habitant : 2 armes seulement)
+  const mineChance = (1 - G.UNIVERSAL_CHANCE - G.OTHER_CLASS_CHANCE) * Math.min(1, mine.length / 5);
   let pool;
   if (x < G.OTHER_CLASS_CHANCE) pool = others;
-  else if (x < G.OTHER_CLASS_CHANCE + G.UNIVERSAL_CHANCE || !mine.length) pool = universal;
-  else pool = mine;
+  else if (x < G.OTHER_CLASS_CHANCE + mineChance) pool = mine;
+  else pool = universal;
   const t = pool[Math.floor(Math.random() * pool.length)];
   return { uid: crypto.randomUUID(), t, r: GD.rollRarity(), at: Date.now() };
 }

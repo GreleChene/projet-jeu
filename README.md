@@ -103,7 +103,8 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
 - **Place marchande.** Les joueurs vendent leurs objets en Grêlons (éventuellement réservés à un joueur), les offrent, ou proposent des échanges objet contre objet (+ Grêlons). Un objet en vente ou en échange ne peut être ni porté ni recyclé.
 - **Sets.** Il y a 5 emplacements : casque, torse, pantalon, chaussures et arme.
   - Un set par famille de classes (5 pièces, arme comprise) : Rempart (soldat), Arcaniste (mage), Maître-bête (éleveur), Œil-de-faucon (archer), Lame-nuit (assassin), Moisson (paysan).
-  - Trois sets universels (4 pièces), portables par toutes les classes : Voyageur, Givre éternel, Braise.
+  - Trois sets universels (5 pièces, arme comprise), portables par toutes les classes : Voyageur, Givre éternel, Braise. Leur arme prend la forme de l’arme de la classe qui la porte (un peu moins forte qu’une arme de classe).
+  - L’Habitant a ses propres armes, sans armure : Gourdin du Milicien (+PV) et Gourdin du Pèlerin (+vitesse).
   - Porter 2, 4 ou 5 pièces d'un même set donne des bonus. Tout le détail est dans l'onglet **📜 Règles** du site.
 - **Votes d'équipe.** Toutes les **2 manches** en classique (réglable dans l'admin), **à chaque manche** en partie rapide. Le vote **🧱 Remparts** (+2 % de PV max à la tour, et autant de soin) est toujours proposé tant qu'il n'est pas au niveau maximum (15). Pendant l'entracte, les joueurs votent pour dépenser les écus de l'équipe (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus d'écus. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
 

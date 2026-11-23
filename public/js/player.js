@@ -486,9 +486,9 @@
     // bonus de set
     const sb = GD.setBonuses(gear);
     const sets = Object.entries(sb.count);
-    $('#setInfo').replaceChildren(...(sets.length ? sets.map(([sid, cnt]) => {
+    $('#setInfo').replaceChildren(...(sets.filter(([sid]) => Object.keys(GD.SETS[sid].bonus).length).length ? sets.filter(([sid]) => Object.keys(GD.SETS[sid].bonus).length).map(([sid, cnt]) => {
       const set = GD.SETS[sid];
-      const total = set.families ? 5 : 4;
+      const total = GD.setSize(sid);
       return el('div', { style: 'margin-bottom:6px' }, el('b', { style: `color:${set.main === '#2b2433' ? 'var(--text)' : set.main}` }, `Set ${set.name} (${cnt}/${total})`),
         ...Object.entries(set.bonus).map(([need, b]) => el('div', { class: cnt >= need ? '' : 'muted' }, `${cnt >= need ? '✅' : '▫️'} ${need} pièces : ${bonusLine(b)}`)));
     }) : [el('span', { class: 'muted' }, 'Porte plusieurs pièces d’un même set pour obtenir des bonus.')]));
@@ -817,9 +817,9 @@
       sec('💎 Raretés', el('p', {}, 'La rareté multiplie les bonus de l’objet et change son apparence.'),
         table(['Rareté', 'Probabilité', 'Bonus', 'Recyclage'], [
           ...(me.mysticFound ? GD.RARITIES : visible).map((r) => [el('b', { style: `color:${r.color}` }, r.name), fmtPct(r.p), `×${r.mult}`, [hail(), String(GD.recycleValue(GD.RARITIES.indexOf(r)))]])])),
-      sec('🛡️ Sets d’équipement', el('p', {}, 'Il y a 5 emplacements : casque, torse, pantalon, chaussures et arme. Chaque famille de classes a son set (5 pièces, arme comprise), et 3 sets universels (4 pièces) sont portables par toutes les classes. Porter plusieurs pièces d’un même set donne des bonus, quelle que soit leur rareté.'),
+      sec('🛡️ Sets d’équipement', el('p', {}, 'Il y a 5 emplacements : casque, torse, pantalon, chaussures et arme. Chaque famille de classes a son set (5 pièces, arme comprise), et 3 sets universels (5 pièces, arme comprise) sont portables par toutes les classes : leur arme prend la forme de l’arme de ta classe. L’Habitant a aussi ses propres armes (Milicien, Pèlerin). Porter plusieurs pièces d’un même set donne des bonus, quelle que soit leur rareté.'),
         table(['Set', 'Classes', 'Bonus'], Object.values(GD.SETS).map((s) => [el('b', {}, s.name), s.families ? s.families.map((f) => GD.CLASSES[f].name).join(', ') : 'Toutes',
-          el('div', {}, ...Object.entries(s.bonus).map(([n, b]) => el('div', {}, `${n} pièces : ${bonusLine(b)}`)))]))),
+          el('div', {}, ...(Object.keys(s.bonus).length ? Object.entries(s.bonus).map(([n, b]) => el('div', {}, `${n} pièces : ${bonusLine(b)}`)) : [el('span', { class: 'muted' }, 'Arme seule')])))]))),
       sec('🏠 Habitations', ul([
         'Un héros mort ne réapparaît pas : seul un vote « Résurrection » de l’équipe (proposé quand il y a au moins un mort) relève un héros mort au hasard, à 60 % de ses PV. Il continue de gagner les récompenses jusqu’à la fin de la partie.',
         `En bataille, chaque héros a son habitation, du type de sa classe (${GD.BALANCE.BUILDINGS_PER_CLASS} par classe au maximum ; au-delà, elle est partagée et les PV s’additionnent).`,
