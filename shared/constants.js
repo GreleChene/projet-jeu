@@ -232,7 +232,7 @@
   // Emplacements possibles : anneaux autour de la tour, y compris au nord (la tour peut alors les cacher en partie,
   // mais jamais entièrement : le corps de la tour reste dégagé)
   const BUILDING_SPOTS = [];
-  // (espacement prévu pour les grandes habitations du rendu détaillé)
+  // (espacement prévu pour les grandes habitations)
   for (let d = 105; d <= 380; d += 55) {
     const step = Math.max(6, (82 / (d * 1.1)) * (180 / Math.PI));
     for (let a = 0; a < 360; a += step) {

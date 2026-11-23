@@ -1162,7 +1162,7 @@
       if (d) decor.push({ ...d, b: grid[ty][tx], x: (tx + 0.5) * TS + d.ox, y: (ty + 0.5) * TS + d.oy });
     }
     decor.sort((a, b) => a.y - b.y);
-    // en rendu détaillé, arbres et rochers sont agrandis pour rester à l'échelle des personnages
+    // arbres et rochers sont agrandis pour rester à l'échelle des personnages
     const DK = { tree: 1.55, rock: 1.5, small: 1.3 };
     for (const d of decor) {
       ctx.save(); ctx.translate(d.x, d.y); const k = DK[d.kind] || 1.3; ctx.scale(k, k);
