@@ -373,7 +373,7 @@
 
   // Glaçons (coffres)
   // Contenu : 60% set universel, 35% set de sa classe, 5% set d'une AUTRE classe (à échanger sur la place marchande)
-  const GLACONS = { PRICE: 75, PER_WAVE: 1, START: 3, UNIVERSAL_CHANCE: 0.6, OTHER_CLASS_CHANCE: 0.05 };
+  const GLACONS = { PRICE: 75, PER_WAVE: 1, START: 3, UNIVERSAL_CHANCE: 0.6, OTHER_CLASS_CHANCE: 0.05, FAST_OPEN_AFTER: 20 };
   // Recyclage : rapporte des Grêlons, une fraction du prix d'un glaçon selon la rareté (au maximum le prix d'un glaçon).
   // Le montant suit automatiquement GLACONS.PRICE.
   const recycleValue = (r) => Math.max(1, Math.round(GLACONS.PRICE * Math.min(1, (RARITIES[r] || RARITIES[0]).recycle)));

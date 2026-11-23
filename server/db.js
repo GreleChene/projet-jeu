@@ -62,6 +62,7 @@ function migrateUser(u) {
     u.gearVersion = 3;
   }
   u.inventory ||= [];
+  if (u.glaconsOpened === undefined) u.glaconsOpened = u.inventory.length;
   u.inventory = u.inventory.filter((it) => TEMPLATES[it.t]);
   u.equip ||= {};
   for (const s of SLOTS) if (u.equip[s] && !u.inventory.some((it) => it.uid === u.equip[s])) delete u.equip[s];

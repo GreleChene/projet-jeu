@@ -90,7 +90,7 @@ function rateLimited(key) {
 function publicUser(u) {
   return {
     id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', cls: u.cls, level: u.level, xp: u.xp, xpNext: GD.PROGRESSION.xpForLevel(u.level),
-    gold: u.gold, look: u.look, inventory: u.inventory, equip: u.equip, glacons: u.glacons, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id),
+    gold: u.gold, look: u.look, inventory: u.inventory, equip: u.equip, glacons: u.glacons, glaconsOpened: u.glaconsOpened || 0, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id),
     attrs: u.attrs, attrPoints: u.attrPoints, skills: u.skills || {}, house: GD.houseOf(u), skillLost: u.skillLost || 0, twitchName: u.twitchName || null, mysticFound: !!u.mysticFound,
     locked: Object.fromEntries(u.inventory.map((it) => [it.uid, lockOf(u, it.uid)]).filter(([, l]) => l)),
     incomingTrades: db.data.trades.filter((t) => t.toId === u.id).length
@@ -346,6 +346,7 @@ app.post('/api/glacons/open', auth, (req, res) => {
   if (u.glacons < 1) return res.status(400).json({ error: 'Tu n’as aucun glaçon.' });
   if (u.inventory.length >= 300) return res.status(400).json({ error: 'Inventaire plein (300 objets) : recycle des objets.' });
   u.glacons--;
+  u.glaconsOpened = (u.glaconsOpened || 0) + 1;
   const item = rollItem(u.cls);
   giveItem(u, item);
   db.markDirty();

@@ -467,6 +467,11 @@
     $('#iceBadge').textContent = n;
     $('#iceBadge').classList.toggle('hidden', !n);
     $('#openIce').disabled = !n;
+    // ouverture sans animation : débloquée après GLACONS.FAST_OPEN_AFTER glaçons ouverts
+    const need = GD.GLACONS.FAST_OPEN_AFTER, done = me.glaconsOpened || 0;
+    $('#openIceFast').disabled = !n || done < need;
+    $('#openIceFast').title = done < need ? `Disponible après ${need} glaçons ouverts (${done}/${need})` : 'Ouvre le glaçon sans l’animation';
+    $('#openIceFast').replaceChildren(done < need ? `🔒 Sans animation (${done}/${need})` : '⏭️ Ouvrir sans animation');
     const P1 = GD.GLACONS.PRICE;
     $('#buyIce1').replaceChildren('Acheter 1 · ', hail(), String(P1));
     $('#buyIce5').replaceChildren('Acheter 5 · ', hail(), String(P1 * 5));
@@ -535,7 +540,8 @@
   }
   $('#buyIce1').addEventListener('click', () => buyIce(1));
   $('#buyIce5').addEventListener('click', () => buyIce(5));
-  $('#openIce').addEventListener('click', openIce);
+  $('#openIce').addEventListener('click', () => openIce());
+  $('#openIceFast').addEventListener('click', () => openIce(true));
 
   /* ---------- Animation : le glaçon tremble, se fissure, puis éclate ---------- */
   const SHARDS = [[0, 0, 50, 0], [50, 0, 100, 0], [100, 0, 100, 50], [100, 50, 100, 100], [100, 100, 50, 100], [50, 100, 0, 100], [0, 100, 0, 50], [0, 50, 0, 0]];
@@ -543,12 +549,12 @@
   let skipIce = false, skipWake = null;
   const sleep = (ms) => (skipIce ? Promise.resolve() : new Promise((r) => { const id = setTimeout(r, ms); skipWake = () => { clearTimeout(id); r(); }; }));
   $('#iceSkip').addEventListener('click', (e) => { e.stopPropagation(); skipIce = true; if (skipWake) skipWake(); });
-  let opening = false;
+  let opening = false, lastFast = false;
 
-  async function openIce() {
+  async function openIce(fast) {
     if (opening || !me.glacons) return;
     opening = true;
-    skipIce = false;
+    skipIce = !!fast; lastFast = !!fast;
     $('#iceSkip').classList.remove('hidden');
     $('#iceError').textContent = '';
     const modal = $('#iceModal'), stage = $('#iceStage'), reveal = $('#iceReveal');
@@ -599,7 +605,7 @@
       el('div', { class: 'small', style: 'margin:6px 0 12px' }, statsText(item)),
       el('div', { class: 'row', style: 'justify-content:center' },
         usableNow ? el('button', { class: 'primary', onclick: async () => { await equip(item.uid); closeIce(); } }, 'Équiper') : '',
-        me.glacons ? el('button', { onclick: () => { opening = false; openIce(); } }, `🧊 Encore (${me.glacons})`) : '',
+        me.glacons ? el('button', { onclick: () => { opening = false; openIce(lastFast); } }, `🧊 Encore (${me.glacons})`) : '',
         el('button', { onclick: closeIce }, 'Fermer')));
     opening = false;
   }
