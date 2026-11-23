@@ -44,6 +44,12 @@
     </header>
     <div class="wrap">
       <div class="lock-banner hidden" id="lockBanner">🔒 Ton héros est en bataille : sa classe, ses statistiques, ses compétences, son équipement et son habitation sont <b>figés jusqu’à la fin de la partie</b>. Tes changements s’appliqueront à la prochaine bataille. Les récompenses (XP, Grêlons, glaçons) sont versées à la fin de la partie.</div>
+      <!-- Vote d’équipe : visible quel que soit l’onglet ouvert -->
+      <div class="panel hidden" id="voteBox">
+        <div class="row"><h2 style="margin:0">🗳️ Vote de l’équipe</h2><span class="spacer"></span><span class="chip" id="voteTimer"></span></div>
+        <p class="small muted">Dépensez les écus 🪙 de l’équipe ! L’option la plus votée est appliquée à la fin de la manche.</p>
+        <div class="options" id="voteOpts"></div>
+      </div>
       <nav class="tabs" id="tabs">
         <button data-tab="battle" class="active">⚔️ Bataille</button>
         <button data-tab="hero">🧬 Classe & compétences <span class="badge" id="skillBadge"></span></button>
@@ -60,11 +66,6 @@
 
       <!-- Bataille -->
       <div data-view="battle">
-        <div class="panel hidden" id="voteBox">
-          <div class="row"><h2 style="margin:0">🗳️ Vote de l’équipe</h2><span class="spacer"></span><span class="chip" id="voteTimer"></span></div>
-          <p class="small muted">Dépensez les écus 🪙 de l’équipe ! L’option la plus votée est appliquée à la fin de l’entracte.</p>
-          <div class="options" id="voteOpts"></div>
-        </div>
         <div class="grid two">
           <div class="panel">
             <div class="row"><h2 style="margin:0">Mon héros</h2><span class="spacer"></span><span class="chip" id="heroCls"></span></div>
