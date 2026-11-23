@@ -539,12 +539,17 @@
 
   /* ---------- Animation : le glaçon tremble, se fissure, puis éclate ---------- */
   const SHARDS = [[0, 0, 50, 0], [50, 0, 100, 0], [100, 0, 100, 50], [100, 50, 100, 100], [100, 100, 50, 100], [50, 100, 0, 100], [0, 100, 0, 50], [0, 50, 0, 0]];
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // « Passer l'animation » : les attentes en cours se terminent aussitôt
+  let skipIce = false, skipWake = null;
+  const sleep = (ms) => (skipIce ? Promise.resolve() : new Promise((r) => { const id = setTimeout(r, ms); skipWake = () => { clearTimeout(id); r(); }; }));
+  $('#iceSkip').addEventListener('click', (e) => { e.stopPropagation(); skipIce = true; if (skipWake) skipWake(); });
   let opening = false;
 
   async function openIce() {
     if (opening || !me.glacons) return;
     opening = true;
+    skipIce = false;
+    $('#iceSkip').classList.remove('hidden');
     $('#iceError').textContent = '';
     const modal = $('#iceModal'), stage = $('#iceStage'), reveal = $('#iceReveal');
     stage.className = 'ice-stage';
@@ -553,7 +558,7 @@
     modal.classList.remove('hidden');
     let res;
     try { res = await api('/api/glacons/open', { method: 'POST' }); }
-    catch (e) { modal.classList.add('hidden'); $('#iceError').textContent = e.message; opening = false; return; }
+    catch (e) { modal.classList.add('hidden'); $('#iceError').textContent = e.message; opening = false; $('#iceSkip').classList.add('hidden'); return; }
     const item = res.item, rar = R(item.r);
     // la lueur intérieure trahit la rareté… le suspense monte avec elle
     modal.style.setProperty('--glow', item.r >= 5 ? '#ff7ad9' : rar.color);
@@ -579,6 +584,7 @@
     if (navigator.vibrate) navigator.vibrate(item.r >= 4 ? [80, 40, 160] : 60);
     await sleep(450);
     // révélation de l'objet
+    $('#iceSkip').classList.add('hidden');
     setUser(res.user);
     const t = GD.TEMPLATES[item.t];
     const usableNow = GD.canUse(item.t, me.cls);
