@@ -279,7 +279,8 @@ module.exports = {
     if (h.timers.harvest >= GD.BALANCE.HARVEST_INTERVAL) {
       h.timers.harvest = 0;
       h.attackAnim = 0.25;
-      const amt = Math.round((GD.BALANCE.HARVEST_BASE + h.level * GD.BALANCE.HARVEST_PER_LEVEL) * (c.harvest === 'any' ? 1 : 1.5) * (h.harvestMult || 1));
+      const B = GD.BALANCE, decay = 1 / (1 + this.powerWave(this.run.wave) / B.ECUS_LATE_DECAY);
+      const amt = Math.max(1, Math.round((B.HARVEST_BASE + h.level * B.HARVEST_PER_LEVEL) * (c.harvest === 'any' ? 1 : 1.5) * (h.harvestMult || 1) * decay));
       this.addTreasury(amt);
       this.fx(['coin', Math.round(node.x), Math.round(node.y - 10), amt]);
     }

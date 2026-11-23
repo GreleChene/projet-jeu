@@ -199,15 +199,15 @@
     WAVE_XP_PER_WAVE: 4,
     WAVE_GRELONS_BASE: 2,
     WAVE_GRELONS_PER_WAVE: 0.5,
-    WAVE_ECUS_BASE: 40, // écus pour l'équipe en fin de manche (de quoi acheter tôt les premières améliorations)
-    WAVE_ECUS_PER_WAVE: 1,
+    WAVE_ECUS_BASE: 20, // écus pour l'équipe en fin de manche (de quoi acheter tôt les premières améliorations)
+    WAVE_ECUS_PER_WAVE: 0.5,
     KILL_ECUS: 0.5, // part de la valeur d'un monstre versée en écus à l'équipe
     // les écus d'élimination diminuent au fil de la partie (÷2 vers la manche ECUS_LATE_DECAY, ÷4 vers 3× cette manche)
     // pour éviter d'accumuler des milliers d'écus inutilisés en fin de partie
     ECUS_LATE_DECAY: 30,
     HARVEST_INTERVAL: 3, // paysans : une récolte toutes les X secondes
-    HARVEST_BASE: 1.5,
-    HARVEST_PER_LEVEL: 0.15,
+    HARVEST_BASE: 1, // les récoltes diminuent aussi au fil de la partie (même règle que les éliminations)
+    HARVEST_PER_LEVEL: 0.08,
     HAZARD_BASE: 2, // zones dangereuses du biome par manche = BASE + PAR_MANCHE×m (max HAZARD_MAX)
     HAZARD_PER_WAVE: 0.08,
     HAZARD_MAX: 4,
