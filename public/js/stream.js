@@ -549,6 +549,12 @@
     bar(WORLD.CX - 300, 90, 600, 16, s.tw[0] / s.tw[1], s.tw[0] / s.tw[1] < 0.3 ? P.ui.danger : P.ui.ok);
     text(`🏰 ${s.tw[0]} / ${s.tw[1]}`, WORLD.CX, 104, 13, '#ffffff', 'center', 'b');
     if (s.ph === 'wave') text(`👹 ${s.left}`, WORLD.CX + 310, 54, 18, P.ui.text, 'right', 'b');
+    // temps de jeu de la partie
+    if (s.ph !== 'lobby' && s.gt != null) {
+      const g = s.gt, hh = Math.floor(g / 3600), mm = Math.floor(g / 60) % 60, ss = g % 60;
+      const pad = (v) => String(v).padStart(2, '0');
+      text(`⏱ ${hh ? hh + ':' + pad(mm) : mm}:${pad(ss)}`, WORLD.CX - 310, 54, 18, P.ui.text, 'left', 'b');
+    }
     // écus de l'équipe + améliorations
     panel(14, 14, 300, 104);
     text(`🪙 ${s.tr} écus`, 34, 50, 24, P.ui.gold, 'left', 'b');

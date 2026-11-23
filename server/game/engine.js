@@ -645,6 +645,8 @@ class Game {
     if (this.paused) return;
     this.time += dt;
     const r = this.run;
+    // temps de jeu de la partie en cours (hors pause, s'arrête à la fin de la partie)
+    if (this.phase === 'wave' || this.phase === 'intermission') r.playTime = (r.playTime || 0) + dt;
     this.updateBuildingPresence();
     this.mobHash.build(this.mobs);
     switch (this.phase) {
@@ -1065,7 +1067,7 @@ class Game {
     this.events = [];
     this.numBudget = 0;
     return {
-      t: Math.round(this.time * 1000), ph: this.phase, ps: this.paused ? 1 : 0, sp: this.speed, w: r.wave,
+      t: Math.round(this.time * 1000), ph: this.phase, ps: this.paused ? 1 : 0, sp: this.speed, gt: Math.floor(r.playTime || 0), w: r.wave,
       tw: [Math.ceil(r.tower.hp), r.tower.max], tr: r.treasury, up: r.upgrades,
       left: this.mobs.length + r.queue.length + r.bossPending.length,
       timer: Math.ceil(r.timer), seed: r.seed, tv: this.terrainVersion, ter: this.terrain, rv: this.rosterVersion,
