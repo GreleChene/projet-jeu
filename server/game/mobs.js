@@ -35,14 +35,15 @@ module.exports = {
     const diff = this.settings.difficulty;
     const pact = this.run.pactActive ? 1.5 : 1;
     const curve = 1 + B.WAVE_HP_LINEAR * (w - 1) + B.WAVE_HP_QUAD * (w - 1) ** 2;
-    const mods = D.mobHp * diff * pact * (1 + B.HP_PER_HERO * (n - 1));
+    const extra = Math.pow(n - 1, B.HERO_SCALE_EXP); // héros en plus, avec une progression légèrement plus que proportionnelle
+    const mods = D.mobHp * diff * pact * (1 + B.HP_PER_HERO * extra);
     return {
       hp: curve * mods,
       // les boss suivent une courbe plus douce (exposant < 1), sinon ils deviennent démesurés en fin de partie
       bossCurveHp: Math.pow(curve, B.BOSS_WAVE_EXP) * mods,
-      dmg: (1 + B.WAVE_DMG * (w - 1)) * B.MOB_DMG * D.mobDmg * Math.sqrt(diff) * (1 + B.DMG_PER_HERO * (n - 1)),
-      bossHp: B.BOSS_HP_BASE + B.BOSS_HP_PER_HERO * Math.min(n, 80),
-      count: Math.min(B.MOB_COUNT_HERO_CAP, 1 + B.MOB_COUNT_PER_HERO * (n - 1)) * pact * D.mobCount * Math.sqrt(diff)
+      dmg: (1 + B.WAVE_DMG * (w - 1)) * B.MOB_DMG * D.mobDmg * Math.sqrt(diff) * (1 + B.DMG_PER_HERO * extra),
+      bossHp: B.BOSS_HP_BASE + B.BOSS_HP_PER_HERO * (1 + Math.min(extra, 120)),
+      count: Math.min(B.MOB_COUNT_HERO_CAP, 1 + B.MOB_COUNT_PER_HERO * extra) * pact * D.mobCount * Math.sqrt(diff)
     };
   },
 
@@ -61,7 +62,7 @@ module.exports = {
     for (let i = 0; i < total; i++) r.queue.push({ type: U.pick(pool), elite: Math.random() < eliteChance });
     // les manches durent plus longtemps quand il y a plus de joueurs (et plus de monstres)
     const heroes = Math.max(1, this.heroes.size);
-    const duration = Math.min(B.WAVE_DURATION_MAX, B.WAVE_DURATION_BASE + pw * B.WAVE_DURATION_PER_WAVE + (heroes - 1) * B.WAVE_DURATION_PER_HERO);
+    const duration = Math.min(B.WAVE_DURATION_MAX, B.WAVE_DURATION_BASE + pw * B.WAVE_DURATION_PER_WAVE + Math.pow(Math.max(0, heroes - 1), B.HERO_SCALE_EXP) * B.WAVE_DURATION_PER_HERO);
     r.packInterval = 2.2;
     r.packSize = Math.max(1, Math.ceil(total / (duration / r.packInterval)));
     r.spawnT = 1.5;
