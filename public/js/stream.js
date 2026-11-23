@@ -605,6 +605,7 @@
       text(`Crée ton héros sur ${joinUrl}`, WORLD.CX, WORLD.CY + 236, 22, P.ui.gold, 'center', 'b');
     }
     if (s.ps) text('⏸ PAUSE', WORLD.CX, WORLD.CY - 260, 48, '#ffffff', 'center');
+    if (s.sp > 1) text('⏩ x' + s.sp, WORLD.CX, 40, 30, '#ffe066', 'center');
     if (announce) {
       const k = announce.t;
       const a = k < 0.3 ? k / 0.3 : k > 3 ? 1 - (k - 3) / 0.8 : 1;

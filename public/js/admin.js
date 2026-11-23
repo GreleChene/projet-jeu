@@ -13,7 +13,7 @@
   }).catch(() => $('#denied').classList.remove('hidden'));
 
   function init() {
-    $$('[data-act]').forEach((b) => b.addEventListener('click', () => act(b.dataset.act)));
+    $$('[data-act]').forEach((b) => b.addEventListener('click', () => act(b.dataset.act, b.dataset.speed ? { speed: Number(b.dataset.speed) } : undefined)));
     $('#saveSettings').addEventListener('click', saveSettings);
     // liste des classes pour les bots, groupées par famille
     $('#botCls').replaceChildren(el('option', { value: '' }, 'Aléatoire'), el('option', { value: 'habitant' }, 'Habitant'),
@@ -71,7 +71,7 @@
     $('#joinState').textContent = r.canJoin ? `🔓 Inscriptions ouvertes${jl !== null ? ` (${jl} s)` : ' (sans limite)'}` : '🔒 Inscriptions fermées';
     $('#runState').replaceChildren(
       el('div', { class: 'stats3' },
-        el('div', { class: 'stat' }, el('b', {}, PHASES[r.phase] + (r.paused ? ' ⏸' : '')), el('span', { class: 'small muted' }, 'état')),
+        el('div', { class: 'stat' }, el('b', {}, PHASES[r.phase] + (r.paused ? ' ⏸' : '') + (r.speed > 1 ? ' ⏩x' + r.speed : '')), el('span', { class: 'small muted' }, 'état')),
         el('div', { class: 'stat' }, el('b', {}, `${r.wave}/${r.maxWave}`), el('span', { class: 'small muted' }, `${r.modeName} · ${r.difficultyName} · ${r.era}`)),
         el('div', { class: 'stat' }, el('b', {}, r.mobs), el('span', { class: 'small muted' }, 'ennemis')),
         el('div', { class: 'stat' }, el('b', {}, `${r.tower.hp}`), el('span', { class: 'small muted' }, `PV tour / ${r.tower.max}`)),

@@ -564,6 +564,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
     case 'stop': game.stopRun(); break;
     case 'pause': game.paused = true; break;
     case 'resume': game.paused = false; break;
+    case 'speed': game.speed = [1, 2, 3].includes(Number(b.speed)) ? Number(b.speed) : 1; break;
     case 'skip': game.skipWave(); break;
     case 'wave': game.setWave(b.wave); break;
     case 'next': if (game.phase === 'intermission') game.run.timer = 0; break;

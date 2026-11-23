@@ -16,7 +16,7 @@ npm start
 |---|---|---|
 | Joueur | `http://localhost:3000/` | inscription (pseudo + mot de passe), classe, statistiques, armures, IA, votes |
 | Stream | `http://localhost:3000/stream` | **source Navigateur OBS en 1920×1080** (publique, en lecture seule) |
-| Admin | `http://localhost:3000/admin` | lancer, mettre en pause ou arrêter une partie, aller à une manche, régler, bots de test (classe et niveau au choix), comptes (donner de l'XP, des Grêlons ou des glaçons) |
+| Admin | `http://localhost:3000/admin` | lancer, mettre en pause ou arrêter une partie, aller à une manche, accélérer le temps (x1, x2, x3, pour les tests), régler, bots de test (classe et niveau au choix), comptes (donner de l'XP, des Grêlons ou des glaçons) |
 
 **Administration :** au premier démarrage, le compte **`admin`** est créé avec le mot de passe **`123456`**. C'est le **seul** compte qui a accès à `/admin` et à l'API d'administration ; la page redirige tous les autres vers l'accueil, et personne ne peut s'inscrire sous le pseudo « admin ». Change ce mot de passe dès la mise en ligne (onglet « Compte » de la page joueur, connecté en tant qu'`admin`).
 

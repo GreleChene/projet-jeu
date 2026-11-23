@@ -51,6 +51,7 @@ class Game {
     this.rosterVersion = 1;
     this.time = 0;
     this.paused = false;
+    this.speed = 1; // accélération du temps (tests admin : x1, x2, x3)
     this.resetRun();
     this.phase = 'lobby';
   }
@@ -623,7 +624,7 @@ class Game {
       let el = Number(now - last) / 1e9;
       last = now;
       if (el > 0.25) el = 0.25;
-      acc += el;
+      acc += el * (this.speed || 1); // x2 / x3 : plusieurs pas de simulation par intervalle
       // une erreur dans la simulation est journalisée sans faire tomber le serveur
       while (acc >= dt) {
         acc -= dt;
@@ -1064,7 +1065,7 @@ class Game {
     this.events = [];
     this.numBudget = 0;
     return {
-      t: Math.round(this.time * 1000), ph: this.phase, ps: this.paused ? 1 : 0, w: r.wave,
+      t: Math.round(this.time * 1000), ph: this.phase, ps: this.paused ? 1 : 0, sp: this.speed, w: r.wave,
       tw: [Math.ceil(r.tower.hp), r.tower.max], tr: r.treasury, up: r.upgrades,
       left: this.mobs.length + r.queue.length + r.bossPending.length,
       timer: Math.ceil(r.timer), seed: r.seed, tv: this.terrainVersion, ter: this.terrain, rv: this.rosterVersion,
@@ -1090,7 +1091,7 @@ class Game {
   publicRunInfo() {
     const r = this.run;
     return {
-      phase: this.phase, paused: this.paused, wave: r.wave, cleared: r.cleared, timer: Math.ceil(r.timer),
+      phase: this.phase, paused: this.paused, speed: this.speed, wave: r.wave, cleared: r.cleared, timer: Math.ceil(r.timer),
       tower: { hp: Math.ceil(r.tower.hp), max: r.tower.max }, treasury: r.treasury, wealthEarned: r.wealthEarned,
       upgrades: r.upgrades, heroes: this.heroes.size, mobs: this.mobs.length + r.queue.length + r.bossPending.length,
       canJoin: this.canJoin(), joinEndsAt: Number.isFinite(r.joinUntil) ? r.joinUntil : null,
