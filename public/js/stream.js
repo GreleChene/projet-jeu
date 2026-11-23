@@ -642,7 +642,7 @@
     ctx.globalAlpha = 0.92;
     panel(x0 - 14, y0 - 40, W + 28, h + 52, 0.82);
     ctx.globalAlpha = 1;
-    text(`🗳️ VOTE · tape !1, !2… dans le chat · résultat à la fin de la manche`, x0 + W / 2, y0 - 14, 17, P.ui.gold, 'center', 'b');
+    text(`🗳️ VOTE · tape !1, !2… dans le chat · résultat au début de la manche suivante`, x0 + W / 2, y0 - 14, 17, P.ui.gold, 'center', 'b');
     opts.forEach((o, i) => {
       const x = x0 + i * (w + gap);
       const up = UPGRADES[o];

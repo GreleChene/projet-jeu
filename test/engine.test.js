@@ -59,7 +59,7 @@ test('le terrain est envahi depuis les bords après chaque boss', () => {
   assert.ok(Terrain.terrainState(90).mix);
 });
 
-test('la tour a 200 PV ; le vote a lieu pendant une manche sur deux et s’applique à sa fin', () => {
+test('la tour a 200 PV ; le vote a lieu pendant une manche sur deux et s’applique au début de la manche suivante', () => {
   const g = makeGame();
   g.startRun(1);
   assert.strictEqual(g.run.tower.max, 200);
@@ -71,7 +71,10 @@ test('la tour a 200 PV ; le vote a lieu pendant une manche sur deux et s’appli
   assert.ok(g.castVote('chat:x', 'save', true), 'on peut voter pendant la manche');
   g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
   assert.strictEqual(g.phase, 'intermission');
-  assert.strictEqual(g.run.vote, null, 'vote appliqué à la fin de la manche');
+  assert.ok(g.run.vote, 'le vote reste ouvert pendant l’entracte');
+  assert.ok(g.castVote('chat:y', 'save', true), 'on peut voter pendant l’entracte');
+  g.startWave(3);
+  assert.strictEqual(g.run.vote, null, 'vote appliqué au début de la manche 3');
 });
 
 test('arbres de compétences : une seule branche, ultime au niveau 30', () => {

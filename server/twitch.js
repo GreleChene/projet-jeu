@@ -4,7 +4,7 @@
  * Commandes reconnues dans le chat de la chaîne :
  *   !join            → fait rejoindre la bataille au héros du compte lié
  *   !lier CODE       → lie le compte Twitch au compte du site (code affiché dans l'onglet Compte)
- *   !1 … !9 / !vote N → vote d'équipe pendant l'entracte
+ *   !1 … !9 / !vote N → vote d'équipe (pendant la manche et l'entracte)
  */
 const crypto = require('crypto');
 

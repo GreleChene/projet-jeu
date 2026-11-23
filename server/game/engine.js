@@ -440,12 +440,14 @@ class Game {
 
   startWave(n) {
     const r = this.run;
+    // le vote de la manche précédente (resté ouvert pendant l'entracte) s'applique au début de cette manche
+    const voted = this.closeVote();
     r.wave = n;
     r.pactActive = r.pactNext;
     r.pactNext = false;
     r.waveTime = 0;
     this.phase = 'wave';
-    // Les viewers votent pendant la manche (toutes les « voteEvery » manches) ; le résultat s'applique à la fin de la manche
+    // Les viewers votent pendant la manche et l'entracte (toutes les « voteEvery » manches) ; le résultat s'applique au début de la manche suivante
     if (this.isVoteWave(n)) this.openVote();
     this.buildWave(n);
     this.spawnHazards(n);
@@ -456,7 +458,8 @@ class Game {
     else if (eq === 30) this.announce(`MANCHE ${n}`, 'Les arbres se déracinent !');
     else if (boss) this.announce(`MANCHE ${n}`, 'Un boss approche…');
     else if (n === 1 || era !== prevEra) this.announce(`MANCHE ${n}`, era.name);
-    else this.announce(`MANCHE ${n}`, r.pactActive ? 'Pacte de sang : ennemis renforcés !' : '');
+    else this.announce(`MANCHE ${n}`, r.pactActive ? 'Pacte de sang : ennemis renforcés !' : voted || '');
+    if (voted) this.pushFeed(voted);
     if (era !== prevEra && era.id === 'poison') this.pushFeed('La corruption s’étend : attention au poison !');
     if (era !== prevEra && era.id === 'fire') this.pushFeed('La terre s’embrase…');
   }
@@ -488,11 +491,10 @@ class Game {
     this.addTreasury(bonus);
     r.pactActive = false;
     if (r.wave >= this.maxWave()) { this.closeVote(true); return this.victory(); }
-    // le vote ouvert pendant la manche est appliqué maintenant : son effet compte pour la manche suivante
-    const voted = this.closeVote();
+    // le vote reste ouvert pendant l'entracte : il est appliqué au début de la manche suivante
     this.phase = 'intermission';
     r.timer = this.settings.intermission;
-    this.announce(`Manche ${r.wave} terminée !`, wasBoss ? 'Le terrain se transforme…' : voted || `+${bonus} écus`);
+    this.announce(`Manche ${r.wave} terminée !`, wasBoss ? 'Le terrain se transforme…' : `+${bonus} écus`);
   }
 
   // partie rapide : vote à chaque manche ; classique : réglage de l'admin
@@ -660,7 +662,6 @@ class Game {
         this.updateProjectiles(dt);
         this.updateZones(dt);
         if (r.timer <= 0) {
-          this.closeVote();
           if (this.settings.autoNext || r.wave === 0) this.startWave(r.wave + 1);
           else r.timer = 0;
         }
