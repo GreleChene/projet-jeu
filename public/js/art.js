@@ -319,10 +319,11 @@
       return;
     }
     if (st === 'heavy') {
+      // casques ouverts : le visage (yeux, nez, bouche) reste toujours visible
       G.rect(10, Y + 2, 10, 4, M); G.rect(11, Y + 1, 8, 1, M); G.rect(11, Y + 2, 4, 1, Ml); G.rect(10, Y + 5, 10, 1, Md);
-      if (t >= 2) { G.rect(18, Y + 6, 2, 5, M); G.rect(10, Y + 6, 2, 6, M); G.px(18, Y + 6, T); }
-      if (t >= 3) { G.rect(10, Y + 6, 10, 7, M); G.rect(14, Y + 8, 6, 1, '#1a1214'); G.rect(10, Y + 6, 1, 7, Md); G.rect(19, Y + 6, 1, 7, Md); G.line(15, Y + 10, 15, Y + 12, Md); }
-      if (t === 3) { G.rect(14, Y - 2, 2, 3, T); G.px(13, Y - 1, T); }
+      if (t >= 2) { G.rect(10, Y + 6, 2, 6, M); G.px(10, Y + 11, Md); G.rect(19, Y + 6, 1, 3, M); G.px(19, Y + 6, T); } // couvre-nuque + nasal fin
+      if (t >= 3) { G.rect(9, Y + 4, 12, 1, Md); G.rect(12, Y + 6, 1, 3, M); G.rect(10, Y + 12, 3, 1, Md); G.px(20, Y + 5, Md); } // bord, garde-joue arrière
+      if (t === 3) { G.rect(14, Y - 2, 2, 3, T); G.px(13, Y - 1, T); G.px(16, Y - 1, T); }
       if (t >= 4) { for (const x of [10, 13, 16, 19]) { G.px(x, Y, P.ui.gold); G.px(x, Y - 1, P.ui.gold); } G.rect(10, Y + 1, 10, 1, P.ui.gold); G.px(14, Y, '#2fd6e0'); }
       return;
     }
@@ -635,8 +636,8 @@
       if (tier === 1) { ctx.beginPath(); ctx.arc(0, hy - 1, 9.6, Math.PI, TAU); ctx.closePath(); fillStroke(ctx, M, 1.8); ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(-9.6, hy - 2.5, 19.2, 2); }
       else if (tier === 2) { ctx.beginPath(); ctx.arc(0, hy - 1, 10, Math.PI, TAU); ctx.lineTo(10, hy + 5); ctx.lineTo(7, hy + 5); ctx.lineTo(7, hy - 1); ctx.lineTo(-7, hy - 1); ctx.lineTo(-7, hy + 5); ctx.lineTo(-10, hy + 5); ctx.closePath(); fillStroke(ctx, M, 1.8); rrect(ctx, 3.5, hy - 2, 2.5, 7, 1, T, 1); }
       else {
-        rrect(ctx, -9.5, hy - 11, 19, 18, 5, M, 1.8);
-        ctx.fillStyle = OL; ctx.fillRect(1, hy - 1.5, 9, 2.2);
+        // heaume ouvert : le visage reste visible
+        ctx.beginPath(); ctx.arc(0, hy - 1, 10.5, Math.PI, TAU); ctx.lineTo(10.5, hy + 1); ctx.lineTo(1, hy + 1); ctx.lineTo(-3, hy + 7); ctx.lineTo(-10.5, hy + 7); ctx.closePath(); fillStroke(ctx, M, 1.8);
         ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(-7, hy - 9, 3, 7);
         if (tier === 3) poly(ctx, [-2, hy - 11, 0, hy - 17, 2, hy - 11], T, 1.2);
         else { poly(ctx, [-7, hy - 10, -7, hy - 17, -3, hy - 13, 0, hy - 19, 3, hy - 13, 7, hy - 17, 7, hy - 10], P.ui.gold, 1.4); runeDot(ctx, 0, hy - 13); }
