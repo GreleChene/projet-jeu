@@ -555,7 +555,8 @@
     if (opening || !me.glacons) return;
     opening = true;
     skipIce = !!fast; lastFast = !!fast;
-    $('#iceSkip').classList.remove('hidden');
+    // le bouton « Passer l'animation » n'apparaît qu'après GLACONS.FAST_OPEN_AFTER glaçons ouverts
+    $('#iceSkip').classList.toggle('hidden', (me.glaconsOpened || 0) < GD.GLACONS.FAST_OPEN_AFTER);
     $('#iceError').textContent = '';
     const modal = $('#iceModal'), stage = $('#iceStage'), reveal = $('#iceReveal');
     stage.className = 'ice-stage';
