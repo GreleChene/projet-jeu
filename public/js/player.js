@@ -2,7 +2,6 @@
 (function () {
   'use strict';
   const GD = window.GameData, P = GD.PALETTE;
-  if (window.Art && window.Art.setDetail) window.Art.setDetail(true); // même rendu que le stream
   const { api, $, $$, el, toast, heroCanvas } = window.UI;
 
   let me = null;

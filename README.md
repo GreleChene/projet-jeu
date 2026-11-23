@@ -158,7 +158,6 @@ tools/pixelart/     sources des sprites pixel art des monstres (Python + Pillow)
 ### Graphismes
 
 - **Rendu par défaut** (`/stream`) : **héros en pixel art** assemblés à la volée (visage personnalisé, équipement selon le style et la rareté, arme de classe, marche et attaque), tour en pierre avec bannières et torches, habitations en vue 3/4, **monstres en pixel art** dessinés pixel par pixel. Les monstres, la tour et les bâtiments sont pré-rendus en cache par étape d'animation, ce qui garde le stream fluide même avec des centaines de monstres.
-- **Variantes** : `/stream?style=hd` (ancien rendu simple), `?style=pixel` (tout l'écran pixelisé), `?style=eclat` (lueurs et halo lumineux).
 - **Modifier un monstre** : les sprites sont décrits dans `tools/pixelart/` (`gob.py`, `s_beasts.py`, `s_giants.py`, `s_corrupt.py`, `s_inferno.py`, `s_casters.py`). `python3 build.py wolf,golem apercu.png` produit une planche d'aperçu, `python3 export.py` régénère `public/js/sprites.js`. Les variantes de couleur (loup des neiges, golem d'obsidienne…) sont des palettes dans les mêmes fichiers.
 
 **Cohérence graphique.** Toutes les couleurs viennent de `GameData.PALETTE`, et tous les dessins passent par `public/js/art.js`. Le style est le même partout : aplats, contour sombre unique, ombre portée et proportions « chibi ». Le stream, les aperçus de la page joueur et la boutique utilisent les mêmes fonctions de dessin.
