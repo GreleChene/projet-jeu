@@ -266,7 +266,8 @@
       $('#evoHint').replaceChildren(
         el('div', {}, `Tu es « Habitant ». Entraîne-toi dans l’arbre d’initiation, puis choisis ta classe au niveau ${PR.CLASS_LEVEL}. `,
           el('b', { style: 'color:var(--gold)' }, `${pts.free} point(s) de compétence`), ` (1 tous les ${PR.SKILL_EVERY} niveaux).`),
-        el('div', { class: 'small muted' }, 'Quand tu choisis ta classe, l’initiation de cette classe est conservée et les points des autres initiations te sont rendus.'));
+        el('div', { class: 'small muted' }, 'Quand tu choisis ta classe, l’initiation de cette classe est conservée et les points des autres initiations te sont rendus.'),
+        el('div', { class: 'small', style: 'margin-top:4px;color:var(--gold)' }, `⚠️ Tu pourras changer de classe plus tard (reconversion), mais tu perdras ${Math.round(PR.SKILL_RESPEC_LOSS * 100)} % des points de compétence attribués.`));
       tree.className = 'tree skilltree';
       tree.replaceChildren(...GD.BASE_CLASSES.map((base) => {
         const b = GD.CLASSES[base];
@@ -275,8 +276,7 @@
             el('div', {},
               el('div', { class: 'title', style: `color:${b.color}` }, b.name),
               el('div', { class: 'small muted' }, b.desc),
-              el('div', { class: 'small muted' }, 'Spécialisations : ' + GD.specsOf(base).map((s) => GD.CLASSES[s].name).join(' ou ')),
-              b.leash ? el('div', { class: 'small muted' }, `Reste à moins de ${b.leash} px de la tour.`) : '')),
+              el('div', { class: 'small muted' }, 'Spécialisations : ' + GD.specsOf(base).map((s) => GD.CLASSES[s].name).join(' ou ')))),
           el('div', { class: 'skill-col' }, node(GD.SKILLS[`init_${base}`])),
           el('button', { class: 'primary', style: 'margin-top:10px;width:100%', disabled: !can, onclick: () => pickClass(base) }, can ? 'Devenir ' + b.name : `🔒 Niveau ${PR.CLASS_LEVEL}`));
       }));
@@ -319,19 +319,28 @@
 
   async function respec(loss) {
     $('#clsError').textContent = '';
-    const choices = GD.BASE_CLASSES.map((b, i) => `${i + 1}. ${GD.CLASSES[b].name}`).join('\n');
-    const ans = prompt(`Reconversion : ton arbre est remis à zéro et tu perds définitivement ${loss} point(s) de compétence (le quart de tes points attribués).\nTes améliorations d’habitation sont aussi remises à zéro : ${Math.floor(GD.houseSpent(me) * GD.HOUSE_RESPEC_REFUND)} Grêlons te sont remboursés (75 %).\n\nNouvelle classe (laisse vide pour garder ${GD.CLASSES[GD.familyOf(me.cls)].name}) :\n${choices}`, '');
-    if (ans === null) return;
-    const idx = Number(ans) - 1;
-    const cls = GD.BASE_CLASSES[idx] || null;
-    if (ans.trim() && !cls) { $('#clsError').textContent = 'Choix invalide.'; return; }
-    try { const d = await api('/api/me/respec', { body: { cls } }); setUser(d.user); toast(`Reconversion effectuée (−${d.lost} point${d.lost > 1 ? 's' : ''}${d.refund ? `, +${d.refund} Grêlons remboursés` : ''}).`); }
-    catch (e) { $('#clsError').textContent = e.message; }
+    const refund = Math.floor(GD.houseSpent(me) * GD.HOUSE_RESPEC_REFUND);
+    const ok = confirm('⚠️ Reconversion\n\n'
+      + `• Tu perds DÉFINITIVEMENT ${loss} point(s) de compétence (${Math.round(GD.PROGRESSION.SKILL_RESPEC_LOSS * 100)} % des points que tu as attribués).\n`
+      + '• Ton arbre de compétences est remis à zéro.\n'
+      + `• Tes améliorations d’habitation sont remises à zéro (${refund} Grêlons remboursés, ${Math.round(GD.HOUSE_RESPEC_REFUND * 100)} %).\n`
+      + '• Tu redeviens Habitant et tu choisis à nouveau ta classe (tu peux reprendre la même).\n\n'
+      + 'Confirmer la reconversion ?');
+    if (!ok) return;
+    try {
+      const d = await api('/api/me/respec', { method: 'POST' });
+      setUser(d.user);
+      toast(`Reconversion effectuée (−${d.lost} point${d.lost > 1 ? 's' : ''}${d.refund ? `, +${d.refund} Grêlons remboursés` : ''}). Choisis ta nouvelle classe.`);
+      // retour à l'écran de choix de classe
+      $$('#tabs [data-tab]').forEach((x) => x.classList.toggle('active', x.dataset.tab === 'hero'));
+      $$('[data-view]').forEach((v) => v.classList.toggle('hidden', v.dataset.view !== 'hero'));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (e) { $('#clsError').textContent = e.message; }
   }
 
   async function pickClass(cls) {
     $('#clsError').textContent = '';
-    if (!confirm(`Devenir ${GD.CLASSES[cls].name} ? Ce choix est définitif.`)) return;
+    if (!confirm(`Devenir ${GD.CLASSES[cls].name} ?\n\nTu pourras changer de classe plus tard grâce à la reconversion, mais tu perdras alors définitivement ${Math.round(GD.PROGRESSION.SKILL_RESPEC_LOSS * 100)} % des points de compétence attribués, et tes améliorations d’habitation seront remises à zéro (${Math.round(GD.HOUSE_RESPEC_REFUND * 100)} % des Grêlons remboursés).`)) return;
     try { setUser((await api('/api/me/class', { body: { cls } })).user); toast(`Tu es maintenant ${GD.CLASSES[cls].name} !`); }
     catch (e) { $('#clsError').textContent = e.message; }
   }
@@ -797,7 +806,7 @@
         `Partie rapide : ${GD.MODES.quick.waves} manches, vote d’équipe à chaque manche, une seule zone dangereuse à la fois ; récompenses ×${GD.MODES.quick.rewards}.`,
         ...Object.values(GD.DIFFICULTIES).map((d) => `${d.icon} ${d.name} : monstres ×${d.mobHp} PV, ×${d.mobDmg} dégâts, ×${d.mobCount} nombre ; récompenses (XP, Grêlons) ×${d.rewards}.`),
         'L’admin choisit le mode et la difficulté au lancement de chaque partie.'])),
-      sec('🧬 Classes', el('p', {}, `Tout le monde commence Habitant, avec un arbre d’initiation (une compétence liée à chaque classe). Au niveau ${PR.CLASS_LEVEL}, choisis ta classe : son initiation est conservée, les points des autres te sont rendus. Tu gagnes 1 point de compétence tous les ${PR.SKILL_EVERY} niveaux. L’arbre de ta classe a une branche par spécialisation : 5 compétences passives (3 rangs), l’ultime au bout (niveau ${PR.ULT_LEVEL} requis, il te fait devenir la spécialisation), puis une maîtrise. Dès que tu places un point dans une branche, les autres se bloquent. La reconversion remet tout à zéro (changement de classe possible) mais fait perdre ${Math.round(PR.SKILL_RESPEC_LOSS * 100)}% des points attribués.`),
+      sec('🧬 Classes', el('p', {}, `Tout le monde commence Habitant, avec un arbre d’initiation (une compétence liée à chaque classe). Au niveau ${PR.CLASS_LEVEL}, choisis ta classe : son initiation est conservée, les points des autres te sont rendus. Tu gagnes 1 point de compétence tous les ${PR.SKILL_EVERY} niveaux. L’arbre de ta classe a une branche par spécialisation : 5 compétences passives (3 rangs), l’ultime au bout (niveau ${PR.ULT_LEVEL} requis, il te fait devenir la spécialisation), puis une maîtrise. Dès que tu places un point dans une branche, les autres se bloquent. La reconversion (avec un message d’avertissement) remet tout à zéro et te ramène au choix de classe (tu peux reprendre la même), mais fait perdre définitivement ${Math.round(PR.SKILL_RESPEC_LOSS * 100)}% des points attribués.`),
         ul(GD.BASE_CLASSES.map((b) => [el('b', { style: `color:${GD.CLASSES[b].color}` }, GD.CLASSES[b].name), ` → ${GD.specsOf(b).map((s) => `${GD.CLASSES[s].name} (${GD.CLASSES[s].ultName})`).join(' / ')}${GD.CLASSES[b].leash ? ` · reste à moins de ${GD.CLASSES[b].leash} px de la tour` : ''}`]))),
       sec('📊 Niveaux & statistiques', el('p', {}, `Les éliminations et les manches passées rapportent de l’XP. Monter de niveau n’augmente pas directement les statistiques : chaque niveau donne ${PR.POINTS_PER_LEVEL} point de stat à répartir librement (réinitialisation gratuite) et ${PR.GLACONS_PER_LEVEL} glaçon 🧊. Seuls les points de stat et l’équipement renforcent ton héros :`),
         ul(GD.ATTR_IDS.map((a) => `${GD.ATTRIBUTES[a].icon} ${GD.ATTRIBUTES[a].name} : ${GD.ATTRIBUTES[a].desc}`))),

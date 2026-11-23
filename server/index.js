@@ -228,12 +228,11 @@ app.post('/api/me/skill', auth, (req, res) => {
   res.json({ user: publicUser(u) });
 });
 
-// Reconversion : remise à zéro de l'arbre (et changement de classe possible), en perdant un quart des points attribués
+// Reconversion : remise à zéro de l'arbre, en perdant un quart des points attribués. Le joueur redevient
+// Habitant et choisit à nouveau sa classe dans l'onglet « Classe & compétences ».
 app.post('/api/me/respec', auth, (req, res) => {
   const u = req.user;
-  const target = (req.body || {}).cls;
   if (GD.CLASSES[u.cls].tier === 0) return res.status(400).json({ error: 'Choisis d’abord une classe.' });
-  if (target && !(GD.CLASSES[target] && GD.CLASSES[target].tier === 1)) return res.status(400).json({ error: 'Classe inconnue' });
   const { spent } = GD.skillPoints(u);
   const lost = Math.floor(spent * GD.PROGRESSION.SKILL_RESPEC_LOSS);
   u.skillLost = (u.skillLost || 0) + lost;
@@ -242,7 +241,7 @@ app.post('/api/me/respec', auth, (req, res) => {
   const refund = Math.floor(GD.houseSpent(u) * GD.HOUSE_RESPEC_REFUND);
   u.gold += refund;
   u.house = { hp: 0, heal: 0, special: {} };
-  u.cls = target || GD.familyOf(u.cls);
+  u.cls = 'habitant';
   afterProfileChange(u);
   res.json({ user: publicUser(u), lost, refund });
 });
