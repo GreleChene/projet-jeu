@@ -21,8 +21,7 @@ const BUILDING_INDEX = Object.fromEntries(GD.BUILDINGS.map((b, i) => [b.family, 
 const DEFAULT_SETTINGS = {
   voteEvery: 2, // vote des viewers toutes les N manches
   difficulty: 1, // multiplicateur global
-  intermission: 10, // secondes d'entracte quand il y a un vote
-  pause: 4, // secondes d'entracte sans vote
+  intermission: 4, // secondes d'entracte entre deux manches (les votes ont lieu pendant les manches)
   autoNext: true, // enchaîne les manches automatiquement
   autoRestart: false, // relance une partie après une défaite
   joinWindow: 180, // secondes pendant lesquelles on peut rejoindre après le lancement (0 = toute la partie)
@@ -37,7 +36,8 @@ class Game {
     this.db = db;
     this.io = io;
     const saved = { ...(db.data.settings.game || {}) };
-    if (!saved.timingV2) { if (saved.intermission === 20) delete saved.intermission; if (saved.prepTime === 30) delete saved.prepTime; saved.timingV2 = true; }
+    if (!saved.timingV2) { if (saved.prepTime === 30) delete saved.prepTime; saved.timingV2 = true; }
+    if (!saved.timingV3) { delete saved.intermission; delete saved.pause; saved.timingV3 = true; } // entracte unique (votes pendant les manches)
     this.settings = { ...DEFAULT_SETTINGS, ...saved };
     this.nid = 1;
     this.heroes = new Map(); // id -> héros
@@ -444,6 +444,8 @@ class Game {
     r.pactNext = false;
     r.waveTime = 0;
     this.phase = 'wave';
+    // Les viewers votent pendant la manche (toutes les « voteEvery » manches) ; le résultat s'applique à la fin de la manche
+    if (this.isVoteWave(n)) this.openVote();
     this.buildWave(n);
     this.spawnHazards(n);
     const eq = this.eqWave(n);
@@ -484,13 +486,12 @@ class Game {
     const bonus = Math.round((GD.BALANCE.WAVE_ECUS_BASE + this.powerWave(r.wave) * GD.BALANCE.WAVE_ECUS_PER_WAVE) * (r.pactActive ? 2 : 1));
     this.addTreasury(bonus);
     r.pactActive = false;
-    if (r.wave >= this.maxWave()) return this.victory();
+    if (r.wave >= this.maxWave()) { this.closeVote(true); return this.victory(); }
+    // le vote ouvert pendant la manche est appliqué maintenant : son effet compte pour la manche suivante
+    const voted = this.closeVote();
     this.phase = 'intermission';
-    // Les viewers votent toutes les « voteEvery » manches ; sinon, courte pause
-    const voting = this.isVoteWave(r.wave);
-    r.timer = voting ? this.settings.intermission : Math.min(this.settings.pause, this.settings.intermission);
-    this.announce(`Manche ${r.wave} terminée !`, wasBoss ? 'Le terrain se transforme…' : voting ? 'Votez pour une amélioration !' : `+${bonus} écus`);
-    if (voting) this.openVote();
+    r.timer = this.settings.intermission;
+    this.announce(`Manche ${r.wave} terminée !`, wasBoss ? 'Le terrain se transforme…' : voted || `+${bonus} écus`);
   }
 
   // partie rapide : vote à chaque manche ; classique : réglage de l'admin
@@ -532,13 +533,13 @@ class Game {
     // un héros est mort : l'équipe peut voter sa résurrection
     if ([...this.heroes.values()].some((h) => !h.alive)) opts.push('revive');
     opts.push('pact', 'save');
-    r.vote = { options: opts, votes: new Map(), endsAt: Date.now() + r.timer * 1000 };
+    r.vote = { options: opts, votes: new Map(), endsAt: null }; // se termine avec la manche
   }
 
   // fromChat : vote d'un spectateur du chat Twitch (sans héros)
   castVote(userId, opt, fromChat) {
     const v = this.run.vote;
-    if (!v || this.phase !== 'intermission' || !v.options.includes(opt)) return false;
+    if (!v || (this.phase !== 'wave' && this.phase !== 'intermission') || !v.options.includes(opt)) return false;
     if (!fromChat && !this.heroes.has(userId)) return false;
     if (opt !== 'save' && opt !== 'pact' && this.upgradeCost(opt) > this.run.treasury) return false;
     v.votes.set(userId, opt);
@@ -569,6 +570,8 @@ class Game {
     let best = 'save', bestN = 0;
     for (const o of v.options) if ((counts[o] || 0) > bestN) { best = o; bestN = counts[o]; }
     this.applyUpgrade(best);
+    const u = UPGRADES[best];
+    return best === 'save' ? 'Vote : l’équipe garde ses écus' : `Vote : ${u ? u.icon + ' ' + u.name : best}`;
   }
 
   reviveHero(h) {

@@ -594,7 +594,7 @@
         bar(WORLD.CX - w / 2, y + 2, w, 9, b[1] / 1000, '#e2504c');
       });
     }
-    if (s.ph === 'intermission' && s.vote) drawVote(s);
+    if (s.vote) drawVote(s);
     if (s.ph === 'gameover' || s.ph === 'victory') {
       ctx.fillStyle = 'rgba(21,17,28,0.55)'; ctx.fillRect(0, 0, WORLD.W, WORLD.H);
       text(s.ph === 'victory' ? 'VICTOIRE !' : 'LA TOUR EST TOMBÉE', WORLD.CX, WORLD.CY - 20, 72, s.ph === 'victory' ? P.ui.gold : P.ui.danger, 'center');
@@ -617,13 +617,18 @@
     }
   }
 
+  // Vote d'équipe : bandeau compact en bas de l'écran, ouvert pendant toute la manche
   function drawVote(s) {
     const opts = s.vote.o;
     const total = Math.max(1, Object.values(s.vote.c).reduce((a, b) => a + b, 0));
-    const w = 230, gap = 14, W = opts.length * (w + gap) - gap;
-    const x0 = WORLD.CX - W / 2, y0 = WORLD.H - 230;
-    panel(x0 - 20, y0 - 56, W + 40, 196);
-    text(`VOTE · tape !1, !2… dans le chat · ${s.timer}s`, WORLD.CX, y0 - 22, 22, P.ui.gold, 'center');
+    const w = 196, gap = 10, h = 62, W = opts.length * (w + gap) - gap;
+    // calé à droite pour ne pas recouvrir le bandeau d'inscription (en bas à gauche)
+    const x0 = Math.max(WORLD.CX - W / 2, WORLD.W - 30 - W), y0 = WORLD.H - h - 16;
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    panel(x0 - 14, y0 - 40, W + 28, h + 52, 0.82);
+    ctx.globalAlpha = 1;
+    text(`🗳️ VOTE · tape !1, !2… dans le chat · résultat à la fin de la manche`, x0 + W / 2, y0 - 14, 17, P.ui.gold, 'center', 'b');
     opts.forEach((o, i) => {
       const x = x0 + i * (w + gap);
       const up = UPGRADES[o];
@@ -632,16 +637,17 @@
       const cost = s.vote.cost[o];
       const afford = !cost || cost <= s.tr;
       ctx.globalAlpha = afford ? 1 : 0.45;
-      A.rrect(ctx, x, y0, w, 120, 10, o === 'pact' ? '#3a1f2a' : P.ui.panel2, 2);
-      ctx.font = `32px ${FONT_B}`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(icon, x + 34, y0 + 48);
-      text(name, x + 64, y0 + 34, 17, '#ffffff', 'left', 'b');
-      text(`!${i + 1}`, x + w - 12, y0 + 24, 16, '#bf94ff', 'right', 'b');
-      text(cost ? `🪙 ${cost} écus` : o === 'pact' ? 'Récompenses ×2' : 'Garder les écus', x + 64, y0 + 56, 13, cost ? P.ui.gold : P.ui.muted, 'left', 'b');
+      A.rrect(ctx, x, y0, w, h, 8, o === 'pact' ? '#3a1f2a' : P.ui.panel2, 2);
+      ctx.font = `22px ${FONT_B}`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(icon, x + 20, y0 + 30);
+      text(name, x + 38, y0 + 22, 14, '#ffffff', 'left', 'b');
+      text(`!${i + 1}`, x + w - 8, y0 + 20, 14, '#bf94ff', 'right', 'b');
+      text(cost ? `🪙 ${cost}` : o === 'pact' ? 'Récompenses ×2' : 'Garder les écus', x + 38, y0 + 39, 11, cost ? P.ui.gold : P.ui.muted, 'left', 'b');
       const n = s.vote.c[o] || 0;
-      bar(x + 14, y0 + 84, w - 28, 12, n / total, o === 'pact' ? P.ui.danger : P.ui.accent);
-      text(`${n} vote${n > 1 ? 's' : ''}`, x + w / 2, y0 + 112, 13, P.ui.text, 'center', 'b');
+      bar(x + 8, y0 + 48, w - 50, 7, n / total, o === 'pact' ? P.ui.danger : P.ui.accent);
+      text(`${n}`, x + w - 10, y0 + 56, 12, P.ui.text, 'right', 'b');
       ctx.globalAlpha = 1;
     });
+    ctx.restore();
   }
 
   function drawWaiting() {

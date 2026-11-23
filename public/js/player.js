@@ -180,7 +180,7 @@
     const v = live.vote;
     $('#voteBox').classList.toggle('hidden', !v || !h);
     if (v && h) {
-      $('#voteTimer').textContent = `${Math.max(0, Math.ceil((v.endsAt - Date.now()) / 1000))} s`;
+      $('#voteTimer').textContent = v.endsAt ? `${Math.max(0, Math.ceil((v.endsAt - Date.now()) / 1000))} s` : 'jusqu’à la fin de la manche';
       const sig = JSON.stringify([v.options.map((o) => o.id), v.counts, v.mine, r.treasury]);
       if (sig !== lastVoteSig) {
         lastVoteSig = sig;
@@ -834,7 +834,7 @@
         'Entre les manches, chaque héros s’y soigne. Si elle est détruite, plus de soin jusqu’à la fin de la partie.',
         `Une reconversion remet les améliorations d’habitation à zéro et rembourse ${Math.round(GD.HOUSE_RESPEC_REFUND * 100)} % des Grêlons dépensés.`,
         'Onglet « Amélioration de bâtiment » : PV, puissance de soin (moyenne des occupants si partagée) et une amélioration spéciale par classe : ' + Object.entries(GD.HOUSE_SPECIALS).map(([f, sp]) => `${sp.icon} ${sp.name} (${GD.CLASSES[f].name})`).join(', ') + '.'])),
-      sec('🗳️ Votes d’équipe', el('p', {}, `Toutes les ${voteEvery} manches, pendant l’entracte, les héros votent pour dépenser les écus de l’équipe. L’option la plus votée l’emporte :`),
+      sec('🗳️ Votes d’équipe', el('p', {}, `Toutes les ${voteEvery} manches, pendant la manche, les héros (et le chat Twitch) votent pour dépenser les écus de l’équipe. L’option la plus votée l’emporte à la fin de la manche et s’applique dès la manche suivante :`),
         ul(Object.values(GD.UPGRADES).map((u) => `${u.icon} ${u.name} : ${u.desc}${u.unlock ? ` (débloqué quand l’équipe a gagné ${u.unlock} écus)` : ''}`).concat(['🪙 Économiser : garder les écus pour plus tard']))),
       // pas de détails sur l'évolution du terrain ni sur les boss : c'est une surprise pour les joueurs
       sec('🌍 Le monde', el('p', {}, 'Le monde autour de la tour ne restera pas longtemps paisible… À vous de découvrir ce qui vous attend.'))

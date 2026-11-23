@@ -296,6 +296,8 @@ module.exports = {
 
   heroDie(h) {
     h.alive = false; h.hp = 0;
+    const v = this.run && this.run.vote;
+    if (v && !v.options.includes('revive')) v.options.splice(Math.max(0, v.options.indexOf('pact')), 0, 'revive');
     h.deathX = h.x; h.deathY = h.y;
     h.deadAt = this.time;
     h.zombie = false; h.dashing = null; h.chain = null; h.target = null; h.status = {};

@@ -59,16 +59,19 @@ test('le terrain est envahi depuis les bords après chaque boss', () => {
   assert.ok(Terrain.terrainState(90).mix);
 });
 
-test('la tour a 200 PV et le vote a lieu toutes les deux manches', () => {
+test('la tour a 200 PV ; le vote a lieu pendant une manche sur deux et s’applique à sa fin', () => {
   const g = makeGame();
   g.startRun(1);
   assert.strictEqual(g.run.tower.max, 200);
   assert.strictEqual(g.run.vote, null, 'pas de vote avant la manche 1');
-  g.setWave(1); g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
+  g.setWave(1);
+  assert.strictEqual(g.run.vote, null, 'pas de vote pendant la manche 1');
+  g.setWave(2);
+  assert.ok(g.run.vote, 'vote ouvert pendant la manche 2');
+  assert.ok(g.castVote('chat:x', 'save', true), 'on peut voter pendant la manche');
+  g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
   assert.strictEqual(g.phase, 'intermission');
-  assert.strictEqual(g.run.vote, null, 'pas de vote après la manche 1');
-  g.setWave(2); g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
-  assert.ok(g.run.vote, 'vote après la manche 2');
+  assert.strictEqual(g.run.vote, null, 'vote appliqué à la fin de la manche');
 });
 
 test('arbres de compétences : une seule branche, ultime au niveau 30', () => {
@@ -143,11 +146,12 @@ test('pas de réapparition ; vote « Résurrection » proposé s’il y a un mor
   g.setWave(2);
   const [a] = [...g.heroes.values()];
   g.heroDie(a);
+  assert.ok(g.run.vote && g.run.vote.options.includes('revive'), 'résurrection proposée dès la mort, pendant la manche');
   for (let i = 0; i < 200; i++) g.tick(0.05);
   assert.strictEqual(a.alive, false, 'reste mort');
+  g.closeVote(true); // personne ne vote la résurrection
   g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
   assert.strictEqual(a.alive, false, 'toujours mort après la manche');
-  assert.ok(g.run.vote && g.run.vote.options.includes('revive'), 'résurrection proposée');
   g.run.treasury = 1000;
   g.applyUpgrade('revive');
   assert.strictEqual(a.alive, true);
@@ -166,7 +170,7 @@ test('Infirmerie au niveau requis : un héros mort réanimé par manche', () => 
   assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 1, 'un seul héros réanimé');
   g.run.upgrades.infirmary = GD.BALANCE.INFIRMARY_REVIVE_LEVEL - 1;
   for (const h of g.heroes.values()) g.heroDie(h);
-  g.setWave(4); g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
+  g.setWave(4); g.closeVote(true); g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
   assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 0, 'pas de réanimation sous le niveau requis');
 });
 
