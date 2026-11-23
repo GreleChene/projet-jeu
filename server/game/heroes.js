@@ -35,7 +35,7 @@ module.exports = {
         h.hp = Math.min(h.maxHp, h.hp + h.maxHp * (0.008 + 0.012 * this.run.upgrades.infirmary) * dt);
       }
       const c = CLASSES[h.cls];
-      if (c.ult && h.ult < 1) h.ult = Math.min(1, h.ult + (dt / (c.ult === 'fortify' ? GD.BALANCE.FORTIFY_ULT_TIME : GD.BALANCE.ULT_TIME)) * (h.ultRate || 1) * (1 + 0.2 * this.run.upgrades.shrine));
+      if (c.ult && h.ult < 1) h.ult = Math.min(1, h.ult + (dt / (c.ult === 'fortify' ? GD.BALANCE.FORTIFY_ULT_TIME : GD.BALANCE.ULT_TIME)) * (h.ultRate || 1) * (1 + this.run.upgrades.shrine / Math.max(1, GD.UPGRADES.shrine.max)));
 
       if (h.dashing) { this.updateDash(h, dt); continue; }
       if (h.chain) { this.updateChain(h, dt); continue; }
