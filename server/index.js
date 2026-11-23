@@ -584,7 +584,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
       const s = game.settings;
       const num = (k, a, z) => { if (b[k] !== undefined && !isNaN(b[k])) s[k] = Math.min(z, Math.max(a, Number(b[k]))); };
       num('difficulty', 0.2, 5); num('intermission', 5, 120);
-      num('maxHeroes', 1, 500); num('maxAliveMobs', 20, 600); num('voteEvery', 1, 20); num('joinWindow', 0, 7200); num('prepTime', 5, 600);
+      num('maxHeroes', 1, 500); num('maxAliveMobs', 20, 600); num('voteEvery', 1, 20); num('joinWindow', 0, 7200); num('prepTime', 5, 600); num('pause', 2, 60);
       if (b.autoNext !== undefined) s.autoNext = !!b.autoNext;
       if (b.autoRestart !== undefined) s.autoRestart = !!b.autoRestart;
       game.saveSettings();

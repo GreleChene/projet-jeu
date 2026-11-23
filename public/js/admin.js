@@ -100,7 +100,8 @@
 
   const SETTINGS = [
     ['difficulty', 'Difficulté (×)', 'number', 0.1],
-    ['intermission', 'Durée de l’entracte / vote (s)', 'number', 1],
+    ['intermission', 'Entracte avec vote (s)', 'number', 1],
+    ['pause', 'Entracte sans vote (s)', 'number', 1],
     ['joinWindow', 'Durée des inscriptions après le lancement (s, 0 = toute la partie)', 'number', 10],
     ['prepTime', 'Préparation avant la 1re manche (s)', 'number', 5],
     ['voteEvery', 'Vote des viewers toutes les N manches', 'number', 1],

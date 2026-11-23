@@ -21,11 +21,12 @@ const BUILDING_INDEX = Object.fromEntries(GD.BUILDINGS.map((b, i) => [b.family, 
 const DEFAULT_SETTINGS = {
   voteEvery: 2, // vote des viewers toutes les N manches
   difficulty: 1, // multiplicateur global
-  intermission: 20, // secondes d'entracte (vote)
+  intermission: 10, // secondes d'entracte quand il y a un vote
+  pause: 4, // secondes d'entracte sans vote
   autoNext: true, // enchaîne les manches automatiquement
   autoRestart: false, // relance une partie après une défaite
   joinWindow: 180, // secondes pendant lesquelles on peut rejoindre après le lancement (0 = toute la partie)
-  prepTime: 30, // secondes de préparation avant la 1re manche
+  prepTime: 15, // secondes de préparation avant la 1re manche
   maxHeroes: 200,
   maxAliveMobs: 260
 };
@@ -35,7 +36,9 @@ class Game {
   constructor(db, io) {
     this.db = db;
     this.io = io;
-    this.settings = { ...DEFAULT_SETTINGS, ...(db.data.settings.game || {}) };
+    const saved = { ...(db.data.settings.game || {}) };
+    if (!saved.timingV2) { if (saved.intermission === 20) delete saved.intermission; if (saved.prepTime === 30) delete saved.prepTime; saved.timingV2 = true; }
+    this.settings = { ...DEFAULT_SETTINGS, ...saved };
     this.nid = 1;
     this.heroes = new Map(); // id -> héros
     this.mobs = [];
@@ -485,7 +488,7 @@ class Game {
     this.phase = 'intermission';
     // Les viewers votent toutes les « voteEvery » manches ; sinon, courte pause
     const voting = this.isVoteWave(r.wave);
-    r.timer = voting ? this.settings.intermission : Math.min(8, this.settings.intermission);
+    r.timer = voting ? this.settings.intermission : Math.min(this.settings.pause, this.settings.intermission);
     this.announce(`Manche ${r.wave} terminée !`, wasBoss ? 'Le terrain se transforme…' : voting ? 'Votez pour une amélioration !' : `+${bonus} écus`);
     if (voting) this.openVote();
   }

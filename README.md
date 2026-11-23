@@ -106,6 +106,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - Trois sets universels (5 pièces, arme comprise), portables par toutes les classes : Voyageur, Givre éternel, Braise. Leur arme prend la forme de l’arme de la classe qui la porte (un peu moins forte qu’une arme de classe).
   - L’Habitant a ses propres armes, sans armure : Gourdin du Milicien (+PV) et Gourdin du Pèlerin (+vitesse).
   - Porter 2, 4 ou 5 pièces d'un même set donne des bonus. Tout le détail est dans l'onglet **📜 Règles** du site.
+- **Durée d'une partie.** Une partie classique gagnée jusqu'à la manche 100 dure environ **une heure** : l'apparition des monstres est courte (8 s + 0,05 s par manche + 0,4 s par héros, 30 s au plus), l'entracte dure 10 s quand il y a un vote et 4 s sinon, et la préparation avant la manche 1 dure 15 s (réglages dans l'admin et dans `BALANCE.WAVE_DURATION_*`).
 - **Votes d'équipe.** Toutes les **2 manches** en classique (réglable dans l'admin), **à chaque manche** en partie rapide. Le vote **🧱 Remparts** (+2 % de PV max à la tour, et autant de soin) est toujours proposé tant qu'il n'est pas au niveau maximum (15). Pendant l'entracte, les joueurs votent pour dépenser les écus de l'équipe (remparts, baliste, forge, infirmerie…). Les meilleures améliorations se débloquent quand l'équipe a accumulé plus d'écus. Le vote peut aussi porter sur le **Pacte de sang** (manche plus dure, récompenses ×2). Les améliorations apparaissent sur la tour.
 
 ### Modes et difficultés
