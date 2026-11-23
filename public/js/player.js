@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const GD = window.GameData, P = GD.PALETTE;
-  const { api, $, $$, el, toast, heroCanvas } = window.UI;
+  const { api, $, $$, el, toast, heroCanvas, ask } = window.UI;
 
   let me = null;
   let live = null; // dernier état envoyé par le serveur
@@ -267,7 +267,7 @@
         el('div', {}, `Tu es « Habitant ». Entraîne-toi dans l’arbre d’initiation, puis choisis ta classe au niveau ${PR.CLASS_LEVEL}. `,
           el('b', { style: 'color:var(--gold)' }, `${pts.free} point(s) de compétence`), ` (1 tous les ${PR.SKILL_EVERY} niveaux).`),
         el('div', { class: 'small muted' }, 'Quand tu choisis ta classe, l’initiation de cette classe est conservée et les points des autres initiations te sont rendus.'),
-        el('div', { class: 'small', style: 'margin-top:4px;color:var(--gold)' }, `⚠️ Tu pourras changer de classe plus tard (reconversion), mais tu perdras ${Math.round(PR.SKILL_RESPEC_LOSS * 100)} % des points de compétence attribués.`));
+        el('div', { class: 'small', style: 'margin-top:4px;color:var(--gold)' }, `⚠️ Tu pourras changer de classe plus tard (reconversion), mais tu perdras ${Math.round(PR.SKILL_RESPEC_LOSS * 100)}\u00a0% des points de compétence attribués.`));
       tree.className = 'tree skilltree';
       tree.replaceChildren(...GD.BASE_CLASSES.map((base) => {
         const b = GD.CLASSES[base];
@@ -312,7 +312,7 @@
 
   async function learn(n, S) {
     $('#clsError').textContent = '';
-    if (n.ult && !confirm(`Débloquer « ${S.ultName} » et devenir ${S.name} ?`)) return;
+    if (n.ult && !(await ask(`Débloquer « ${S.ultName} » et devenir ${S.name} ?`, { title: '⭐ Ultime' }))) return;
     try { setUser((await api('/api/me/skill', { body: { id: n.id } })).user); if (n.ult) toast(`Tu es maintenant ${S.name} !`); }
     catch (e) { $('#clsError').textContent = e.message; }
   }
@@ -320,12 +320,12 @@
   async function respec(loss) {
     $('#clsError').textContent = '';
     const refund = Math.floor(GD.houseSpent(me) * GD.HOUSE_RESPEC_REFUND);
-    const ok = confirm('⚠️ Reconversion\n\n'
-      + `• Tu perds DÉFINITIVEMENT ${loss} point(s) de compétence (${Math.round(GD.PROGRESSION.SKILL_RESPEC_LOSS * 100)} % des points que tu as attribués).\n`
+    const ok = await ask(
+      `• Tu perds DÉFINITIVEMENT ${loss} point(s) de compétence (${Math.round(GD.PROGRESSION.SKILL_RESPEC_LOSS * 100)}\u00a0% des points que tu as attribués).\n`
       + '• Ton arbre de compétences est remis à zéro.\n'
-      + `• Tes améliorations d’habitation sont remises à zéro (${refund} Grêlons remboursés, ${Math.round(GD.HOUSE_RESPEC_REFUND * 100)} %).\n`
+      + `• Tes améliorations d’habitation sont remises à zéro (${refund} Grêlons remboursés, ${Math.round(GD.HOUSE_RESPEC_REFUND * 100)}\u00a0%).\n`
       + '• Tu redeviens Habitant et tu choisis à nouveau ta classe (tu peux reprendre la même).\n\n'
-      + 'Confirmer la reconversion ?');
+      + 'Confirmer la reconversion ?', { title: '⚠️ Reconversion', ok: 'Se reconvertir', danger: true });
     if (!ok) return;
     try {
       const d = await api('/api/me/respec', { method: 'POST' });
@@ -340,7 +340,7 @@
 
   async function pickClass(cls) {
     $('#clsError').textContent = '';
-    if (!confirm(`Devenir ${GD.CLASSES[cls].name} ?\n\nTu pourras changer de classe plus tard grâce à la reconversion, mais tu perdras alors définitivement ${Math.round(GD.PROGRESSION.SKILL_RESPEC_LOSS * 100)} % des points de compétence attribués, et tes améliorations d’habitation seront remises à zéro (${Math.round(GD.HOUSE_RESPEC_REFUND * 100)} % des Grêlons remboursés).`)) return;
+    if (!(await ask(`Tu pourras changer de classe plus tard grâce à la reconversion, mais tu perdras alors définitivement ${Math.round(GD.PROGRESSION.SKILL_RESPEC_LOSS * 100)}\u00a0% des points de compétence attribués, et tes améliorations d’habitation seront remises à zéro (${Math.round(GD.HOUSE_RESPEC_REFUND * 100)}\u00a0% des Grêlons remboursés).`, { title: `Devenir ${GD.CLASSES[cls].name} ?`, ok: `Devenir ${GD.CLASSES[cls].name}` }))) return;
     try { setUser((await api('/api/me/class', { body: { cls } })).user); toast(`Tu es maintenant ${GD.CLASSES[cls].name} !`); }
     catch (e) { $('#clsError').textContent = e.message; }
   }
@@ -380,7 +380,7 @@
     catch (e) { $('#attrError').textContent = e.message; }
   }
   $('#attrReset').addEventListener('click', async () => {
-    if (!confirm('Récupérer tous tes points de stat ?')) return;
+    if (!(await ask('Tous tes points de stat te seront rendus, à répartir à nouveau.', { title: 'Récupérer tes points de stat ?' }))) return;
     try { setUser((await api('/api/me/attrs/reset', { method: 'POST' })).user); } catch (e) { toast(e.message); }
   });
 
@@ -530,7 +530,7 @@
     catch (e) { $('#invError').textContent = e.message; }
   }
   async function recycle(it) {
-    if (it.r >= 3 && !confirm(`Recycler cet objet ${rarName(it.r).toLowerCase()} contre ${GD.recycleValue(it.r)} Grêlons ?`)) return;
+    if (it.r >= 3 && !(await ask(`Recycler cet objet ${rarName(it.r).toLowerCase()} contre ${GD.recycleValue(it.r)} Grêlons ?`, { title: '♻️ Recyclage', ok: 'Recycler', danger: true }))) return;
     try {
       const d = await api('/api/inventory/recycle', { body: { uid: it.uid } });
       setUser(d.user);
@@ -700,7 +700,7 @@
     catch (e) { $('#mkError').textContent = e.message; $('#mkFormError').textContent = e.message; return false; }
   }
   async function buyListing(l) {
-    if (!confirm(`Acheter ${GD.itemName(l.item, me.cls)} pour ${l.price} Grêlons ?`)) return;
+    if (!(await ask(`Acheter ${GD.itemName(l.item, me.cls)} pour ${l.price} Grêlons ?`, { title: '🏪 Achat', ok: 'Acheter' }))) return;
     mkAction('/api/market/buy', { id: l.id }, 'Objet acheté ! Il est dans ton inventaire.');
   }
   $('#mkSell').addEventListener('click', () => {
@@ -708,10 +708,10 @@
     if (!it) { $('#mkFormError').textContent = 'Choisis un objet.'; return; }
     mkAction('/api/market/sell', { uid: it.uid, price: Number($('#mkPrice').value), reservedFor: $('#mkReserved').value.trim() || null }, 'Objet mis en vente 🏪');
   });
-  $('#mkGift').addEventListener('click', () => {
+  $('#mkGift').addEventListener('click', async () => {
     const it = selectedItem(), to = $('#mkGiftTo').value.trim();
     if (!it || !to) { $('#mkFormError').textContent = 'Choisis un objet et un joueur.'; return; }
-    if (!confirm(`Offrir ${GD.itemName(it, me.cls)} à ${to} ?`)) return;
+    if (!(await ask(`Offrir ${GD.itemName(it, me.cls)} à ${to} ?`, { title: '🎁 Cadeau', ok: 'Offrir' }))) return;
     mkAction('/api/market/gift', { uid: it.uid, to }, `🎁 Objet offert à ${to} !`);
   });
   $('#mkLoadShowcase').addEventListener('click', async () => {
@@ -877,7 +877,7 @@
     $('#twitchLink').href = `https://twitch.tv/${twitchChannel}`;
     if (me.twitchName) {
       $('#twitchState').replaceChildren(el('p', {}, '✅ Lié au compte Twitch ', el('b', {}, me.twitchName), '. Tape ', el('b', {}, '!join'), ' dans le chat pour rejoindre une bataille.'),
-        el('button', { class: 'small', onclick: async () => { if (confirm('Délier ton compte Twitch ?')) setUser((await api('/api/me/twitch/unlink', { method: 'POST' })).user); } }, 'Délier'));
+        el('button', { class: 'small', onclick: async () => { if (await ask('Ton compte ne sera plus lié à ton pseudo Twitch.', { title: 'Délier ton compte Twitch ?', ok: 'Délier', danger: true })) setUser((await api('/api/me/twitch/unlink', { method: 'POST' })).user); } }, 'Délier'));
       return;
     }
     $('#twitchState').replaceChildren(

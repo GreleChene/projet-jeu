@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const GD = window.GameData;
-  const { api, $, $$, el, toast } = window.UI;
+  const { api, $, $$, el, toast, ask, askText } = window.UI;
   const PHASES = { lobby: 'En attente', intermission: 'Entracte', wave: 'Combat', gameover: 'Défaite', victory: 'Victoire' };
   let users = [];
 
@@ -47,12 +47,12 @@
   async function act(action, extra) {
     const body = { ...extra };
     if (action === 'start') {
-      if (!confirm('Lancer une nouvelle partie ? La partie en cours sera remplacée.')) return;
+      if (!(await ask('La partie en cours sera remplacée.', { title: 'Lancer une nouvelle partie ?', ok: 'Lancer' }))) return;
       body.wave = Number($('#startWave').value) || 1;
       body.mode = $('#startMode').value;
       body.difficulty = $('#startDiff').value;
     }
-    if (action === 'stop' && !confirm('Arrêter la partie en cours ?')) return;
+    if (action === 'stop' && !(await ask('La partie en cours sera arrêtée.', { title: 'Arrêter la partie ?', ok: 'Arrêter', danger: true }))) return;
     if (action === 'wave') body.wave = Number($('#gotoWave').value) || 1;
     if (action === 'treasury') body.amount = Number($('#treasuryAmt').value) || 0;
     if (action === 'openJoin') body.seconds = Number($('#joinSeconds').value) || 0;
@@ -140,24 +140,24 @@
           el('button', { class: 'small', onclick: () => giveXp(u) }, '+ XP'),
           el('button', { class: 'small', onclick: () => giveGold(u) }, '+ Grêlons'),
           el('button', { class: 'small', onclick: () => giveIce(u) }, '+ Glaçons'),
-          el('button', { class: 'small', onclick: () => { const g = prompt(`Fixer les Grêlons de ${u.pseudo} à :`, u.gold); if (g !== null) editUser(u, { gold: Number(g) }); } }, 'Fixer Grêlons'),
-          el('button', { class: 'small', onclick: () => { const l = prompt('Niveau :', u.level); if (l !== null) editUser(u, { level: Number(l) }); } }, 'Niveau'),
-          el('button', { class: 'small', onclick: () => confirm('Remettre la classe à « Habitant » ?') && editUser(u, { resetClass: true }) }, 'Reset classe'),
-          el('button', { class: 'small', onclick: () => { const p = prompt('Nouveau mot de passe (6 caractères min.) :'); if (p) editUser(u, { password: p }); } }, 'Mot de passe'),
+          el('button', { class: 'small', onclick: async () => { const g = await askText(`Fixer les Grêlons de ${u.pseudo} à :`, u.gold, { title: 'Grêlons', type: 'number' }); if (g !== null) editUser(u, { gold: Number(g) }); } }, 'Fixer Grêlons'),
+          el('button', { class: 'small', onclick: async () => { const l = await askText(`Niveau de ${u.pseudo} :`, u.level, { title: 'Niveau', type: 'number' }); if (l !== null) editUser(u, { level: Number(l) }); } }, 'Niveau'),
+          el('button', { class: 'small', onclick: async () => { if (await ask(`Remettre la classe de ${u.pseudo} à « Habitant » ?`, { title: 'Reset de classe', ok: 'Remettre', danger: true })) editUser(u, { resetClass: true }); } }, 'Reset classe'),
+          el('button', { class: 'small', onclick: async () => { const p = await askText(`Nouveau mot de passe de ${u.pseudo} (6 caractères min.) :`, '', { title: 'Mot de passe', type: 'password' }); if (p) editUser(u, { password: p }); } }, 'Mot de passe'),
           el('button', { class: 'small danger', onclick: () => editUser(u, { banned: !u.banned }) }, u.banned ? 'Débannir' : 'Bannir'),
           el('button', { class: 'small danger', onclick: () => deleteUser(u) }, 'Supprimer'))))
     );
   }
-  function giveXp(u) {
-    const n = prompt(`Combien d’XP donner à ${u.pseudo} ?`, '500');
+  async function giveXp(u) {
+    const n = await askText(`Combien d’XP donner à ${u.pseudo} ?`, '500', { title: '+ XP', type: 'number' });
     if (n !== null && Number(n) > 0) editUser(u, { addXp: Number(n) });
   }
-  function giveIce(u) {
-    const n = prompt(`Combien de glaçons 🧊 donner à ${u.pseudo} ? (négatif pour retirer)`, '5');
+  async function giveIce(u) {
+    const n = await askText(`Combien de glaçons 🧊 donner à ${u.pseudo} ? (négatif pour retirer)`, '5', { title: '+ Glaçons', type: 'number' });
     if (n !== null && Number(n)) editUser(u, { addGlacons: Number(n) });
   }
-  function giveGold(u) {
-    const n = prompt(`Combien de Grêlons donner à ${u.pseudo} ? (négatif pour retirer)`, '200');
+  async function giveGold(u) {
+    const n = await askText(`Combien de Grêlons donner à ${u.pseudo} ? (négatif pour retirer)`, '200', { title: '+ Grêlons', type: 'number' });
     if (n !== null && Number(n)) editUser(u, { addGold: Number(n) });
   }
   async function editUser(u, body) {
@@ -165,7 +165,7 @@
     catch (e) { toast(e.message); }
   }
   async function deleteUser(u) {
-    if (!confirm(`Supprimer définitivement le compte « ${u.pseudo} » ?`)) return;
+    if (!(await ask(`Le compte « ${u.pseudo} » sera supprimé définitivement.`, { title: 'Supprimer le compte ?', ok: 'Supprimer', danger: true }))) return;
     try { await api('/api/admin/users/' + u.id, { method: 'DELETE' }); loadUsers(); }
     catch (e) { toast(e.message); }
   }

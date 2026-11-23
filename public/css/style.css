@@ -169,6 +169,13 @@ iframe.stream { width: 100%; aspect-ratio: 16 / 9; border: 2px solid var(--outli
 .ice-mini::after, .ice-block::after { content: ''; position: absolute; left: 18%; top: 14%; width: 22%; height: 10%; border-radius: 8px; background: rgba(255,255,255,.85); transform: rotate(-20deg); }
 @keyframes float { 50% { transform: translateY(-6px) rotate(3deg); } }
 
+.game-dialog-overlay { z-index: 200; }
+.game-dialog { width: min(440px, 100%); background: var(--panel); border-color: var(--gold); box-shadow: 0 0 0 2px var(--outline), 0 12px 40px rgba(0,0,0,.6); animation: dialogIn .16s ease-out; }
+.game-dialog h2 { margin: 0 0 10px; }
+.game-dialog-text { white-space: pre-line; line-height: 1.45; }
+.game-dialog input { width: 100%; margin-top: 12px; }
+.game-dialog-actions { margin-top: 16px; gap: 8px; }
+@keyframes dialogIn { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
 .modal { position: fixed; inset: 0; background: rgba(10,6,16,.86); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
 .ice-stage { position: relative; width: 190px; height: 190px; }
 .ice-skip { margin-top: 18px; opacity: .85; }

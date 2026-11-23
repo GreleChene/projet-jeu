@@ -30,6 +30,37 @@
     document.body.append(t);
     setTimeout(() => t.remove(), 2500);
   }
+  /**
+   * Fenêtre de dialogue au style du jeu.
+   * ask(texte, { title, ok, cancel, danger }) -> Promise<boolean>
+   * askText(texte, valeurParDéfaut, { title, ok, type }) -> Promise<string | null>
+   */
+  function dialog(text, opts, withInput, def) {
+    return new Promise((resolve) => {
+      const prev = document.activeElement;
+      const input = withInput ? el('input', { type: opts.type || 'text', value: def === undefined || def === null ? '' : String(def) }) : null;
+      const close = (v) => { overlay.remove(); document.removeEventListener('keydown', onKey, true); if (prev && prev.focus) prev.focus(); resolve(v); };
+      const okBtn = el('button', { class: opts.danger ? 'danger' : 'primary', onclick: () => close(withInput ? input.value : true) }, opts.ok || (withInput ? 'Valider' : 'Confirmer'));
+      const cancelBtn = el('button', { onclick: () => close(withInput ? null : false) }, opts.cancel || 'Annuler');
+      const box = el('div', { class: 'panel game-dialog', role: 'dialog', 'aria-modal': 'true' },
+        opts.title ? el('h2', {}, opts.title) : '',
+        el('div', { class: 'game-dialog-text' }, text),
+        input || '',
+        el('div', { class: 'row game-dialog-actions' }, el('span', { class: 'spacer' }), cancelBtn, okBtn));
+      const overlay = el('div', { class: 'modal game-dialog-overlay' }, box);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(withInput ? null : false); });
+      function onKey(e) {
+        if (e.key === 'Escape') { e.preventDefault(); close(withInput ? null : false); }
+        else if (e.key === 'Enter' && (withInput ? document.activeElement === input : true)) { e.preventDefault(); okBtn.click(); }
+      }
+      document.addEventListener('keydown', onKey, true);
+      document.body.append(overlay);
+      (input || okBtn).focus();
+      if (input) input.select();
+    });
+  }
+  const ask = (text, opts) => dialog(text, opts || {}, false);
+  const askText = (text, def, opts) => dialog(text, opts || {}, true, def);
   // Petit portrait de héros animé dans un canvas
   function heroCanvas(canvas, getOpts, opts = {}) {
     const ctx = canvas.getContext('2d');
@@ -51,5 +82,5 @@
     }
     frame();
   }
-  window.UI = { api, $, $$, el, toast, heroCanvas };
+  window.UI = { api, $, $$, el, toast, heroCanvas, ask, askText };
 })();
