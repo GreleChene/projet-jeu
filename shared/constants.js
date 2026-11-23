@@ -591,7 +591,7 @@
     infirmary: { name: 'Infirmerie', icon: '⛑️', get desc() { return `Régénération près de la tour ; réanime 1 héros mort par manche dès le niveau ${BALANCE.INFIRMARY_REVIVE_LEVEL}, 2 au niveau ${BALANCE.INFIRMARY_REVIVE2_LEVEL}`; }, cost: 90, growth: 1.6, max: 6, unlock: 0 },
     armory: { name: 'Armurerie', icon: '🛡️', desc: '+8% de réduction de dégâts pour les héros', cost: 150, growth: 1.6, max: 5, unlock: 250 },
     // l'effet par niveau suit le niveau max : au maximum, les ultimes se chargent toujours 2 fois plus vite
-    shrine: { name: 'Autel arcanique', icon: '🔮', get desc() { return `Les ultimes se chargent ${Math.round(1000 / this.max) / 10} % plus vite (×2 au niveau ${this.max})`; }, cost: 400, growth: 1.3, max: 10, unlock: 400 },
+    shrine: { name: 'Autel arcanique', icon: '🔮', get desc() { return `Les ultimes se chargent ${Math.round(1000 / this.max) / 10} % plus vite (×2 au niveau ${this.max})`; }, cost: 400, growth: 1.2, max: 10, unlock: 400 },
     catapult: { name: 'Catapulte', icon: '☄️', desc: 'La tour lance des rochers explosifs', cost: 400, growth: 1.7, max: 5, unlock: 800 },
     banner: { name: 'Étendard royal', icon: '🚩', desc: '+20% d’XP et de Grêlons gagnés', cost: 350, growth: 1.8, max: 5, unlock: 600 },
     // proposée seulement s'il y a au moins un héros mort (les héros ne réapparaissent pas d'eux-mêmes)
