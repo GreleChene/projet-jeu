@@ -134,11 +134,11 @@ test('héros mort : récompenses de toutes les manches jusqu’à la fin ; atten
   const g = new Game(db, { to: () => ({ emit() {} }), sockets: { sockets: new Map() } });
   g.startRun(1);
   const h = g.joinUser(u);
-  for (let w = 1; w <= 3; w++) { g.setWave(w); g.mobs = []; g.run.queue = []; g.run.bossPending = []; h.alive = false; h.respawnT = 999; g.tick(0.05); }
-  assert.strictEqual(h.runGlacons, 3, 'un glaçon par manche même mort');
-  assert.ok(u.pending && u.pending.glacons === 3, 'récompenses en attente enregistrées dans le profil');
+  for (let w = 1; w <= 5; w++) { g.setWave(w); g.mobs = []; g.run.queue = []; g.run.bossPending = []; h.alive = false; h.respawnT = 999; g.tick(0.05); }
+  assert.strictEqual(h.runGlacons, 1, 'un glaçon par boss vaincu (manche 5), même mort');
+  assert.ok(u.pending && u.pending.glacons === 1, 'récompenses en attente enregistrées dans le profil');
   g.stopRun();
-  assert.strictEqual(u.glacons, 3);
+  assert.strictEqual(u.glacons, 1);
   assert.strictEqual(u.pending, undefined);
 });
 

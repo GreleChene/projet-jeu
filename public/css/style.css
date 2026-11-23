@@ -269,3 +269,7 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 .house-preview { background: radial-gradient(circle at 50% 75%, #4b8f3a 0%, #2b5a22 55%, #1e3d18 100%); }
 .chip { white-space: nowrap; }
 .lock-banner { background: rgba(47, 111, 209, .18); border: 2px solid #2f6fd1; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-size: .9rem; }
+/* récapitulatif des récompenses de fin de partie */
+.reward-list { display: grid; gap: 6px; margin-top: 10px; }
+.reward-line { display: flex; justify-content: space-between; padding: 6px 10px; border-radius: 8px; background: rgba(0,0,0,.18); }
+.reward-line b { color: var(--gold); }

@@ -610,8 +610,28 @@
     if (s.vote) drawVote(s);
     if (s.ph === 'gameover' || s.ph === 'victory') {
       ctx.fillStyle = 'rgba(21,17,28,0.55)'; ctx.fillRect(0, 0, WORLD.W, WORLD.H);
-      text(s.ph === 'victory' ? 'VICTOIRE !' : 'LA TOUR EST TOMBÉE', WORLD.CX, WORLD.CY - 20, 72, s.ph === 'victory' ? P.ui.gold : P.ui.danger, 'center');
-      text(`Manche atteinte : ${s.w}`, WORLD.CX, WORLD.CY + 30, 26, P.ui.text, 'center', 'b');
+      const res = s.res || [];
+      const top = res.length ? WORLD.CY - 190 : WORLD.CY - 20;
+      text(s.ph === 'victory' ? 'VICTOIRE !' : 'LA TOUR EST TOMBÉE', WORLD.CX, top, 72, s.ph === 'victory' ? P.ui.gold : P.ui.danger, 'center');
+      text(`Manche atteinte : ${s.w}`, WORLD.CX, top + 50, 26, P.ui.text, 'center', 'b');
+      // récapitulatif des récompenses de chaque héros
+      if (res.length) {
+        const W = 980, RH = 32, x0 = WORLD.CX - W / 2, y0 = top + 80;
+        panel(x0, y0, W, 50 + res.length * RH + 10);
+        const cols = [[x0 + 24, 'Héros', 'left'], [x0 + 470, '⚔️ Éliminations', 'right'], [x0 + 620, '✨ XP', 'right'], [x0 + 760, '❄️ Grêlons', 'right'], [x0 + 880, '🧊 Glaçons', 'right'], [x0 + W - 20, '⬆️ Niv.', 'right']];
+        for (const [x, label, al] of cols) text(label, x, y0 + 32, 15, P.ui.muted, al, 'b');
+        res.forEach((r, i) => {
+          const y = y0 + 64 + i * RH;
+          const cls = GD.CLASSES[r[1]];
+          text(r[0], cols[0][0], y, 18, '#ffffff', 'left', 'b');
+          if (cls) text(cls.name, cols[0][0] + 150, y, 14, cls.color || P.ui.muted, 'left', 'b');
+          text(String(r[2]), cols[1][0], y, 18, P.ui.text, 'right', 'b');
+          text('+' + r[3], cols[2][0], y, 18, P.ui.text, 'right', 'b');
+          text('+' + r[4], cols[3][0], y, 18, P.ui.gold, 'right', 'b');
+          text('+' + r[5], cols[4][0], y, 18, '#bfe6ff', 'right', 'b');
+          text(r[6] ? '+' + r[6] : '—', cols[5][0], y, 18, r[6] ? P.ui.ok : P.ui.muted, 'right', 'b');
+        });
+      }
     }
     if (s.ph === 'lobby') {
       text('La bataille n’a pas encore commencé', WORLD.CX, WORLD.CY + 200, 30, '#ffffff', 'center');
@@ -619,7 +639,8 @@
     }
     if (s.ps) text('⏸ PAUSE', WORLD.CX, WORLD.CY - 260, 48, '#ffffff', 'center');
     if (s.sp > 1) text('⏩ x' + s.sp, WORLD.CX, 40, 30, '#ffe066', 'center');
-    if (announce) {
+    // en fin de partie, le titre et le récapitulatif remplacent l'annonce
+    if (announce && !(s.res && s.res.length)) {
       const k = announce.t;
       const a = k < 0.3 ? k / 0.3 : k > 3 ? 1 - (k - 3) / 0.8 : 1;
       const sc = k < 0.3 ? 0.7 + k : 1;

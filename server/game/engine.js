@@ -191,7 +191,15 @@ class Game {
 
   // Statistiques de fin de partie (persistantes)
   finishRun(won, silent) {
-    for (const h of this.heroes.values()) this.payout(h);
+    // récapitulatif des récompenses de chaque héros (affiché sur le stream et la page joueur)
+    const results = [];
+    for (const h of this.heroes.values()) {
+      const pay = this.payout(h) || { xp: h.runXp, gold: h.runGold, glacons: h.runGlacons || 0, levels: 0 };
+      results.push({ id: h.id, name: h.name, cls: h.cls, bot: !!h.isBot, kills: h.runKills || 0, ...pay });
+      if (!h.isBot && this.onRunEnd) this.onRunEnd(h.userId, { won, wave: this.run.wave, kills: h.runKills || 0, ...pay });
+    }
+    results.sort((a, b) => b.kills - a.kills);
+    this.run.results = results;
     for (const h of this.heroes.values()) {
       const u = h.userId && this.db.userById(h.userId);
       if (!u) continue;
@@ -405,7 +413,9 @@ class Game {
     p.glacons = (p.glacons || 0) + (h.runGlacons || 0);
     const levels = this.grantXp(p, h.runXp);
     this.db.markDirty();
-    if (this.onPayout) this.onPayout(p, { xp: h.runXp, gold: h.runGold, glacons: (h.runGlacons || 0) + levels * PROGRESSION.GLACONS_PER_LEVEL, levels });
+    const res = { xp: h.runXp, gold: h.runGold, glacons: (h.runGlacons || 0) + levels * PROGRESSION.GLACONS_PER_LEVEL, levels };
+    if (this.onPayout) this.onPayout(p, res);
+    return res;
   }
 
   // Ajoute de l'XP à un profil joueur (montées de niveau + points de stat). Utilisé aussi par l'admin.
@@ -468,16 +478,21 @@ class Game {
     const r = this.run;
     this.zones = this.zones.filter((z) => !HAZARD_KINDS.includes(z.kind));
     r.cleared = Math.max(r.cleared, r.wave);
-    const wasBoss = !!BOSS_WAVES[this.eqWave(r.wave)];
+    const bossCount = (BOSS_WAVES[this.eqWave(r.wave)] || []).length;
+    const wasBoss = bossCount > 0;
     if (wasBoss || r.mode === 'quick') this.terrainChanged(); // partie rapide : corruption à chaque manche
     // récompenses de fin de manche
     for (const h of this.heroes.values()) {
       const B = GD.BALANCE;
       const pw = this.powerWave(r.wave);
       this.reward(h, B.WAVE_XP_BASE + pw * B.WAVE_XP_PER_WAVE, B.WAVE_GRELONS_BASE + Math.ceil(pw * B.WAVE_GRELONS_PER_WAVE));
-      // un glaçon (coffre) par manche passée
-      const pu = !h.isBot && this.db.userById(h.userId);
-      if (pu) { h.runGlacons = (h.runGlacons || 0) + GD.GLACONS.PER_WAVE; this.savePending(h); this.fx(['text', Math.round(h.x), Math.round(h.y) - 80, '+1 🧊', '#bfe6ff']); }
+      // un glaçon (coffre) par boss vaincu
+      if (bossCount) {
+        const n = bossCount * GD.GLACONS.PER_BOSS;
+        h.runGlacons = (h.runGlacons || 0) + n;
+        this.savePending(h);
+        this.fx(['text', Math.round(h.x), Math.round(h.y) - 80, `+${n} 🧊`, '#bfe6ff']);
+      }
       if (h.zombie) { h.zombie = false; this.rosterVersion++; }
       const u = h.userId && this.db.userById(h.userId);
       if (u) u.stats.bestWave = Math.max(u.stats.bestWave, r.cleared);
@@ -1078,7 +1093,8 @@ class Game {
       era: GD.eraFor(r.mode, Math.max(1, r.wave)).name, mi: this.modeInfo(),
       bd: r.buildings.map((b) => [BUILDING_INDEX[b.family], Math.round(b.x), Math.round(b.y), Math.ceil((100 * b.hp) / b.max), b.owners.map((id) => (this.heroes.get(id) || {}).nid), b.variant || 0]),
       jn: this.canJoin() ? (Number.isFinite(r.joinUntil) ? Math.ceil((r.joinUntil - Date.now()) / 1000) : -1) : 0,
-      bosses, h: heroes, m: mobs, a: allies, p: proj, z: zones, e: ev
+      bosses, h: heroes,
+      res: (this.phase === 'gameover' || this.phase === 'victory') && r.results ? r.results.slice(0, 12).map((x) => [x.name, x.cls, x.kills, x.xp, x.gold, x.glacons, x.levels]) : undefined, m: mobs, a: allies, p: proj, z: zones, e: ev
     };
   }
 

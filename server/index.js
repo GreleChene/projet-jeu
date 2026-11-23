@@ -680,6 +680,8 @@ io.on('connection', (socket) => {
 // récompenses restées en attente (serveur arrêté en pleine partie) : versées au redémarrage
 for (const u of db.allUsers()) if (u.pending) game.settlePending(u);
 game.onPayout = (u, r) => notify(u.id, `🎁 Fin de partie : +${r.xp} XP, +${r.gold} Grêlons, +${r.glacons} glaçon(s)${r.levels ? ` · +${r.levels} niveau(x) !` : ''}`);
+// récapitulatif détaillé de fin de partie sur la page joueur
+game.onRunEnd = (userId, r) => { for (const s of io.sockets.sockets.values()) if (s.data.userId === userId) s.emit('runEnd', r); };
 game.start();
 const Twitch = require('./twitch');
 const twitch = new Twitch(db, game, notify);

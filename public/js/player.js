@@ -90,6 +90,19 @@
       try { setUser((await api('/api/me')).user); } catch (e) { /* */ }
       if (!$('[data-view="market"]').classList.contains('hidden')) loadMarket();
     });
+    // fin de partie : récapitulatif des récompenses
+    socket.on('runEnd', (r) => {
+      const line = (icon, label, v) => el('div', { class: 'reward-line' }, el('span', {}, typeof icon === 'string' ? icon + ' ' : icon, label), el('b', {}, v));
+      UI.ask(el('div', {},
+        el('p', {}, r.won ? 'Victoire ! Les trois fléaux sont vaincus.' : `La tour est tombée à la manche ${r.wave}.`),
+        el('div', { class: 'reward-list' },
+          line('⚔️', 'Monstres éliminés', String(r.kills)),
+          line('✨', 'Expérience', '+' + r.xp + ' XP'),
+          line(hail(), ' Grêlons', '+' + r.gold),
+          line('🧊', 'Glaçons', '+' + r.glacons),
+          r.levels ? line('⬆️', 'Niveaux gagnés', '+' + r.levels) : '')),
+        { title: r.won ? '🏆 Récompenses de la victoire' : '🎁 Récompenses de la partie', ok: 'Super !', noCancel: true });
+    });
     socket.on('connect_error', () => {});
   }
 

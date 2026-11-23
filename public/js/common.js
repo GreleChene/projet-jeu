@@ -46,7 +46,7 @@
         opts.title ? el('h2', {}, opts.title) : '',
         el('div', { class: 'game-dialog-text' }, text),
         input || '',
-        el('div', { class: 'row game-dialog-actions' }, el('span', { class: 'spacer' }), cancelBtn, okBtn));
+        el('div', { class: 'row game-dialog-actions' }, el('span', { class: 'spacer' }), opts.noCancel ? '' : cancelBtn, okBtn));
       const overlay = el('div', { class: 'modal game-dialog-overlay' }, box);
       overlay.addEventListener('click', (e) => { if (e.target === overlay) close(withInput ? null : false); });
       function onKey(e) {
