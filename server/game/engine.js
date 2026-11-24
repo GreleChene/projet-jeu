@@ -354,6 +354,9 @@ class Game {
     h.skills = p.skills || {};
     h.ultUnlocked = GD.ultUnlocked(h.skills, h.cls);
     Object.assign(h, st);
+    // monture (chevalier) : seulement une fois l'ultime débloqué, et plus rapide
+    h.mounted = !!(c.mount && h.ultUnlocked);
+    if (h.mounted) h.speed *= 1.16;
     h.hp = Math.max(1, Math.min(h.maxHp, Math.round(h.maxHp * ratio)));
     // amélioration spéciale de l'habitation (selon la classe actuelle)
     const fam = GD.familyOf(h.cls), sp = GD.HOUSE_SPECIALS[fam], lvl = GD.houseSpecial(p, fam) * (sp ? sp.per : 0);
@@ -1082,7 +1085,7 @@ class Game {
   /* ============================== Réseau ============================== */
   rosterPayload() {
     const out = [];
-    for (const h of this.heroes.values()) out.push({ n: h.nid, name: h.name, cls: h.cls, lvl: h.level, look: h.look, gear: h.gear, bot: h.isBot });
+    for (const h of this.heroes.values()) out.push({ n: h.nid, name: h.name, cls: h.cls, lvl: h.level, look: h.look, gear: h.gear, bot: h.isBot, mt: h.mounted ? 1 : 0 });
     return { v: this.rosterVersion, heroes: out };
   }
 

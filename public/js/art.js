@@ -478,7 +478,7 @@
     ctx.scale(flip, 1);
     ctx.imageSmoothingEnabled = false;
     // monture (chevalier) : le cheval est dessiné sous le cavalier, qui est surélevé
-    const mount = GD.CLASSES[o.cls] && GD.CLASSES[o.cls].mount && !o.noMount ? pixelSprite(o.mount || GD.CLASSES[o.cls].mount) : null;
+    const mount = o.mounted && GD.CLASSES[o.cls] && GD.CLASSES[o.cls].mount ? pixelSprite(GD.CLASSES[o.cls].mount) : null;
     let lift = 0;
     if (mount) {
       const mp = Math.max(1, Math.round(p * 0.8));
@@ -1359,5 +1359,5 @@
     ctx.restore();
   }
 
-  window.Art = { mobTop, heroPortrait, heroTop: (s, cls) => 29 * Math.max(1, Math.round(s * 1.45)) + (cls && GD.CLASSES[cls] && GD.CLASSES[cls].mount ? MOUNT_LIFT * Math.max(1, Math.round(Math.max(1, Math.round(s * 1.45)) * 0.8)) : 0), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
+  window.Art = { mobTop, heroPortrait, heroTop: (s, mounted) => 29 * Math.max(1, Math.round(s * 1.45)) + (mounted ? MOUNT_LIFT * Math.max(1, Math.round(Math.max(1, Math.round(s * 1.45)) * 0.8)) : 0), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
 })();

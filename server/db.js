@@ -100,11 +100,17 @@ function migrateUser(u) {
   u.skills ||= {};
   u.skillLost ||= 0;
   for (const k of Object.keys(u.skills)) if (!SKILLS[k]) delete u.skills[k]; // compétences disparues : points rendus
-  // v3 : vrai arbre (centre, branche de classe, sous-branche). Un Paysan ne garde pas de points dans les initiations
-  // (ils sont rendus) ; une classe de base qui a commencé une sous-branche devient cette spécialisation.
+  // v3 : vrai arbre (centre, branche de classe, sous-branche). Un Paysan qui a des points dans l'initiation d'une classe
+  // (dès le niveau requis) devient cette classe ; ses points dans les autres initiations sont rendus.
+  // Une classe de base qui a commencé une sous-branche devient cette spécialisation.
   if (!u.treeV3) {
     const c = CLASSES[u.cls] || CLASSES.habitant;
-    if (c.tier === 0) for (const k of Object.keys(u.skills)) if (SKILLS[k] && SKILLS[k].init) delete u.skills[k];
+    if (c.tier === 0) {
+      let best = null, br = 0;
+      for (const [k, r] of Object.entries(u.skills)) if (SKILLS[k] && SKILLS[k].init && r > br) { br = r; best = SKILLS[k].base; }
+      if (best && u.level >= PROGRESSION.CLASS_LEVEL) u.cls = best; else best = null;
+      for (const k of Object.keys(u.skills)) if (SKILLS[k] && SKILLS[k].init && SKILLS[k].base !== best) delete u.skills[k];
+    }
     if (c.tier === 1) { for (const [k, r] of Object.entries(u.skills)) if (r > 0 && SKILLS[k] && SKILLS[k].spec && SKILLS[k].base === u.cls) { u.cls = SKILLS[k].spec; break; } }
     u.treeV3 = true;
   }

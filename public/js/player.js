@@ -61,9 +61,11 @@
     $('#auth').classList.add('hidden');
     $('#app').classList.remove('hidden');
     if (me.role === 'admin') $('#hdrAdmin').classList.remove('hidden');
-    heroCanvas($('#battleArt'), () => (me ? { cls: me.cls, look: me.look, gear: myGear(), dead: live && live.hero && !live.hero.alive, zombie: live && live.hero && live.hero.zombie } : null));
-    heroCanvas($('#gearArt'), () => (me ? { cls: me.cls, look: me.look, gear: myGear() } : null));
-    heroCanvas($('#equipArt'), () => (me ? { cls: me.cls, look: me.look, gear: myGear() } : null));
+    heroCanvas($('#battleArt'), () => (me ? { cls: me.cls, look: me.look, gear: myGear(), mounted: isMounted(), dead: live && live.hero && !live.hero.alive, zombie: live && live.hero && live.hero.zombie } : null));
+    heroCanvas($('#gearArt'), () => (me ? { cls: me.cls, look: me.look, gear: myGear(), mounted: isMounted() } : null));
+    heroCanvas($('#equipArt'), () => (me ? { cls: me.cls, look: me.look, gear: myGear(), mounted: isMounted() } : null));
+    // le chevalier monte à cheval une fois son ultime débloqué
+    function isMounted() { return !!(me && GD.CLASSES[me.cls] && GD.CLASSES[me.cls].mount && GD.ultUnlocked(me.skills, me.cls)); }
     connect();
     renderAll();
     renderXp({ level: me.level, xp: me.xp, xpNext: me.xpNext, attrPoints: me.attrPoints });
@@ -241,6 +243,21 @@
   }
 
   let selSkill = null; // compétence affichée dans le détail de l’arbre
+  // Zoom de l'arbre en étoile : null = ajusté à la largeur
+  const TREE_BOARD = 1400;
+  let treeZoom = null;
+  const fitZoom = () => { const w = ($('#classTree .tboard-wrap') || {}).clientWidth || 0; return w ? Math.min(1, (w - 4) / TREE_BOARD) : 0.75; };
+  function applyTreeZoom() {
+    const wrap = $('#classTree .tboard-wrap');
+    if (!wrap) return;
+    const z = treeZoom || fitZoom();
+    const sizer = wrap.firstChild, board = sizer.firstChild;
+    sizer.style.width = `${TREE_BOARD * z}px`; sizer.style.height = `${TREE_BOARD * z}px`;
+    board.style.transform = `scale(${z})`;
+  }
+  function setTreeZoom(z) { treeZoom = z === null ? null : Math.max(0.25, Math.min(1.6, z)); renderClasses(); }
+  // réajuste l'arbre quand la largeur change (ou quand l'onglet devient visible)
+  if (window.ResizeObserver) new ResizeObserver(() => { if (treeZoom === null) applyTreeZoom(); }).observe(document.getElementById('classTree'));
   function renderClasses() {
     const PR = GD.PROGRESSION;
     const cur = GD.CLASSES[me.cls];
@@ -316,36 +333,72 @@
       Object.keys(sk).length ? el('div', { class: 'row', style: 'margin-top:8px' },
         el('button', { class: 'small danger', onclick: () => respec(lossNow) }, `🔄 Se reconvertir (perte de ${lossNow} point${lossNow > 1 ? 's' : ''})`)) : '');
 
-    // Centre de l'arbre : le Paysan
+    // Arbre en étoile : le Paysan au centre, les classes tout autour, les sous-branches qui rayonnent vers l'extérieur
+    const BOARD = TREE_BOARD, CX = BOARD / 2, CY = BOARD / 2;
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('width', BOARD); svg.setAttribute('height', BOARD); svg.setAttribute('class', 'tlines');
+    const at = (r, deg) => [CX + Math.cos((deg * Math.PI) / 180) * r, CY + Math.sin((deg * Math.PI) / 180) * r];
+    const link = (a, b, color, on, dim) => {
+      const l = document.createElementNS(NS, 'line');
+      l.setAttribute('x1', a[0]); l.setAttribute('y1', a[1]); l.setAttribute('x2', b[0]); l.setAttribute('y2', b[1]);
+      l.setAttribute('stroke', on ? color : '#4a3b5e'); l.setAttribute('stroke-width', on ? 5 : 3); l.setAttribute('stroke-linecap', 'round');
+      if (dim) l.setAttribute('opacity', '0.35');
+      svg.append(l);
+    };
+    const place = (node, p, extra) => { node.style.left = `${p[0]}px`; node.style.top = `${p[1]}px`; if (extra) node.classList.add(...extra.split(' ').filter(Boolean)); return node; };
+    const items = [];
+    const R_CLASS = 160, R_LABEL = 245, R_NODES = [300, 344, 388, 432, 476], R_ULT = 575;
     const P0 = GD.CLASSES.habitant;
-    const root = el('div', { class: 'troot' + (cur.tier === 0 ? ' here' : '') },
-      miniHero('habitant', 56),
-      el('div', {}, el('div', { class: 'title', style: `color:${P0.color}` }, P0.name), el('div', { class: 'small muted' }, 'Point de départ de tous les héros')),
-      el('div', { class: 'tchain' }, dot(GD.SKILLS.core_1)));
-
-    // Une branche par classe, une sous-branche par spécialisation
-    const rows = GD.BASE_CLASSES.map((b) => {
+    items.push(place(el('div', { class: 'tcenter' + (cur.tier === 0 ? ' here' : '') },
+      miniHero('habitant', 48),
+      el('div', { class: 'title', style: `color:${P0.color}` }, P0.name),
+      dot(GD.SKILLS.core_1)), [CX, CY]));
+    GD.BASE_CLASSES.forEach((b, k) => {
       const B = GD.CLASSES[b];
+      const a0 = -90 + k * (360 / GD.BASE_CLASSES.length);
       const rowLocked = cur.tier > 0 && base !== b;
-      const lanes = GD.specsOf(b).map((spec) => {
+      const initOwned = (sk[`init_${b}`] || 0) > 0;
+      link([CX, CY], at(R_CLASS, a0), B.color, initOwned, rowLocked);
+      items.push(place(el('div', { class: 'tcls' + (base === b ? ' here' : ''), style: `--bc:${B.color}` },
+        miniHero(b, 40),
+        el('div', { class: 'tname', style: `color:${B.color}` }, B.name, base === b ? ' ✓' : '', rowLocked ? ' 🔒' : ''),
+        dot(GD.SKILLS[`init_${b}`])), at(R_CLASS, a0), rowLocked ? 'tlocked' : ''));
+      GD.specsOf(b).forEach((spec, j) => {
         const S = GD.CLASSES[spec];
+        const a = a0 + (j - 1) * 21;
         const laneLocked = rowLocked || (base === b && started && started !== spec);
-        const ids = [1, 2, 3, 4, 5, 'ult', 'mastery'].map((k) => GD.SKILLS[`${spec}_${k}`]);
-        return el('div', { class: 'tlane' + (laneLocked ? ' tlocked' : '') + (me.cls === spec ? ' here' : ''), style: `--bc:${S.color}` },
-          el('div', { class: 'tspec' }, miniHero(spec, 40),
-            el('div', {}, el('div', { class: 'tname', style: `color:${S.color}` }, S.name, me.cls === spec ? ' ✓' : '', laneLocked ? ' 🔒' : ''),
-              el('div', { class: 'tiny muted' }, S.desc),
-              S.creatures ? el('div', { class: 'tiny', style: 'color:var(--gold)' }, S.creatures) : '')),
-          el('div', { class: 'tchain' }, ...ids.map(dot)));
+        const lk = laneLocked ? 'tlocked' : '';
+        const ids = [1, 2, 3, 4, 5].map((n) => GD.SKILLS[`${spec}_${n}`]);
+        let prev = at(R_CLASS + 34, a0);
+        link(prev, at(R_LABEL - 18, a), S.color, (sk[ids[0].id] || 0) > 0, laneLocked);
+        items.push(place(el('div', { class: 'tlbl' + (me.cls === spec ? ' here' : ''), style: `color:${S.color}`, title: S.desc }, S.name, me.cls === spec ? ' ✓' : '', laneLocked ? ' 🔒' : ''), at(R_LABEL, a), lk));
+        prev = at(R_LABEL + 16, a);
+        ids.forEach((n, m) => {
+          const p = at(R_NODES[m], a);
+          link(prev, p, S.color, (sk[n.id] || 0) > 0, laneLocked);
+          items.push(place(dot(n), p, lk));
+          prev = p;
+        });
+        const ult = GD.SKILLS[`${spec}_ult`], mast = GD.SKILLS[`${spec}_mastery`];
+        const pu = at(R_ULT, a);
+        link(prev, pu, S.color, (sk[ult.id] || 0) > 0, laneLocked);
+        const card = el('div', { class: 'tultcard', style: `--bc:${S.color}` }, dot(ult), dot(mast));
+        items.push(place(card, pu, lk));
       });
-      return el('div', { class: 'trow' + (rowLocked ? ' tlocked' : '') + (base === b ? ' here' : ''), style: `--bc:${B.color}` },
-        el('div', { class: 'tclass' }, miniHero(b, 48),
-          el('div', {}, el('div', { class: 'title', style: `color:${B.color}` }, B.name, base === b ? ' ✓' : '', rowLocked ? ' 🔒' : ''), el('div', { class: 'tiny muted' }, B.desc)),
-          el('div', { class: 'tchain' }, dot(GD.SKILLS[`init_${b}`]))),
-        el('div', { class: 'tlanes' }, ...lanes));
     });
+    const board = el('div', { class: 'tboard', style: `width:${BOARD}px;height:${BOARD}px` }, svg, ...items);
+    const sizer = el('div', { class: 'tsizer' }, board);
+    const wrap = el('div', { class: 'tboard-wrap' + (treeZoom === null ? '' : ' zoomed') }, sizer);
+    const zoomBar = el('div', { class: 'row tzoom' },
+      el('span', { class: 'small muted' }, 'Zoom :'),
+      el('button', { class: 'small', onclick: () => setTreeZoom((treeZoom || fitZoom()) / 1.25) }, '−'),
+      el('button', { class: 'small' + (treeZoom === null ? ' primary' : ''), onclick: () => setTreeZoom(null) }, 'Ajuster'),
+      el('button', { class: 'small', onclick: () => setTreeZoom((treeZoom || fitZoom()) * 1.25) }, '+'),
+      el('span', { class: 'small muted' }, 'Clique sur une pastille pour voir son effet.'));
     tree.className = 'sktree';
-    tree.replaceChildren(detail, root, el('div', { class: 'ttrunk' }, ...rows));
+    tree.replaceChildren(detail, zoomBar, wrap);
+    applyTreeZoom();
   }
 
   async function learn(n) {

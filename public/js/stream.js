@@ -292,7 +292,7 @@
     }
     A.drawHero(ctx, h.x, h.y, {
       cls: info.cls, look: info.look, gear: info.gear, facing: h.facing, t: time, seed: h.seed, scale: HERO_SCALE, moving: h.moving,
-      attack: Math.max(0, h.attackT), zombie: !!(h.f & HF.ZOMBIE), stealth: !!(h.f & HF.STEALTH)
+      attack: Math.max(0, h.attackT), zombie: !!(h.f & HF.ZOMBIE), stealth: !!(h.f & HF.STEALTH), mounted: !!info.mt
     });
     if (h.f & HF.SHIELD) { ctx.save(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(h.x, h.y - HERO_TOP * 0.42, HERO_TOP * 0.56, 0, Math.PI * 2); ctx.strokeStyle = P.fx.frost; ctx.lineWidth = 3; ctx.stroke(); ctx.restore(); }
     if (h.f & HF.ANTHEM && Math.random() < 0.12) fx.push({ k: 'text', x: h.x + (Math.random() - 0.5) * 24, y: h.y - HERO_TOP - 4, s: '♪', color: '#ffd34d', dur: 0.9, t: 0, size: 16 });
@@ -367,7 +367,7 @@
       const info = roster.get(id);
       if (!info) continue;
       const dead = h.f & HF.DEAD;
-      const y = h.y - (dead ? 38 : (info && GD.CLASSES[info.cls] && GD.CLASSES[info.cls].mount ? A.heroTop(HERO_SCALE, info.cls) : HERO_TOP) + 12);
+      const y = h.y - (dead ? 38 : (info.mt ? A.heroTop(HERO_SCALE, true) : HERO_TOP) + 12);
       ctx.globalAlpha = dead ? 0.6 : h.f & HF.STEALTH ? 0.45 : 1;
       ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
       ctx.strokeText(info.name, h.x, y);
