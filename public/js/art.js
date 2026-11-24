@@ -186,7 +186,8 @@
     const hair = P.hair[L.hair], haD = shade(hair, -0.3), haL = shade(hair, 0.25);
     const dark = '#1a1214';
     const atk = frame === 3;
-    const lo = frame === 1 ? -1 : frame === 2 ? 1 : 0; // décalage des jambes
+    // marche : pas écarté (frame 1) ou jambe arrière levée (frame 2) ; les deux jambes restent toujours distinctes
+    const lo = frame === 1 ? -1 : 0, lb = frame === 2 ? -2 : 0;
 
     // ---- cape (derrière)
     const capeC = shade(cape, -0.15);
@@ -201,13 +202,13 @@
     G.rect(10, Y + 16, 2, 5, shade(sleeve, -0.2)); G.rect(10, Y + 21, 2, 2, skD);
     // ---- jambes et bottes
     const pants = legs.tier ? legs.main : '#5e3a1f', pantsD = shade(pants, -0.25);
-    G.rect(12 + lo, Y + 23, 2, 5, pantsD); G.rect(15 - lo, Y + 23, 2, 5, pants);
+    G.rect(12 + lo, Y + 23, 2, 5 + lb, pantsD); G.rect(15 - lo, Y + 23, 2, 5, pants);
     if (legs.style === 'heavy' && legs.tier >= 2) { G.px(15 - lo, Y + 25, legs.trim); G.px(16 - lo, Y + 25, legs.trim); }
     if (legs.rune) G.px(16 - lo, Y + 24, '#2fd6e0');
     const boot = feet.tier ? feet.main : '#3c2a1e', bootD = shade(boot, -0.3);
     const bootH = feet.tier >= 2 && feet.style !== 'cloth' ? 3 : 2;
-    G.rect(11 + lo, Y + 30 - bootH, 4, bootH, bootD); G.rect(14 - lo, Y + 30 - bootH, 4, bootH, boot);
-    G.rect(11 + lo, Y + 29, 4, 1, shade(bootD, -0.2)); G.rect(14 - lo, Y + 29, 4, 1, shade(boot, -0.35));
+    G.rect(11 + lo, Y + 30 - bootH + lb, 4, bootH, bootD); G.rect(14 - lo, Y + 30 - bootH, 4, bootH, boot);
+    G.rect(11 + lo, Y + 29 + lb, 4, 1, shade(bootD, -0.2)); G.rect(14 - lo, Y + 29, 4, 1, shade(boot, -0.35));
     if (feet.tier >= 3) { G.px(15 - lo, Y + 28 - bootH + 1, feet.trim); G.px(16 - lo, Y + 28 - bootH + 1, feet.trim); }
     if (feet.rune) G.px(16 - lo, Y + 28, '#2fd6e0');
     // ---- torse selon le style d'armure
