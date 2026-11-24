@@ -70,3 +70,21 @@ def horse(frame=0):
     c.poly([(14, 11), (30, 11), (29, 19), (15, 19)], 'R'); c.recolor('R', 'r', lambda x, y: y >= 17)
     for x in range(16, 29, 3): c.px(x, 18, 'A')
     return c.rows()
+
+# Oiseaux du fauconnier (vue de profil, en vol) : faucon, pigeon (variante), aigle (variante)
+BIRD_PAL = {'F': '#8a5a34', 'f': '#5e3a1e', 'H': '#d8c4a0', 'W': '#6e4526', 'w': '#a97a4e', 'Y': '#f2c14e', 'k': '#140c08', 'N': '#c8b090'}
+BIRD_VAR = {
+  'pigeon': {'F': '#8d96a3', 'f': '#6a7380', 'H': '#6f7a88', 'W': '#b8c0cc', 'w': '#dfe4ea', 'Y': '#e89aa8', 'N': '#5fae8a'},
+  'eagle': {'F': '#4a3220', 'f': '#2e1e12', 'H': '#f3ead7', 'W': '#3a2414', 'w': '#6b4a2e', 'Y': '#f2c14e', 'N': '#f3ead7'},
+}
+def bird(frame=0):
+    c = C(26, 18)
+    c.poly([(1, 8), (6, 7), (6, 11), (1, 12)], 'f')
+    c.ell(11, 10, 6.5, 3.4, 'F'); c.ell(11, 11, 5, 1.8, 'w')
+    c.ell(18, 8, 3.2, 2.8, 'H'); c.px(16, 10, 'N'); c.px(17, 10, 'N')
+    c.px(19, 7, 'k'); c.rect(21, 8, 2, 1, 'Y'); c.px(22, 9, 'Y')
+    if frame % 2 == 0:
+        c.poly([(7, 9), (15, 9), (12, 1), (9, 0)], 'W'); c.line(9, 1, 12, 8, 'w')
+    else:
+        c.poly([(7, 10), (15, 10), (13, 17), (10, 17)], 'W'); c.line(10, 16, 12, 11, 'w')
+    return c.rows()

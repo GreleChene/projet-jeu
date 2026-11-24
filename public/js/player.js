@@ -253,7 +253,7 @@
     if (pop) pop.remove();
   }
   // Zoom de l'arbre en étoile : null = ajusté à la largeur
-  const TREE_BOARD = 1400;
+  const TREE_BOARD = 1480;
   let treeZoom = null, keptZoom = null;
   const fitZoom = () => { const w = ($('#classTree .tboard-wrap') || {}).clientWidth || 0; return w ? Math.min(1, (w - 4) / TREE_BOARD) : 0.75; };
   function applyTreeZoom() {
@@ -340,20 +340,20 @@
         else if (n.step === 1 && (sk[`init_${n.base}`] || 0) < GD.SKILL_MAX_RANK) reason = `${GD.SKILLS[`init_${n.base}`].name} ${GD.SKILL_MAX_RANK}/${GD.SKILL_MAX_RANK} requis`;
         else if (n.ult && me.level < PR.ULT_LEVEL) reason = `Niveau ${PR.ULT_LEVEL} requis`;
       }
-      if (!reason && n.requires && !sk[n.requires]) reason = 'Débloque la compétence précédente';
+      if (!reason && n.requires && (sk[n.requires] || 0) < GD.requiredRank(n.requires)) reason = GD.SKILLS[n.requires].ult ? 'Débloque d’abord l’ultime' : `${GD.requiredRank(n.requires)} points requis dans « ${GD.SKILLS[n.requires].name} »`;
       if (!reason && rank >= n.max) reason = 'Rang maximum';
       if (!reason && pts.free < 1) reason = 'Pas de point libre';
       return { rank, can: !reason, reason };
     };
     const nodeTitle = (n) => (n.ult ? `${GD.CLASSES[n.spec].ultName} (ultime)` : n.name);
-    const nodeText = (n) => (n.ult ? GD.CLASSES[n.spec].ultDesc : `${bonusLine(n.bonus)} par rang`);
+    const nodeText = (n) => (n.ult ? GD.CLASSES[n.spec].ultDesc : n.summon ? GD.summonText(n) : `${bonusLine(n.bonus)} par rang${n.post ? ' (améliore l’ultime)' : ''}`);
 
     // Pastille d'une compétence dans l'arbre (cliquer = voir le détail)
     const dot = (n) => {
       const st = stateOf(n);
-      const cls = 'tnode' + (n.ult ? ' tult' : '') + (n.mastery ? ' tmastery' : '') + (n.init ? ' tinit' : '') + (n.core ? ' tcore' : '')
+      const cls = 'tnode' + (n.ult ? ' tult' : '') + (n.post ? ' tpost' : '') + (n.summon ? ' tsummon' : '') + (n.init ? ' tinit' : '') + (n.core ? ' tcore' : '')
         + (st.rank ? ' owned' : '') + (st.can ? ' can' : '') + (selSkill === n.id ? ' sel' : '');
-      const label = n.ult ? '✨' : n.mastery ? (st.rank ? `★${st.rank}` : '★') : `${st.rank}/${n.max}`;
+      const label = n.ult ? '✨' : n.summon ? `${GD.SUMMONS[n.summon].icon}${st.rank ? st.rank : ''}` : `${st.rank}/${n.max}`;
       const bc = n.spec ? GD.CLASSES[n.spec].color : n.init ? GD.CLASSES[n.base].color : GD.CLASSES.habitant.color;
       if (n.ult) {
         const S = GD.CLASSES[n.spec];
@@ -394,7 +394,7 @@
     const place = (node, p, extra) => { node.style.left = `${p[0]}px`; node.style.top = `${p[1]}px`; if (extra) node.classList.add(...extra.split(' ').filter(Boolean)); return node; };
     const items = [];
     const pos = {}; // position de chaque pastille (pour la bulle d'action)
-    const R_CLASS = 160, R_LABEL = 245, R_NODES = [300, 344, 388, 432, 476], R_ULT = 575;
+    const R_CLASS = 160, R_LABEL = 245, R_NODES = [300, 344, 388, 432, 476], R_ULT = 552, R_POST = [632, 678];
     const P0 = GD.CLASSES.habitant;
     items.push(place(el('div', { class: 'tcenter' + (cur.tier === 0 ? ' here' : '') },
       miniHero('habitant', 48),
@@ -429,12 +429,20 @@
           pos[n.id] = p;
           prev = p;
         });
-        const ult = GD.SKILLS[`${spec}_ult`], mast = GD.SKILLS[`${spec}_mastery`];
+        const ult = GD.SKILLS[`${spec}_ult`];
         const pu = at(R_ULT, a);
         link(prev, pu, S.color, (sk[ult.id] || 0) > 0, laneLocked);
-        const card = el('div', { class: 'tultcard', style: `--bc:${S.color}` }, dot(ult), dot(mast));
+        // compétences d'après-ultime, au bout de la sous-branche
+        let pp = pu;
+        [1, 2].map((k) => GD.SKILLS[`${spec}_u${k}`]).filter(Boolean).forEach((n, m) => {
+          const p = at(R_POST[m], a);
+          link(pp, p, S.color, (sk[n.id] || 0) > 0, laneLocked);
+          items.push(place(dot(n), p, lk));
+          pos[n.id] = p; pp = p;
+        });
+        const card = el('div', { class: 'tultcard', style: `--bc:${S.color}` }, dot(ult));
         items.push(place(card, pu, lk));
-        pos[ult.id] = [pu[0] - 20, pu[1]]; pos[mast.id] = [pu[0] + 72, pu[1]];
+        pos[ult.id] = [pu[0] + 40, pu[1]];
       });
     });
     // bulle d'action à côté de la pastille cliquée : nom, rang et bouton pour y dépenser un point
@@ -999,7 +1007,7 @@
         `Partie rapide : ${GD.MODES.quick.waves} manches, vote d’équipe à chaque manche, une seule zone dangereuse à la fois ; récompenses ×${GD.MODES.quick.rewards}.`,
         ...Object.values(GD.DIFFICULTIES).map((d) => `${d.icon} ${d.name} : monstres ×${d.mobHp} PV, ×${d.mobDmg} dégâts, ×${d.mobCount} nombre ; récompenses (XP, Grêlons) ×${d.rewards}.`),
         'L’admin choisit le mode et la difficulté au lancement de chaque partie.'])),
-      sec('🧬 Classes', el('p', {}, `Tout le monde commence Paysan, au centre de l’arbre de compétences. Tu gagnes 1 point de compétence tous les ${PR.SKILL_EVERY} niveaux. Dès le niveau ${PR.CLASS_LEVEL}, place un point dans la branche d’une classe pour la devenir ; quand son initiation est à ${GD.SKILL_MAX_RANK}/${GD.SKILL_MAX_RANK}, place un point dans une sous-branche pour devenir cette spécialisation (5 compétences, puis l’ultime au niveau ${PR.ULT_LEVEL} et une maîtrise). Dès qu’un point est placé dans une branche, les autres sont grisées : la reconversion remet l’arbre à zéro (${Math.round(PR.SKILL_RESPEC_LOSS * 100)} % des points perdus).`),
+      sec('🧬 Classes', el('p', {}, `Tout le monde commence Paysan, au centre de l’arbre de compétences. Tu gagnes 1 point de compétence tous les ${PR.SKILL_EVERY} niveaux. Dès le niveau ${PR.CLASS_LEVEL}, place un point dans la branche d’une classe pour la devenir ; quand son initiation est à ${GD.SKILL_MAX_RANK}/${GD.SKILL_MAX_RANK}, place un point dans une sous-branche pour devenir cette spécialisation (5 compétences, puis l’ultime au niveau ${PR.ULT_LEVEL} et 2 compétences qui l’améliorent). Pour débloquer une compétence, il faut au moins 2 points dans la précédente. Les classes à invocations débloquent leurs créatures dans l’arbre : ${GD.SUMMON_CAP} invocations au plus, ${GD.SUMMON_CAP_MAX} avec la compétence d’après-ultime. Dès qu’un point est placé dans une branche, les autres sont grisées : la reconversion remet l’arbre à zéro (${Math.round(PR.SKILL_RESPEC_LOSS * 100)} % des points perdus).`),
         ul(GD.BASE_CLASSES.map((b) => [el('b', { style: `color:${GD.CLASSES[b].color}` }, GD.CLASSES[b].name), ` → ${GD.specsOf(b).map((s) => `${GD.CLASSES[s].name} (${GD.CLASSES[s].ultName})`).join(' / ')}${GD.CLASSES[b].leash ? ` · reste à moins de ${GD.CLASSES[b].leash} px de la tour` : ''}`]))),
       sec('📊 Niveaux & statistiques', el('p', {}, `Les éliminations et les manches passées rapportent de l’XP. Monter de niveau n’augmente pas directement les statistiques : chaque niveau donne ${PR.POINTS_PER_LEVEL} point de stat à répartir librement (réinitialisation gratuite) et ${PR.GLACONS_PER_LEVEL} glaçon 🧊. Seuls les points de stat et l’équipement renforcent ton héros :`),
         ul(GD.ATTR_IDS.map((a) => `${GD.ATTRIBUTES[a].icon} ${GD.ATTRIBUTES[a].name} : ${GD.ATTRIBUTES[a].desc}`))),

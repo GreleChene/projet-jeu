@@ -417,11 +417,11 @@ module.exports = {
       const c = CLASSES[h.cls];
       if (!c.raise || !h.alive || (h.x - m.x) ** 2 + (h.y - m.y) ** 2 > 350 * 350) continue;
       if (Math.random() > c.raise.chance) continue;
-      const n = this.allies.filter((a) => a.ownerId === h.id).length;
-      if (n >= c.raise.max) continue;
-      const kinds = (c.raise.kinds || [{ kind: 'skeleton', at: 1 }]).filter((k) => this.hasUnlock(h, k.at));
+      const n = this.allies.filter((a) => a.ownerId === h.id && !a.charmed).length;
+      if (n >= this.summonCap(h)) continue;
+      const kinds = Object.keys(h.summonRanks || {});
       if (!kinds.length) continue;
-      this.spawnAlly(h, 'ally_' + U.pick(kinds).kind, m.x, m.y);
+      this.spawnAlly(h, 'ally_' + U.pick(kinds), m.x, m.y);
       break;
     }
   }

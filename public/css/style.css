@@ -361,3 +361,7 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 
 .tpop .tpop-x { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; padding: 0; font-size: .75rem; line-height: 1; }
 .tpop-head { display: flex; align-items: center; gap: 6px; padding-right: 26px; flex-wrap: wrap; }
+
+.tnode.tpost { border-style: dashed; }
+.tnode.tpost.owned { border-style: solid; }
+.tnode.tsummon { font-size: .78rem; }

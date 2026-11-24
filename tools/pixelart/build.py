@@ -38,6 +38,7 @@ SPR = {
   'slime': {'pal': Y.SLIME_PAL, 'frames': [Y.slime(0), Y.slime(1), Y.slime(2)]},
   'skeleton_archer': {'pal': Y.SKEL_PAL, 'frames': [Y.skeleton_archer(0), Y.skeleton_archer(1), Y.skeleton_archer(2)]},
   'horse': {'pal': Y.HORSE_PAL, 'frames': [Y.horse(0), Y.horse(1)]},
+  'bird': {'pal': Y.BIRD_PAL, 'variants': Y.BIRD_VAR, 'frames': [Y.bird(0), Y.bird(1)]},
 }
 if __name__ == '__main__':
     only = sys.argv[1].split(',') if len(sys.argv) > 1 else list(SPR)

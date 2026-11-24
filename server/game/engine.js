@@ -275,8 +275,10 @@ class Game {
         const base = c.tier === 0 ? null : c.tier === 1 ? cls : c.parent;
         if (base && pts > 0) { sk[`init_${base}`] = Math.min(GD.SKILL_MAX_RANK, pts); pts -= sk[`init_${base}`]; }
         if (c.tier !== 2) return sk;
-        for (const id of [1, 2, 3, 4, 5, 'ult'].map((i) => `${cls}_${i}`)) { sk[id] = 1; pts--; }
-        for (let i = 0; i < 30 && pts > 0; i++) { const id = `${cls}_${1 + (i % 5)}`; if (sk[id] < GD.SKILL_MAX_RANK) { sk[id]++; pts--; } }
+        for (const id of [1, 2, 3, 4, 5].map((i) => `${cls}_${i}`)) { sk[id] = 2; pts -= 2; }
+        sk[`${cls}_ult`] = 1; pts--;
+        const pool = [1, 2, 3, 4, 5, 'u1', 'u2'].map((i) => `${cls}_${i}`).filter((id) => GD.SKILLS[id]);
+        for (let i = 0; i < 60 && pts > 0; i++) { const id = pool[i % pool.length]; if ((sk[id] || 0) < GD.SKILL_MAX_RANK) { sk[id] = (sk[id] || 0) + 1; pts--; } }
         return sk;
       })(),
       attrs: (() => { const a = GD.emptyAttrs(); for (let i = 1; i < lvl; i++) a[U.pick(GD.ATTR_IDS)]++; return a; })(),
@@ -353,6 +355,7 @@ class Game {
     // l'ultime n'est utilisable qu'une fois débloqué dans l'arbre ; les créatures se débloquent aussi dans la branche
     h.skills = p.skills || {};
     h.ultUnlocked = GD.ultUnlocked(h.skills, h.cls);
+    h.summonRanks = GD.summonRanks(h.skills, h.cls);
     Object.assign(h, st);
     // monture (chevalier) : seulement une fois l'ultime débloqué, et plus rapide
     h.mounted = !!(c.mount && h.ultUnlocked);
@@ -914,10 +917,7 @@ class Game {
     if (z.tick > 0) return;
     if (z.kind === 'thorns') {
       z.tick = 0.5;
-      for (const m of this.mobsInRadius(z.x, z.y, z.r)) {
-        this.applyStatus(m, { slow: 0.6, dur: 0.7 });
-        this.damageMob(m, o.dmg * 0.4, o, { dot: true });
-      }
+      for (const m of this.mobsInRadius(z.x, z.y, z.r)) this.applyStatus(m, { slow: 0.6, dur: 0.7 }); // ralentit seulement
     } else if (z.kind === 'acid') {
       z.tick = 1;
       for (const m of this.mobsInRadius(z.x, z.y, z.r)) { this.addVenom(m, o, 3); m.status.acid = { t: 1.5, v: 0.3 }; }

@@ -47,18 +47,18 @@
     chevalier: { name: 'Chevalier', tier: 2, parent: 'soldat', color: '#2f6fd1', weapon: 'lance', shield: true, mount: 'horse', hp: 215, dmg: 17, range: 52, cd: 0.9, speed: 86, armor: 0.2, ult: 'charge', ultName: 'Charge héroïque', ultDesc: 'Charge en avant et inflige 200% de ses dégâts de base sur sa trajectoire.', desc: 'Lance au poing, toujours en première ligne. Monte à cheval (+16 % de vitesse) une fois l’ultime débloqué.' },
 
     mage: { name: 'Mage', tier: 1, parent: 'habitant', color: '#8e44ad', weapon: 'staff', projectile: 'orb', hp: 90, dmg: 14, range: 260, cd: 1.2, speed: 75, armor: 0, desc: 'Lance des orbes arcaniques à distance.' },
-    glace: { name: 'Mage de glace', tier: 2, parent: 'mage', color: '#6ec6ff', weapon: 'staff', projectile: 'ice', hp: 100, dmg: 15, range: 270, cd: 1.15, speed: 75, armor: 0.05, onHit: { slow: 0.35, dur: 1.5 }, ult: 'frostcone', ultName: 'Vague de froid', ultDesc: 'Cône glacial devant lui : 200% des dégâts et gèle les ennemis 2,5 s.', desc: 'Ralentit tout ce qu’il touche.' },
-    feu: { name: 'Mage de feu', tier: 2, parent: 'mage', color: '#ff6a1a', weapon: 'staff', projectile: 'fire', hp: 95, dmg: 18, range: 270, cd: 1.2, speed: 75, armor: 0.03, onHit: { burn: 0.25, dur: 3 }, ult: 'fireball', ultName: 'Boule de feu', ultDesc: 'Énorme boule de feu qui explose : 400% des dégâts en zone.', desc: 'Tout finit en cendres.' },
-    soin: { name: 'Mage de soin', tier: 2, parent: 'mage', color: '#7dff8a', weapon: 'staff', projectile: 'holy', hp: 110, dmg: 10, range: 240, cd: 1.2, speed: 78, armor: 0.05, healer: true, ult: 'massheal', ultName: 'Bénédiction', ultDesc: 'Soigne tous les alliés dans un rayon de 350 px (50% PV max).', desc: 'Soigne régulièrement l’allié le plus blessé.' },
+    glace: { name: 'Mage de glace', tier: 2, parent: 'mage', color: '#6ec6ff', weapon: 'staff', projectile: 'ice', hp: 100, dmg: 15, range: 270, cd: 1.15, speed: 75, armor: 0.05, onHit: { slow: 0.35, dur: 1.5 }, ult: 'frostcone', ultName: 'Vague de froid', ultDesc: 'Cône glacial devant lui : 150 % des dégâts et gèle les ennemis 2,5 s.', desc: 'Ralentit tout ce qu’il touche.' },
+    feu: { name: 'Mage de feu', tier: 2, parent: 'mage', color: '#ff6a1a', weapon: 'staff', projectile: 'fire', hp: 95, dmg: 18, range: 270, cd: 1.2, speed: 75, armor: 0.03, onHit: { burn: 0.25, dur: 3 }, ult: 'fireball', ultName: 'Boule de feu', ultDesc: 'Énorme boule de feu qui explose : 300 % des dégâts de base du héros en zone.', desc: 'Tout finit en cendres.' },
+    soin: { name: 'Mage de soin', tier: 2, parent: 'mage', color: '#7dff8a', weapon: 'staff', projectile: 'holy', hp: 110, dmg: 10, range: 240, cd: 1.2, speed: 78, armor: 0.05, healer: true, ult: 'massheal', ultName: 'Bénédiction', ultDesc: 'Soigne tous les alliés de 75 % de leurs PV max.', desc: 'Soigne régulièrement l’allié le plus blessé.' },
 
     eleveur: { name: 'Éleveur', tier: 1, parent: 'habitant', color: '#2e9e57', weapon: 'whip', hp: 120, dmg: 9, range: 110, cd: 1.0, speed: 80, armor: 0.05, summons: { wolf: 1 }, desc: 'Combat aux côtés d’un loup apprivoisé.' },
-    dompteur: { name: 'Dompteur', tier: 2, parent: 'eleveur', color: '#d98c3a', weapon: 'whip', hp: 150, dmg: 11, range: 120, cd: 1.0, speed: 80, armor: 0.08, pets: [{ kind: 'rat', n: 3, at: 1 }, { kind: 'wolf', n: 2, at: 3 }, { kind: 'bear', n: 1, at: 'ult' }], creatures: '🐀 Rats (dès la spécialisation) · 🐺 Loups (3e compétence) · 🐻 Ours (ultime)', ult: 'beastcall', ultName: 'Cri de la meute', ultDesc: 'Soigne ses bêtes et augmente leurs dégâts de 60% pendant 8 s.', desc: 'Rats, loups et ours obéissent à sa voix.' },
-    fauconnier: { name: 'Fauconnier', tier: 2, parent: 'eleveur', color: '#b5835a', weapon: 'falcon', hp: 135, dmg: 11, range: 130, cd: 1.0, speed: 82, armor: 0.06, hawk: { every: 2, range: 400, mult: 1.2, mark: 0.1, markDur: 4 }, pigeon: { every: 1.2, mult: 0.6, at: 3 }, eagle: { every: 6, mult: 3, stun: 0.6, at: 'ult' }, creatures: '🦅 Faucon (dès la spécialisation) · 🕊️ Pigeon (3e compétence) · 🦅 Aigle (ultime)', ult: 'hawkstorm', ultName: 'Nuée de rapaces', ultDesc: '6 faucons frappent pendant 8 s les monstres les plus proches de la tour et les aveuglent (50 % d’attaques ratées).', desc: 'Son faucon marque les ennemis (+10 % de dégâts reçus), son pigeon les harcèle, son aigle assomme les plus forts.' },
-    necromancien: { name: 'Nécromancien', tier: 2, parent: 'eleveur', color: '#5b4a7a', weapon: 'scythe', hp: 130, dmg: 11, range: 140, cd: 1.0, speed: 78, armor: 0.05, raise: { chance: 0.35, max: 5, kinds: [{ kind: 'slime', at: 1 }, { kind: 'zombie', at: 3 }, { kind: 'skelarcher', at: 'ult' }] }, creatures: '🟢 Slimes (dès la spécialisation) · 🧟 Zombies (3e compétence) · 🏹 Squelettes archers (ultime)', ult: 'revive', ultName: 'Relève-toi', ultDesc: 'Fait revenir un allié mort à 75% de ses PV ; le « zombie » perd 1% PV/s.', desc: 'Relève slimes, zombies et squelettes archers parmi les monstres tués.' },
+    dompteur: { name: 'Dompteur', tier: 2, parent: 'eleveur', color: '#d98c3a', weapon: 'whip', hp: 150, dmg: 11, range: 120, cd: 1.0, speed: 80, armor: 0.08, pets: { rat: 3, wolf: 2, bear: 1 }, extraPets: ['bear', 'wolf', 'rat'], ult: 'beastcall', ultName: 'Cri de la meute', ultDesc: 'Soigne ses bêtes et augmente leurs dégâts de 50 % pendant 10 s.', desc: 'Rats, loups et ours obéissent à sa voix (6 invocations au plus).' },
+    fauconnier: { name: 'Fauconnier', tier: 2, parent: 'eleveur', color: '#b5835a', weapon: 'falcon', hp: 135, dmg: 11, range: 130, cd: 1.0, speed: 82, armor: 0.06, pets: { falcon: 2, pigeon: 3, eagle: 1 }, extraPets: ['eagle', 'falcon', 'pigeon'], mark: { v: 0.1, dur: 4 }, ult: 'hawkstorm', ultName: 'Nuée de rapaces', ultDesc: 'Ses oiseaux sont soignés et foncent sur les ennemis les plus proches : ils les aveuglent définitivement et font 50 % de dégâts en plus pendant 5 s.', desc: 'Ses faucons marquent les ennemis (+10 % de dégâts reçus), ses pigeons les harcèlent, son aigle assomme les plus forts.' },
+    necromancien: { name: 'Nécromancien', tier: 2, parent: 'eleveur', color: '#5b4a7a', weapon: 'scythe', hp: 130, dmg: 11, range: 140, cd: 1.0, speed: 78, armor: 0.05, raise: { chance: 0.35 }, ult: 'revive', ultName: 'Relève-toi', ultDesc: 'Ramène un allié mort à la vie avec 60 % de ses PV (sans allié mort : relève 3 de ses créatures).', desc: 'Relève slimes, zombies et squelettes archers parmi les monstres tués (6 invocations au plus).' },
 
     archer: { name: 'Archer', tier: 1, parent: 'habitant', color: '#27ae60', weapon: 'bow', projectile: 'arrow', hp: 100, dmg: 11, range: 340, cd: 0.9, speed: 85, armor: 0.02, desc: 'Tire de très loin.' },
     arbaletrier: { name: 'Arbalétrier', tier: 2, parent: 'archer', color: '#7f8c8d', weapon: 'crossbow', projectile: 'bolt', hp: 120, dmg: 17, range: 360, cd: 1.15, speed: 82, armor: 0.06, ult: 'rapidfire', ultName: 'Tir en rafale', ultDesc: 'Vitesse d’attaque ×3 pendant 6 s.', desc: 'Carreaux lourds, cadence implacable.' },
-    trappeur: { name: 'Trappeur', tier: 2, parent: 'archer', color: '#6b8e23', weapon: 'shortbow', projectile: 'arrow', hp: 120, dmg: 13, range: 300, cd: 0.85, speed: 86, armor: 0.04, traps: { every: 6, max: 4, root: 2, mult: 3 }, ult: 'thorns', ultName: 'Champ de ronces', ultDesc: 'Zone de ronces géante pendant 10 s sur le flanc le plus menacé : monstres ralentis de 60 % et blessés chaque seconde.', desc: 'Pose des pièges à mâchoires qui immobilisent les monstres.' },
+    trappeur: { name: 'Trappeur', tier: 2, parent: 'archer', color: '#6b8e23', weapon: 'shortbow', projectile: 'arrow', hp: 120, dmg: 13, range: 300, cd: 0.85, speed: 86, armor: 0.04, traps: { every: 6, max: 4, root: 2, mult: 3 }, ult: 'thorns', ultName: 'Champ de ronces', ultDesc: 'Zone de ronces géante pendant 10 s sur le flanc le plus menacé : monstres ralentis de 60 %.', desc: 'Pose des pièges à mâchoires qui immobilisent les monstres.' },
     arclong: { name: 'Arc long', tier: 2, parent: 'archer', color: '#16a085', weapon: 'longbow', projectile: 'arrow', hp: 110, dmg: 15, range: 460, cd: 1.0, speed: 85, armor: 0.04, ult: 'tripleshot', ultName: 'Triple flèche', ultDesc: '3 flèches perforantes à 150% des dégâts de base.', desc: 'La plus longue portée du royaume.' },
 
     assassin: { name: 'Assassin', tier: 1, parent: 'habitant', color: '#34495e', weapon: 'daggers', hp: 95, dmg: 15, range: 34, cd: 0.7, speed: 118, armor: 0.02, crit: 0.25, desc: 'Rapide, coups critiques fréquents.' },
@@ -69,8 +69,8 @@
 
     menestrel: { name: 'Ménestrel', tier: 1, parent: 'habitant', color: '#d6457a', weapon: 'lute', projectile: 'note', pierce: 2, hp: 120, dmg: 9, range: 160, cd: 1.0, speed: 82, armor: 0.04, aura: { atkspd: 0.08, dmg: 0, r: 180 }, desc: 'Ses notes traversent les monstres ; les héros proches attaquent 8 % plus vite.' },
     troubadour: { name: 'Troubadour', tier: 2, parent: 'menestrel', color: '#ff9f43', weapon: 'lute', projectile: 'note', pierce: 3, hp: 140, dmg: 11, range: 170, cd: 0.95, speed: 82, armor: 0.05, aura: { atkspd: 0.12, dmg: 0.06, r: 200 }, ult: 'anthem', ultName: 'Hymne de bravoure', ultDesc: 'Pendant 8 s, tous les héros vivants ont +30 % de dégâts et +20 % de vitesse d’attaque (les hymnes ne se cumulent pas).', desc: 'Les héros proches attaquent 12 % plus vite et frappent 6 % plus fort.' },
-    tambour: { name: 'Tambour de guerre', tier: 2, parent: 'menestrel', color: '#b5651d', weapon: 'drum', hp: 175, dmg: 11, range: 60, cd: 1.0, speed: 80, armor: 0.1, splash: 70, aura: { atkspd: 0.08, dmg: 0, r: 180 }, quake: { every: 7, r: 130, stun: 0.6, push: 45 }, ult: 'thunder', ultName: 'Roulement de tonnerre', ultDesc: 'Grande onde autour de la tour : étourdit les monstres 2,5 s (boss ralentis) et inflige 500 % des dégâts.', desc: 'Toutes les 7 s, une onde de choc repousse et étourdit les monstres proches.' },
-    enchanteresse: { name: 'Enchanteresse', tier: 2, parent: 'menestrel', color: '#ff7ad9', weapon: 'harp', projectile: 'charm', hp: 115, dmg: 12, range: 230, cd: 1.0, speed: 82, armor: 0.04, aura: { atkspd: 0.08, dmg: 0, r: 180 }, charm: { chance: 0.1, dur: 3 }, ult: 'enchant', ultName: 'Chant envoûtant', ultDesc: 'Charme jusqu’à 6 monstres (hors boss) pendant 10 s : ils se battent pour l’équipe, puis meurent.', desc: '10 % de chances par attaque de charmer un monstre 3 s (il n’attaque plus).' }
+    tambour: { name: 'Tambour de guerre', tier: 2, parent: 'menestrel', color: '#b5651d', weapon: 'drum', hp: 175, dmg: 11, range: 60, cd: 1.0, speed: 80, armor: 0.1, splash: 70, aura: { atkspd: 0.08, dmg: 0, r: 180 }, quake: { every: 7, r: 130, stun: 0.6, push: 45 }, ult: 'thunder', ultName: 'Roulement de tonnerre', ultDesc: 'Grande onde autour de lui : étourdit les monstres 2,5 s (boss ralentis) et inflige 300 % des dégâts.', desc: 'Toutes les 7 s, une onde de choc repousse et étourdit les monstres proches.' },
+    enchanteresse: { name: 'Enchanteresse', tier: 2, parent: 'menestrel', color: '#ff7ad9', weapon: 'harp', projectile: 'charm', hp: 115, dmg: 12, range: 230, cd: 1.0, speed: 82, armor: 0.04, aura: { atkspd: 0.08, dmg: 0, r: 180 }, charm: { chance: 0.1, dur: 3 }, ult: 'enchant', ultName: 'Chant envoûtant', ultDesc: 'Charme jusqu’à 6 monstres pendant 10 s : ils se battent pour l’équipe, puis meurent. Les boss touchés sont seulement étourdis.', desc: '10 % de chances par attaque de charmer un monstre 3 s (il n’attaque plus).' }
   };
   const BASE_CLASSES = ['soldat', 'mage', 'eleveur', 'archer', 'assassin', 'menestrel'];
 
@@ -81,33 +81,61 @@
    */
   const SKILL_TREE = {
     paladin: [['Foi inébranlable', { hp: 0.05 }], ['Aura de protection', { armor: 0.03 }], ['Bouclier sacré', { hp: 0.06 }], ['Ferveur', { dmg: 0.04 }], ['Rempart vivant', { armor: 0.03 }]],
-    berserker: [['Sang chaud', { dmg: 0.05 }], ['Peau épaisse', { hp: 0.05 }], ['Soif de sang', { leech: 0.01 }], ['Hurlement', { ult: 0.08 }], ['Carnage', { crit: 0.03 }]],
+    berserker: [['Sang chaud', { dmg: 0.05 }], ['Peau épaisse', { hp: 0.05 }], ['Soif de sang', { leech: 0.01 }], ['Rage bouillonnante', { atkspd: 0.04 }], ['Carnage', { crit: 0.03 }]],
     chevalier: [['Entraînement martial', { dmg: 0.05 }], ['Galop', { speed: 0.05 }], ['Lance affûtée', { dmg: 0.06 }], ['Armure de joute', { armor: 0.03 }], ['Fougue', { atkspd: 0.04 }]],
-    glace: [['Froid mordant', { dmg: 0.04 }], ['Armure de givre', { armor: 0.03 }], ['Concentration', { ult: 0.08 }], ['Cœur de glace', { hp: 0.05 }], ['Blizzard', { dmg: 0.05 }]],
-    feu: [['Étincelle', { dmg: 0.05 }], ['Combustion', { crit: 0.03 }], ['Pyromancie', { dmg: 0.06 }], ['Brasier', { ult: 0.06 }], ['Âme ardente', { dmg: 0.05 }]],
-    soin: [['Prière', { hp: 0.05 }], ['Méditation', { ult: 0.08 }], ['Lumière bénie', { armor: 0.02, hp: 0.03 }], ['Grâce', { ult: 0.06 }], ['Sanctuaire', { hp: 0.05 }]],
-    dompteur: [['Complicité', { hp: 0.05 }], ['Instinct sauvage', { dmg: 0.05 }], ['Chef de meute', { ult: 0.08 }], ['Peau de bête', { armor: 0.03 }], ['Rage animale', { dmg: 0.05 }]],
-    fauconnier: [['Serres acérées', { dmg: 0.05 }], ['Vol rapide', { hawkRate: 0.1 }], ['Marque profonde', { mark: 0.03 }], ['Appel du ciel', { ult: 0.08 }], ['Plumage', { hp: 0.05 }]],
-    necromancien: [['Rites sombres', { dmg: 0.05 }], ['Peau morte', { armor: 0.03 }], ['Moisson d’âmes', { ult: 0.08 }], ['Pacte funèbre', { hp: 0.05 }], ['Faucheuse', { dmg: 0.05 }]],
+    glace: [['Froid mordant', { frostMul: 0.1 }], ['Armure de givre', { armor: 0.03 }], ['Cœur de glace', { hp: 0.05 }], ['Gel profond', { frostMul: 0.1 }], ['Blizzard', { dmg: 0.05 }]],
+    feu: [['Étincelle', { dmg: 0.05 }], ['Combustion', { burnMul: 0.15 }], ['Pyromancie', { dmg: 0.06 }], ['Brasier', { burnMul: 0.15 }], ['Âme ardente', { crit: 0.03 }]],
+    soin: [['Prière', { healMul: 0.1 }], ['Lumière bénie', { armor: 0.02, hp: 0.03 }], ['Grâce', { healMul: 0.1 }], ['Robe sacrée', { hp: 0.05 }], ['Sanctuaire', { healMul: 0.1 }]],
+    dompteur: [['Rats', {}, 'rat'], ['Complicité', { hp: 0.05 }], ['Loups', {}, 'wolf'], ['Instinct sauvage', { dmg: 0.05 }], ['Ours', {}, 'bear']],
+    fauconnier: [['Faucons', {}, 'falcon'], ['Marque profonde', { mark: 0.03 }], ['Pigeons', {}, 'pigeon'], ['Gant de cuir', { hp: 0.05 }], ['Aigle', {}, 'eagle']],
+    necromancien: [['Slimes', {}, 'slime'], ['Rites sombres', { dmg: 0.05 }], ['Zombies', {}, 'zombie'], ['Peau morte', { armor: 0.03 }], ['Squelettes archers', {}, 'skelarcher']],
     arbaletrier: [['Mécanisme huilé', { atkspd: 0.05 }], ['Carreaux lourds', { dmg: 0.05 }], ['Visée', { crit: 0.03 }], ['Cadence', { atkspd: 0.05 }], ['Perforation', { dmg: 0.05 }]],
     trappeur: [['Mâchoires d’acier', { trapRoot: 0.3 }], ['Ingéniosité', { trapMax: 1 }], ['Épines', { dmg: 0.05 }], ['Pistage', { speed: 0.05 }], ['Embuscade', { crit: 0.03 }]],
     arclong: [['Œil perçant', { crit: 0.03 }], ['Tension de la corde', { dmg: 0.05 }], ['Pas léger', { speed: 0.05 }], ['Archerie royale', { dmg: 0.05 }], ['Sang-froid', { crit: 0.03 }]],
-    ombre: [['Discrétion', { speed: 0.05 }], ['Lames empoisonnées', { dmg: 0.05 }], ['Fumigènes', { ult: 0.08 }], ['Danse des ombres', { crit: 0.03 }], ['Assassinat', { dmg: 0.06 }]],
-    alchimiste: [['Dosage', { venomMax: 1 }], ['Concentré', { venomMul: 0.05 }], ['Lancer précis', { atkspd: 0.05 }], ['Distillation', { ult: 0.08 }], ['Antidote', { hp: 0.05 }]],
+    ombre: [['Discrétion', { speed: 0.05 }], ['Lames empoisonnées', { dmg: 0.05 }], ['Danse des ombres', { crit: 0.03 }], ['Voile', { stealthDur: 0.5 }], ['Assassinat', { dmg: 0.06 }]],
+    alchimiste: [['Dosage', { venomMax: 1 }], ['Concentré', { venomMul: 0.05 }], ['Lancer précis', { atkspd: 0.05 }], ['Antidote', { hp: 0.05 }], ['Corrosion', { dmg: 0.05 }]],
     fleche: [['Précision', { crit: 0.03 }], ['Vivacité', { atkspd: 0.05 }], ['Exécution', { dmg: 0.06 }], ['Course', { speed: 0.05 }], ['Lame fatale', { crit: 0.03 }]],
-    troubadour: [['Voix portante', { auraR: 0.15 }], ['Refrain', { ult: 0.08 }], ['Crescendo', { dmg: 0.05 }], ['Harmonie', { hp: 0.05 }], ['Rappel', { anthemDur: 1 }]],
+    troubadour: [['Voix portante', { auraR: 0.15 }], ['Crescendo', { dmg: 0.05 }], ['Harmonie', { hp: 0.05 }], ['Mélodie entraînante', { auraPow: 0.1 }], ['Vibrato', { atkspd: 0.04 }]],
     tambour: [['Peau tendue', { hp: 0.05 }], ['Cadence', { quakeCd: 0.5 }], ['Écho', { quakeR: 0.1 }], ['Grondement', { dmg: 0.05 }], ['Tonnerre', { quakeStun: 0.2 }]],
-    enchanteresse: [['Doigts agiles', { atkspd: 0.05 }], ['Mélopée', { charmChance: 0.02 }], ['Sérénade', { ult: 0.08 }], ['Fascination', { charmMax: 1 }], ['Grâce', { crit: 0.03 }]]
+    enchanteresse: [['Doigts agiles', { atkspd: 0.05 }], ['Mélopée', { charmChance: 0.02 }], ['Grâce', { crit: 0.03 }], ['Fascination', { charmDur: 0.5 }], ['Sérénade', { dmg: 0.05 }]]
   };
+  // Compétences débloquées après l'ultime : elles améliorent l'ultime (ou le nombre d'invocations)
+  const POST_ULT = {
+    paladin: [['Ferveur divine', { ultDmg: 0.25 }], ['Onde sacrée', { ultArea: 0.15 }]],
+    berserker: [['Fureur sans fin', { ultDur: 1 }], ['Massacre', { ultDmg: 0.15 }]],
+    chevalier: [['Charge dévastatrice', { ultDmg: 0.3 }], ['Élan', { ultArea: 0.15 }]],
+    glace: [['Hiver éternel', { ultDur: 0.5 }], ['Cône élargi', { ultArea: 0.15 }]],
+    feu: [['Explosion', { ultDmg: 0.25 }], ['Déflagration', { ultArea: 0.15 }]],
+    soin: [['Miracle', { ultHeal: 0.08 }], ['Bouclier béni', { ultDur: 2 }]],
+    dompteur: [['Horde', { summonCap: 1 }], ['Rage animale', { ultDmg: 0.15 }]],
+    fauconnier: [['Volée', { summonCap: 1 }], ['Fureur des cieux', { ultDur: 1 }]],
+    necromancien: [['Armée des morts', { summonCap: 1 }], ['Résurrection', { ultHeal: 0.1 }]],
+    arbaletrier: [['Rafale prolongée', { ultDur: 1 }], ['Carreaux explosifs', { ultDmg: 0.15 }]],
+    trappeur: [['Ronces tenaces', { ultDur: 2 }], ['Taillis', { ultArea: 0.15 }]],
+    arclong: [['Volée de flèches', { ultCount: 1 }], ['Pointes d’acier', { ultDmg: 0.2 }]],
+    ombre: [['Brouillard épais', { ultDur: 2 }], ['Nuage étendu', { ultArea: 0.15 }]],
+    alchimiste: [['Pluie redoublée', { ultCount: 1 }], ['Acide persistant', { ultDur: 1 }]],
+    fleche: [['Danse infinie', { ultCount: 1 }], ['Coup fatal', { ultDmg: 0.15 }]],
+    troubadour: [['Rappel', { ultDur: 1 }], ['Hymne héroïque', { ultDmg: 0.1 }]],
+    tambour: [['Fracas', { ultDmg: 0.25 }], ['Résonance', { ultArea: 0.15 }]],
+    enchanteresse: [['Chœur envoûtant', { ultCount: 1 }], ['Transe', { ultDur: 1 }]]
+  };
+  // Invocations débloquées par les nœuds de l'arbre (6 au plus, 9 avec la compétence d'après-ultime)
+  const SUMMONS = {
+    rat: { name: 'Rats', icon: '🐀' }, wolf: { name: 'Loups', icon: '🐺' }, bear: { name: 'Ours', icon: '🐻' },
+    falcon: { name: 'Faucons', icon: '🦅' }, pigeon: { name: 'Pigeons', icon: '🕊️' }, eagle: { name: 'Aigle', icon: '🪶' },
+    slime: { name: 'Slimes', icon: '🟢' }, zombie: { name: 'Zombies', icon: '🧟' }, skelarcher: { name: 'Squelettes archers', icon: '🏹' }
+  };
+  const SUMMON_CAP = 6, SUMMON_CAP_MAX = 9, SUMMON_RANK_POWER = 0.2;
   // Arbre d'initiation (avant le choix de classe) : une compétence liée à chaque classe.
   // En choisissant sa classe, les points des autres initiations sont rendus.
   const INITIATION = {
     soldat: ['Entraînement de recrue', { hp: 0.04 }],
-    mage: ['Lecture des grimoires', { dmg: 0.03, ult: 0.03 }],
+    mage: ['Lecture des grimoires', { dmg: 0.04 }],
     eleveur: ['Ami des bêtes', { hp: 0.02, dmg: 0.02 }],
     archer: ['Tir à la cible', { crit: 0.02 }],
     assassin: ['Pas de velours', { speed: 0.03, crit: 0.01 }],
-    menestrel: ['Gammes', { atkspd: 0.03, ult: 0.02 }]
+    menestrel: ['Gammes', { atkspd: 0.04 }]
   };
   const SKILL_MAX_RANK = 3;
   const SKILLS = {};
@@ -118,11 +146,27 @@
   }
   for (const [spec, nodes] of Object.entries(SKILL_TREE)) {
     const base = CLASSES[spec].parent;
-    nodes.forEach(([name, bonus], i) => {
-      SKILLS[`${spec}_${i + 1}`] = { id: `${spec}_${i + 1}`, base, spec, step: i + 1, name, bonus, max: SKILL_MAX_RANK, requires: i ? `${spec}_${i}` : null };
+    nodes.forEach(([name, bonus, summon], i) => {
+      SKILLS[`${spec}_${i + 1}`] = { id: `${spec}_${i + 1}`, base, spec, step: i + 1, name, bonus, summon: summon || null, max: SKILL_MAX_RANK, requires: i ? `${spec}_${i}` : null };
     });
     SKILLS[`${spec}_ult`] = { id: `${spec}_ult`, base, spec, step: nodes.length + 1, ult: true, max: 1, requires: `${spec}_${nodes.length}` };
-    SKILLS[`${spec}_mastery`] = { id: `${spec}_mastery`, base, spec, step: nodes.length + 2, mastery: true, name: `Maîtrise : ${CLASSES[spec].name}`, bonus: { hp: 0.02, dmg: 0.02 }, max: 5, requires: `${spec}_ult` };
+    (POST_ULT[spec] || []).forEach(([name, bonus], i) => {
+      SKILLS[`${spec}_u${i + 1}`] = { id: `${spec}_u${i + 1}`, base, spec, step: nodes.length + 2 + i, post: true, name, bonus, max: SKILL_MAX_RANK, requires: i ? `${spec}_u${i}` : `${spec}_ult` };
+    });
+  }
+  // Pour placer un point dans un nœud, il faut au moins 2 points dans le nœud précédent (1 pour l'ultime)
+  const REQUIRED_RANK = 2;
+  const requiredRank = (id) => Math.min(REQUIRED_RANK, (SKILLS[id] || { max: 1 }).max);
+  // Invocations débloquées d'un héros : { type: rang du nœud }
+  function summonRanks(skills, cls) {
+    const out = {};
+    for (const [id, r] of Object.entries(skills || {})) { const n = SKILLS[id]; if (r > 0 && n && n.summon && n.spec === cls) out[n.summon] = r; }
+    return out;
+  }
+  // Effet d'un nœud d'invocation, pour l'affichage
+  function summonText(n) {
+    const S = SUMMONS[n.summon], c = CLASSES[n.spec], cnt = c.pets && c.pets[n.summon];
+    return `${c.raise ? `Relève des ${S.name.toLowerCase()} ${S.icon} parmi les monstres tués` : `Invoque ${cnt > 1 ? cnt + ' ' + S.name.toLowerCase() : S.name.toLowerCase()} ${S.icon}`}. Chaque rang suivant : +${Math.round(SUMMON_RANK_POWER * 100)} % de PV et de dégâts. ${SUMMON_CAP} invocations au plus (${SUMMON_CAP_MAX} après l’ultime).`;
   }
   // Branche (spécialisation) déjà entamée : les autres branches sont alors bloquées
   // Arbre : le centre (Paysan), une branche par classe (initiation), une sous-branche par spécialisation.
@@ -454,19 +498,28 @@
   // Bonus propres à une spécialisation (mécaniques de classe), affichés avec leur propre format
   const SKILL_MODS = {
     leech: (v) => `+${Math.round(v * 100)} % de vol de vie`,
-    hawkRate: (v) => `+${Math.round(v * 100)} % de cadence du faucon`,
+    frostMul: (v) => `+${Math.round(v * 100)} % de ralentissement du givre`,
+    burnMul: (v) => `+${Math.round(v * 100)} % de dégâts de brûlure`,
+    healMul: (v) => `+${Math.round(v * 100)} % de soins`,
+    stealthDur: (v) => `+${fmtNum(v)} s d’invisibilité`,
+    auraPow: (v) => `+${Math.round(v * 100)} % de puissance de l’aura`,
+    charmDur: (v) => `+${fmtNum(v)} s de charme`,
+    summonCap: (v) => `+${v} invocation${v > 1 ? 's' : ''} au maximum (jusqu’à 9)`,
+    ultDmg: (v) => `+${Math.round(v * 100)} % de puissance de l’ultime`,
+    ultArea: (v) => `+${Math.round(v * 100)} % de zone de l’ultime`,
+    ultDur: (v) => `+${fmtNum(v)} s de durée de l’ultime`,
+    ultHeal: (v) => `+${Math.round(v * 100)} % de PV rendus par l’ultime`,
+    ultCount: (v) => `+${v} cible${v > 1 ? 's' : ''} / projectile${v > 1 ? 's' : ''} pour l’ultime`,
     mark: (v) => `+${Math.round(v * 100)} % de dégâts reçus par les ennemis marqués`,
     trapRoot: (v) => `+${fmtNum(v)} s d’immobilisation des pièges`,
     trapMax: (v) => `+${v} piège${v > 1 ? 's' : ''} maximum`,
     venomMax: (v) => `+${v} dose${v > 1 ? 's' : ''} de poison maximum`,
     venomMul: (v) => `+${Math.round(v * 100)} % de dégâts du poison`,
     auraR: (v) => `+${Math.round(v * 100)} % de rayon de l’aura`,
-    anthemDur: (v) => `+${fmtNum(v)} s de durée de l’Hymne`,
     quakeCd: (v) => `onde de choc ${fmtNum(v)} s plus tôt`,
     quakeR: (v) => `+${Math.round(v * 100)} % de rayon de l’onde`,
     quakeStun: (v) => `+${fmtNum(v)} s d’étourdissement`,
-    charmChance: (v) => `+${Math.round(v * 100)} % de chance de charme`,
-    charmMax: (v) => `+${v} monstre${v > 1 ? 's' : ''} charmé${v > 1 ? 's' : ''} par l’ultime`
+    charmChance: (v) => `+${Math.round(v * 100)} % de chance de charme`
   };
   const fmtNum = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
   // Texte d'un bonus (statistique ou bonus de spécialisation)
@@ -622,6 +675,9 @@
     ally_rat: { name: 'Rat', ally: true, shape: 'rat', color: '#7d7684', hp: 0.25, dmg: 0.3, speed: 125, range: 18, cd: 0.6, size: 9 },
     ally_slime: { name: 'Slime', ally: true, shape: 'slime', color: '#58c84a', hp: 0.9, dmg: 0.35, speed: 60, range: 22, cd: 1.1, size: 12, onHit: { slow: 0.3, dur: 1.5 } },
     ally_zombie: { name: 'Zombie', ally: true, shape: 'zombie', color: '#7a9a5a', hp: 1.3, dmg: 0.65, speed: 50, range: 26, cd: 1.3, size: 15 },
+    ally_falcon: { name: 'Faucon', ally: true, flying: true, shape: 'bird', color: '#9a6a3e', hp: 0.35, dmg: 0.5, speed: 175, range: 20, cd: 0.8, size: 9 },
+    ally_pigeon: { name: 'Pigeon', ally: true, flying: true, shape: 'bird', color: '#9aa3b0', hp: 0.25, dmg: 0.3, speed: 165, range: 18, cd: 0.55, size: 8 },
+    ally_eagle: { name: 'Aigle', ally: true, flying: true, shape: 'bird', color: '#4a3220', hp: 0.7, dmg: 1.1, speed: 150, range: 24, cd: 1.4, size: 13, onHit: { freeze: 0.6 } },
     ally_skelarcher: { name: 'Squelette archer', ally: true, ranged: true, shape: 'skeleton', color: '#e8e2cf', hp: 0.5, dmg: 0.55, speed: 80, range: 230, cd: 1.4, size: 12 }
   };
   const MOB_IDS = Object.keys(MOBS);
@@ -704,5 +760,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

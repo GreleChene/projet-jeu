@@ -9,11 +9,21 @@ const { WORLD, CLASSES, MOBS } = GD;
 
 // Bonus de spécialisation du héros (compétences sur mesure)
 const md = (h, k) => (h.mods && h.mods[k]) || 0;
-// Créature débloquée dans la sous-branche : n° de compétence (1 = entrée dans la spécialisation) ou 'ult'
-const hasUnlock = (h, at) => (at === 'ult' ? !!h.ultUnlocked : ((h.skills || {})[`${h.cls}_${at}`] || 0) > 0 || (h.isBot && at === 1));
+// Plafond d'invocations du héros : 6, jusqu'à 9 avec la compétence d'après-ultime
+const summonCap = (h) => Math.min(GD.SUMMON_CAP_MAX, GD.SUMMON_CAP + md(h, 'summonCap'));
 
 module.exports = {
-  hasUnlock(h, at) { return hasUnlock(h, at); },
+  summonCap(h) { return summonCap(h); },
+  // Invocations voulues : [[type, nombre]] selon les nœuds débloqués et le plafond (6, puis 9)
+  summonPlan(h, c) {
+    if (!c.pets) return Object.entries(c.summons || {});
+    const ranks = h.summonRanks || {};
+    const want = {};
+    for (const [k, n] of Object.entries(c.pets)) if (ranks[k]) want[k] = n;
+    let extra = summonCap(h) - GD.SUMMON_CAP;
+    for (let i = 0; extra > 0 && i < 12; i++) { const k = (c.extraPets || [])[i % (c.extraPets || [1]).length]; if (want[k]) { want[k]++; extra--; } }
+    return Object.entries(want);
+  },
   isInvisible(h) {
     return h.buffs.stealth > 0 || this.inSmoke(h.x, h.y);
   },
@@ -94,7 +104,7 @@ module.exports = {
       T.aura -= dt;
       if (T.aura <= 0) {
         T.aura = 0.5;
-        const mul = h.auraMult || 1, r = c.aura.r * Math.sqrt(mul) * (1 + md(h, 'auraR'));
+        const mul = (h.auraMult || 1) * (1 + md(h, 'auraPow')), r = c.aura.r * Math.sqrt(h.auraMult || 1) * (1 + md(h, 'auraR'));
         for (const o of this.heroes.values()) {
           if (!o.alive || (o.x - h.x) ** 2 + (o.y - h.y) ** 2 > r * r) continue;
           if (!(o.buffs.song > 0)) { o.songAtk = 0; o.songDmg = 0; }
@@ -121,57 +131,6 @@ module.exports = {
         }
       }
     }
-    // Fauconnier : le faucon fond sur un ennemi (à distance en priorité) et le marque
-    if (c.hawk) {
-      T.hawk -= dt;
-      if (T.hawk <= 0) {
-        const m = this.nearestMob(h.x, h.y, c.hawk.range, (x) => MOBS[x.type].ranged) || this.nearestMob(h.x, h.y, c.hawk.range);
-        if (m) {
-          T.hawk = c.hawk.every / ((h.buffs.song > 0 ? 1 + (h.songAtk || 0) : 1) * (1 + md(h, 'hawkRate')));
-          m.status.mark = { t: c.hawk.markDur, v: c.hawk.mark + md(h, 'mark') };
-          this.fx(['hawk', Math.round(h.x), Math.round(h.y - 40), Math.round(m.x), Math.round(m.y - m.size)]);
-          this.damageMob(m, h.dmg * c.hawk.mult * this.dmgMul(h), h, { byAlly: true });
-        }
-      }
-      // Pigeon : picore sans cesse un monstre proche
-      if (c.pigeon && hasUnlock(h, c.pigeon.at)) {
-        T.pigeon = (T.pigeon || 0) - dt;
-        if (T.pigeon <= 0) {
-          const m = this.nearestMob(h.x, h.y, c.hawk.range * 0.8);
-          if (m) {
-            T.pigeon = c.pigeon.every;
-            this.fx(['hawk', Math.round(h.x - 10), Math.round(h.y - 50), Math.round(m.x), Math.round(m.y - m.size), 1]);
-            this.damageMob(m, h.dmg * c.pigeon.mult * this.dmgMul(h), h, { byAlly: true });
-          }
-        }
-      }
-      // Aigle : plonge sur le monstre le plus fort (boss et élites d'abord) et l'assomme
-      if (c.eagle && hasUnlock(h, c.eagle.at)) {
-        T.eagle = (T.eagle || 0) - dt;
-        if (T.eagle <= 0) {
-          let best = null, bs = -1;
-          for (const m of this.mobsInRadius(h.x, h.y, c.hawk.range * 1.2)) { const sc = m.maxHp * (m.boss ? 100 : m.elite ? 10 : 1); if (sc > bs) { bs = sc; best = m; } }
-          if (best) {
-            T.eagle = c.eagle.every;
-            this.fx(['hawk', Math.round(best.x + 60), Math.round(best.y - 260), Math.round(best.x), Math.round(best.y - best.size), 2]);
-            this.damageMob(best, h.dmg * c.eagle.mult * this.dmgMul(h), h, { byAlly: true, onHit: best.boss ? { slow: 0.5, dur: 1.5 } : { freeze: c.eagle.stun } });
-          }
-        }
-      }
-      // Nuée de rapaces : frappe les monstres les plus proches de la tour
-      if (h.buffs.hawkstorm > 0) {
-        T.storm -= dt;
-        if (T.storm <= 0) {
-          T.storm = 0.5;
-          const list = this.mobs.filter((m) => m.hp > 0).sort((a, b) => ((a.x - WORLD.CX) ** 2 + (a.y - WORLD.CY) ** 2) - ((b.x - WORLD.CX) ** 2 + (b.y - WORLD.CY) ** 2)).slice(0, 6);
-          for (const m of list) {
-            m.status.blind = { t: 3 };
-            this.fx(['hawk', Math.round(m.x + U.rand(-80, 80)), Math.round(m.y - 220), Math.round(m.x), Math.round(m.y - m.size)]);
-            this.damageMob(m, h.dmg * 0.8 * this.dmgMul(h), h, { byAlly: true });
-          }
-        }
-      }
-    }
     // Trappeur : pose des pièges sur le chemin des monstres
     if (c.traps) {
       T.trap -= dt;
@@ -191,7 +150,7 @@ module.exports = {
     // Ombre : invisibilité périodique
     if (c.stealth) {
       T.stealth += dt;
-      if (T.stealth >= c.stealth.every) { T.stealth = 0; h.buffs.stealth = c.stealth.dur; this.fx(['puff', h.x, h.y]); }
+      if (T.stealth >= c.stealth.every) { T.stealth = 0; h.buffs.stealth = c.stealth.dur + md(h, 'stealthDur'); this.fx(['puff', h.x, h.y]); }
     }
     // Flèche : dash derrière l'ennemi le plus faible
     if (c.dash) {
@@ -213,7 +172,7 @@ module.exports = {
           if (r < br) { br = r; best = o; }
         }
         if (best) {
-          this.healHero(best, best.maxHp * 0.1 + h.dmg * 1.2);
+          this.healHero(best, (best.maxHp * 0.1 + h.dmg * 1.2) * (1 + md(h, 'healMul')));
           this.fx(['beam', h.x, h.y, best.x, best.y]);
         }
       }
@@ -222,10 +181,12 @@ module.exports = {
     if (c.summons || c.pets) {
       T.summon -= dt;
       if (T.summon <= 0) {
-        const list = c.pets ? c.pets.filter((p) => hasUnlock(h, p.at)).map((p) => [p.kind, p.n]) : Object.entries(c.summons);
-        for (const [kind, n] of list) {
+        T.summon = 1;
+        let total = this.allies.filter((a) => a.ownerId === h.id && !a.charmed).length;
+        for (const [kind, n] of this.summonPlan(h, c)) {
+          if (total >= summonCap(h)) break;
           const have = this.allies.filter((a) => a.ownerId === h.id && a.type === 'ally_' + kind).length;
-          if (have < n) { this.spawnAlly(h, 'ally_' + kind, h.x, h.y); T.summon = kind === 'rat' ? 3 : 8; break; }
+          if (have < n) { this.spawnAlly(h, 'ally_' + kind, h.x, h.y); total++; T.summon = kind === 'rat' || kind === 'pigeon' ? 3 : 8; break; }
         }
       }
     }
@@ -252,7 +213,9 @@ module.exports = {
   dmgMul(h) {
     let k = h.buffs.fury > 0 ? 1.4 : 1;
     if (h.buffs.song > 0) k *= 1 + (h.songDmg || 0);
-    if (h.buffs.anthem > 0) k *= 1.3;
+    if (h.buffs.anthem > 0) k *= 1 + (h.anthemDmg || 0.3);
+    if (h.buffs.frenzy > 0) k *= 1 + md(h, 'ultDmg');
+    if (h.buffs.rapid > 0) k *= 1 + md(h, 'ultDmg');
     // Barbare : rage selon les PV manquants (bonus maximal sous 30 % de PV)
     const rc = CLASSES[h.cls] && CLASSES[h.cls].rage;
     if (rc) k *= 1 + rc.max * Math.min(1, Math.max(0, 1 - h.hp / h.maxHp) / 0.7);
@@ -365,8 +328,8 @@ module.exports = {
     const crit = Math.random() < h.crit;
     const dmg = h.dmg * this.dmgMul(h) * (crit ? 2 : 1);
     let onHit = null;
-    if (c.onHit) onHit = { slow: c.onHit.slow, burn: c.onHit.burn ? h.dmg * c.onHit.burn : 0, dur: c.onHit.dur };
-    const extra = c.venom ? { venom: true } : c.charm ? { charm: { chance: c.charm.chance + md(h, 'charmChance'), dur: c.charm.dur } } : null;
+    if (c.onHit) onHit = { slow: c.onHit.slow ? Math.min(0.8, c.onHit.slow * (1 + md(h, 'frostMul'))) : 0, burn: c.onHit.burn ? h.dmg * c.onHit.burn * (1 + md(h, 'burnMul')) : 0, dur: c.onHit.dur };
+    const extra = c.venom ? { venom: true } : c.charm ? { charm: { chance: c.charm.chance + md(h, 'charmChance'), dur: c.charm.dur + md(h, 'charmDur') } } : null;
     if (c.projectile) {
       const slow = c.projectile === 'orb' || c.projectile === 'holy' || c.projectile === 'note' || c.projectile === 'charm' || c.projectile === 'flask';
       // les notes du ménestrel traversent les monstres alignés
@@ -419,7 +382,8 @@ module.exports = {
     const d = MOBS[type];
     const a = {
       nid: this.nid++, type, ownerId: owner.id, x: x + U.rand(-20, 20), y: y + U.rand(-20, 20),
-      maxHp: Math.round(owner.maxHp * d.hp * (owner.summonMult || 1)), hp: 0, size: d.size, speed: d.speed, range: d.range, cd: d.cd,
+      pow: 1 + GD.SUMMON_RANK_POWER * Math.max(0, ((owner.summonRanks || {})[type.slice(5)] || 1) - 1),
+      maxHp: Math.round(owner.maxHp * d.hp * (owner.summonMult || 1) * (1 + GD.SUMMON_RANK_POWER * Math.max(0, ((owner.summonRanks || {})[type.slice(5)] || 1) - 1))), hp: 0, size: d.size, speed: d.speed, range: d.range, cd: d.cd,
       atkT: 0, facing: 0, attackAnim: 0, target: null, retargetT: 0, offset: Math.random() * Math.PI * 2, ...extra
     };
     a.hp = a.maxHp;
@@ -452,12 +416,14 @@ module.exports = {
       if (!o) { a.hp = 0; continue; }
       a.attackAnim -= dt;
       if (a.charmed) { a.charmed.t -= dt; if (a.charmed.t <= 0) { this.endCharm(a); continue; } }
-      const anchor = o.alive ? o : { x: WORLD.CX, y: WORLD.CY };
+      // nuée de rapaces : les oiseaux foncent sur les ennemis les plus proches d'eux
+      const raptor = o.buffs.raptor > 0;
+      const anchor = raptor ? a : o.alive ? o : { x: WORLD.CX, y: WORLD.CY };
       a.retargetT -= dt;
       if (a.retargetT <= 0 || !a.target || a.target.hp <= 0) {
         a.retargetT = 0.5;
         a.target = null;
-        let bd = 280 * 280;
+        let bd = (raptor ? 700 : 280) ** 2;
         for (const m of this.mobs) {
           if (m.hp <= 0) continue;
           const d = (m.x - anchor.x) ** 2 + (m.y - anchor.y) ** 2;
@@ -467,17 +433,20 @@ module.exports = {
       if (a.target) {
         const t = a.target;
         const d = U.dist(a, t);
-        if (d > a.range + t.size) this.moveToward(a, t.x, t.y, a.speed, dt);
+        if (d > a.range + t.size) this.moveToward(a, t.x, t.y, a.speed * (raptor ? 1.5 : 1), dt);
         else a.facing = Math.atan2(t.y - a.y, t.x - a.x);
         a.atkT -= dt;
         if (d <= a.range + t.size + 4 && a.atkT <= 0) {
           a.atkT = a.cd;
           a.attackAnim = 0.2;
           a.facing = Math.atan2(t.y - a.y, t.x - a.x);
-          const dmg = a.charmed ? a.power : o.dmg * MOBS[a.type].dmg * (o.buffs.beast > 0 ? 1.6 : 1) * (o.summonMult || 1);
+          const dmg = a.charmed ? a.power : o.dmg * MOBS[a.type].dmg * (o.buffs.beast > 0 ? 1.5 + md(o, 'ultDmg') : 1) * (raptor ? 1.5 : 1) * (o.summonMult || 1) * (a.pow || 1);
           const ad = MOBS[a.type];
           if (ad.ranged && !a.charmed) this.shoot({ kind: 'arrow', side: 'hero', x: a.x, y: a.y - 14, target: t, dmg, owner: o, speed: 620 });
           else this.damageMob(t, dmg, o, { byAlly: true, onHit: ad.onHit || null });
+          const oc = CLASSES[o.cls];
+          if (a.type === 'ally_falcon' && oc.mark && t.hp > 0) t.status.mark = { t: oc.mark.dur, v: oc.mark.v + md(o, 'mark') };
+          if (raptor && t.hp > 0) t.status.blind = { t: 1e6 }; // aveuglé définitivement
         }
       } else {
         a.offset += dt * 0.5;
@@ -532,18 +501,18 @@ module.exports = {
         return asap ? near(400) >= 1 : bossAlive || this.mobs.length >= 8 || (allies >= 3 && near(300) >= 3);
       }
       case 'thunder': {
-        const n = this.mobsInRadius(WORLD.CX, WORLD.CY, 350).length;
-        return asap ? n >= 1 : (emergency || this.run.tower.hp < this.run.tower.max * 0.5) ? n >= 1 : n >= 6;
+        const n = near(300);
+        return asap ? n >= 1 : n >= 5 || (!!t && t.boss && U.dist(h, t) < 300) || (emergency && n >= 1);
       }
       case 'enchant': {
-        const cand = this.mobsInRadius(h.x, h.y, 320).filter((m) => !m.boss);
-        return asap ? cand.length >= 1 : cand.length >= 6 || cand.some((m) => m.elite);
+        const cand = this.mobsInRadius(h.x, h.y, 320);
+        return asap ? cand.length >= 1 : cand.length >= 6 || cand.some((m) => m.elite || m.boss);
       }
       case 'frenzy': {
         const n = near(150);
         return asap ? n >= 1 : (h.hp < h.maxHp * 0.4 && n >= 1) || n >= 5 || (!!t && t.boss && U.dist(h, t) < 150);
       }
-      case 'hawkstorm': return asap ? this.mobs.length > 0 : this.mobsInRadius(WORLD.CX, WORLD.CY, 300).length >= 3 || bossAlive;
+      case 'hawkstorm': return this.allies.some((a) => a.ownerId === h.id && !a.charmed) && (asap ? this.mobs.length > 0 : near(500) >= 3 || bossAlive);
       case 'thorns': return asap ? !!t : this.mobs.length >= 6 || bossAlive;
       case 'acid': {
         if (asap) return !!t;
@@ -561,92 +530,113 @@ module.exports = {
     const t = h.target;
     const dmg = h.dmg * this.dmgMul(h);
     this.fx(['ult', Math.round(h.x), Math.round(h.y), h.nid, c.ultName]);
+    // améliorations de l'ultime (compétences d'après-ultime)
+    const UD = 1 + md(h, 'ultDmg'), UA = 1 + md(h, 'ultArea'), UT = md(h, 'ultDur'), UH = md(h, 'ultHeal'), UC = md(h, 'ultCount');
     switch (c.ult) {
-      case 'whirl':
-        this.fx(['whirl', Math.round(h.x), Math.round(h.y), 150]);
-        for (const m of this.mobsInRadius(h.x, h.y, 150)) this.damageMob(m, dmg * 2.5, h, {});
+      case 'whirl': {
+        const r = 150 * UA;
+        this.fx(['whirl', Math.round(h.x), Math.round(h.y), Math.round(r)]);
+        for (const m of this.mobsInRadius(h.x, h.y, r)) this.damageMob(m, dmg * 2.5 * UD, h, {});
         break;
+      }
       case 'charge': {
         const a = t ? Math.atan2(t.y - h.y, t.x - h.x) : h.facing;
-        let ex = h.x + Math.cos(a) * 340, ey = h.y + Math.sin(a) * 340;
+        let ex = h.x + Math.cos(a) * 340 * UA, ey = h.y + Math.sin(a) * 340 * UA;
         const dx = ex - WORLD.CX, dy = ey - WORLD.CY, d = Math.hypot(dx, dy);
         if (d > h.leash) { ex = WORLD.CX + (dx / d) * h.leash; ey = WORLD.CY + (dy / d) * h.leash; }
         h.facing = a;
-        h.dashing = { sx: h.x, sy: h.y, ex: U.clamp(ex, 16, WORLD.W - 16), ey: U.clamp(ey, 24, WORLD.H - 12), t: 0, dur: 0.4, hit: new Set(), dmg: h.baseDmg * 2 * this.dmgMul(h) };
+        h.dashing = { sx: h.x, sy: h.y, ex: U.clamp(ex, 16, WORLD.W - 16), ey: U.clamp(ey, 24, WORLD.H - 12), t: 0, dur: 0.4, hit: new Set(), dmg: h.baseDmg * 2 * UD * this.dmgMul(h) };
         break;
       }
       case 'frostcone': {
-        const a = t ? Math.atan2(t.y - h.y, t.x - h.x) : h.facing;
+        // cône : 150 % des dégâts + gel
+        const a = t ? Math.atan2(t.y - h.y, t.x - h.x) : h.facing, r = 330 * UA;
         h.facing = a;
-        this.fx(['cone', Math.round(h.x), Math.round(h.y), Math.round(a * 100), 330]);
-        for (const m of this.mobsInRadius(h.x, h.y, 330)) {
-          if (Math.abs(U.angleDiff(Math.atan2(m.y - h.y, m.x - h.x), a)) < 0.62) {
-            this.damageMob(m, dmg * 2, h, { onHit: { freeze: m.boss ? 0.8 : 2.5 } });
-          }
+        this.fx(['cone', Math.round(h.x), Math.round(h.y), Math.round(a * 100), Math.round(r)]);
+        for (const m of this.mobsInRadius(h.x, h.y, r)) {
+          if (Math.abs(U.angleDiff(Math.atan2(m.y - h.y, m.x - h.x), a)) < 0.62) this.damageMob(m, dmg * 1.5, h, { onHit: { freeze: 2.5 + UT } });
         }
         break;
       }
       case 'fireball':
-        if (t) this.shoot({ kind: 'fireball', side: 'hero', x: h.x, y: h.y - 10, tx: t.x, ty: t.y, dmg: dmg * 4, explode: 150, speed: 520, owner: h, onHit: { burn: h.dmg * 0.4, dur: 4 } });
+        // 300 % des dégâts de base du héros en zone
+        if (t) this.shoot({ kind: 'fireball', side: 'hero', x: h.x, y: h.y - 10, tx: t.x, ty: t.y, dmg: h.baseDmg * 3 * UD, explode: Math.round(150 * UA), speed: 520, owner: h, onHit: { burn: h.dmg * 0.4, dur: 4 } });
         break;
       case 'massheal':
-        this.fx(['healring', Math.round(h.x), Math.round(h.y), 350]);
-        for (const o of this.heroes.values()) if (o.alive && (o.x - h.x) ** 2 + (o.y - h.y) ** 2 < 350 * 350) this.healHero(o, o.maxHp * 0.5);
-        for (const a of this.allies) if ((a.x - h.x) ** 2 + (a.y - h.y) ** 2 < 350 * 350) a.hp = Math.min(a.maxHp, a.hp + a.maxHp * 0.5);
+        // tous les alliés : 75 % de leurs PV max (+ bouclier béni)
+        this.fx(['healring', Math.round(h.x), Math.round(h.y), 900]);
+        for (const o of this.heroes.values()) if (o.alive) { this.healHero(o, o.maxHp * (0.75 + UH)); if (UT > 0) o.buffs.shield = Math.max(o.buffs.shield || 0, UT); }
+        for (const a of this.allies) if (!a.charmed) a.hp = Math.min(a.maxHp, a.hp + a.maxHp * (0.75 + UH));
         break;
       case 'beastcall':
-        h.buffs.beast = 8;
+        // soigne ses bêtes, +50 % de dégâts pendant 10 s
+        h.buffs.beast = 10 + UT;
         this.fx(['healring', Math.round(h.x), Math.round(h.y), 200]);
-        for (const a of this.allies) if (a.ownerId === h.id) { a.hp = a.maxHp; this.fx(['text', Math.round(a.x), Math.round(a.y - 20), 'GRRR !', c.color]); }
+        for (const a of this.allies) if (a.ownerId === h.id && !a.charmed) { a.hp = a.maxHp; this.fx(['text', Math.round(a.x), Math.round(a.y - 20), 'GRRR !', c.color]); }
+        h.timers.summon = 0;
+        break;
+      case 'hawkstorm':
+        // ses oiseaux sont soignés et foncent sur les ennemis : aveuglement définitif, +50 % de dégâts pendant 5 s
+        h.buffs.raptor = 5 + UT;
+        for (const a of this.allies) if (a.ownerId === h.id && !a.charmed) a.hp = a.maxHp;
+        this.fx(['healring', Math.round(h.x), Math.round(h.y), 220]);
         h.timers.summon = 0;
         break;
       case 'revive': {
+        // ramène un allié à 60 % de ses PV ; sinon relève 3 créatures
         let best = null;
         for (const o of this.heroes.values()) if (!o.alive && (!best || o.deadAt < best.deadAt)) best = o;
         if (best) {
-          best.alive = true; best.zombie = true; best.status = {};
-          best.hp = best.maxHp * 0.75; best.x = best.deathX; best.y = best.deathY;
+          best.alive = true; best.zombie = false; best.status = {};
+          best.hp = best.maxHp * Math.min(1, 0.6 + UH); best.x = best.deathX; best.y = best.deathY;
           this.fx(['revive', Math.round(best.x), Math.round(best.y)]);
-          this.pushFeed(`🧟 ${h.name} relève ${best.name} d’entre les morts !`);
+          this.pushFeed(`💀 ${h.name} ramène ${best.name} à la vie !`);
         } else {
-          const kinds = (c.raise.kinds || [{ kind: 'skeleton', at: 1 }]).filter((k) => hasUnlock(h, k.at));
-          for (let i = 0; i < 3; i++) this.spawnAlly(h, 'ally_' + U.pick(kinds).kind, h.x, h.y);
+          const kinds = Object.keys(h.summonRanks || {});
+          let total = this.allies.filter((a) => a.ownerId === h.id && !a.charmed).length;
+          for (let i = 0; i < 3 && kinds.length && total < summonCap(h); i++, total++) this.spawnAlly(h, 'ally_' + U.pick(kinds), h.x, h.y);
         }
         break;
       }
-      case 'rapidfire': h.buffs.rapid = 6; break;
+      case 'rapidfire': h.buffs.rapid = 6 + UT; break;
       case 'tripleshot': {
-        const a = t ? Math.atan2(t.y - h.y, t.x - h.x) : h.facing;
-        for (const off of [-0.12, 0, 0.12]) this.shoot({ kind: 'arrow', side: 'hero', x: h.x, y: h.y - 10, angle: a + off, tx: 0, ty: 0, dmg: dmg * 1.5, owner: h, speed: 850, pierce: 2, life: 0.7, homing: false, radius: 18 });
+        const a = t ? Math.atan2(t.y - h.y, t.x - h.x) : h.facing, n = 3 + UC;
+        for (let i = 0; i < n; i++) this.shoot({ kind: 'arrow', side: 'hero', x: h.x, y: h.y - 10, angle: a + (i - (n - 1) / 2) * 0.12, tx: 0, ty: 0, dmg: dmg * 1.5 * UD, owner: h, speed: 850, pierce: 2, life: 0.7, homing: false, radius: 18 });
         break;
       }
       case 'smoke':
-        this.zones.push({ kind: 'smoke', x: h.x, y: h.y, r: 170, t: 7 });
+        this.zones.push({ kind: 'smoke', x: h.x, y: h.y, r: 170 * UA, t: 7 + UT });
         break;
       case 'chaindash':
-        h.chain = { n: 0, wait: 0 };
+        h.chain = { n: 0, wait: 0, max: 5 + UC, mult: 2.6 * UD };
         break;
       case 'anthem':
-        // les hymnes ne se cumulent pas : la durée est simplement renouvelée
-        for (const o of this.heroes.values()) if (o.alive) o.buffs.anthem = 8 + md(h, 'anthemDur');
+        // les hymnes ne se cumulent pas : la durée est renouvelée, le bonus le plus fort est gardé
+        for (const o of this.heroes.values()) if (o.alive) { o.anthemDmg = Math.max(o.buffs.anthem > 0 ? o.anthemDmg || 0 : 0, 0.3 + md(h, 'ultDmg')); o.buffs.anthem = 8 + UT; }
         this.fx(['anthem', Math.round(h.x), Math.round(h.y)]);
         break;
-      case 'thunder':
-        this.fx(['shock', WORLD.CX, WORLD.CY, 350, 2]);
-        for (const m of this.mobsInRadius(WORLD.CX, WORLD.CY, 350)) {
+      case 'thunder': {
+        // autour du héros : 300 % des dégâts, étourdissement
+        const r = 300 * UA;
+        this.fx(['shock', Math.round(h.x), Math.round(h.y), Math.round(r), 2]);
+        for (const m of this.mobsInRadius(h.x, h.y, r)) {
           if (m.boss) this.applyStatus(m, { slow: 0.5, dur: 2.5 });
           else if (!(m.thunderImm > this.time)) { this.applyStatus(m, { freeze: 2.5 }); m.thunderImm = this.time + 6.5; } // pas d'étourdissement en chaîne
-          this.damageMob(m, dmg * 5, h, {});
+          this.damageMob(m, dmg * 3 * UD, h, {});
         }
         break;
+      }
       case 'enchant': {
-        const cand = this.mobsInRadius(h.x, h.y, 320).filter((m) => !m.boss && m.hp > 0).sort((a, b) => b.maxHp - a.maxHp).slice(0, 6 + md(h, 'charmMax'));
+        // les boss touchés sont seulement étourdis ; les autres monstres sont charmés
+        const near = this.mobsInRadius(h.x, h.y, 320).filter((m) => m.hp > 0);
+        for (const m of near) if (m.boss) { m.status.freeze = { t: 2.5 + UT * 0.5 }; this.fx(['text', Math.round(m.x), Math.round(m.y - m.size - 16), 'étourdi', '#ff7ad9']); }
+        const cand = near.filter((m) => !m.boss).sort((a, b) => b.maxHp - a.maxHp).slice(0, 6 + UC);
         for (const m of cand) {
           this.mobs = this.mobs.filter((x) => x !== m);
           this.allies.push({
             nid: this.nid++, type: m.type, ownerId: h.id, x: m.x, y: m.y, maxHp: m.maxHp, hp: m.hp, size: m.size, speed: m.speed, range: Math.min(m.range, 60), cd: m.cd,
             atkT: 0, facing: m.facing, attackAnim: 0, target: null, retargetT: 0, offset: Math.random() * Math.PI * 2,
-            charmed: { t: 10, mob: m }, power: Math.max(m.dmg * 2, h.dmg)
+            charmed: { t: 10 + UT, mob: m }, power: Math.max(m.dmg * 2, h.dmg)
           });
           this.fx(['charm', Math.round(m.x), Math.round(m.y - m.size - 10)]);
         }
@@ -654,24 +644,21 @@ module.exports = {
         break;
       }
       case 'frenzy':
-        h.buffs.frenzy = 8; h.frenzyOn = true;
+        h.buffs.frenzy = 8 + UT; h.frenzyOn = true;
         this.fx(['text', Math.round(h.x), Math.round(h.y - 60), 'FRÉNÉSIE !', c.color]);
         break;
-      case 'hawkstorm':
-        h.buffs.hawkstorm = 8; h.timers.storm = 0;
-        break;
       case 'thorns': {
-        // sur le flanc le plus menacé : autour du monstre le plus proche de la tour
+        // ralentit seulement (ne blesse plus), sur le flanc le plus menacé
         const m = this.nearestMob(WORLD.CX, WORLD.CY, 5000) || t;
         if (!m) break;
         const a = Math.atan2(m.y - WORLD.CY, m.x - WORLD.CX), d = Math.min(U.dist(m, { x: WORLD.CX, y: WORLD.CY }), 380);
-        this.zones.push({ kind: 'thorns', x: WORLD.CX + Math.cos(a) * Math.max(160, d), y: WORLD.CY + Math.sin(a) * Math.max(160, d), r: 220, t: 10, owner: h });
+        this.zones.push({ kind: 'thorns', x: WORLD.CX + Math.cos(a) * Math.max(160, d), y: WORLD.CY + Math.sin(a) * Math.max(160, d), r: 220 * UA, t: 10 + UT, owner: h });
         break;
       }
       case 'acid': {
         const spots = [];
         const pool = this.mobs.filter((m) => m.hp > 0);
-        for (let i = 0; i < 5 && pool.length; i++) {
+        for (let i = 0; i < 5 + UC && pool.length; i++) {
           let best = null, bn = 0;
           for (let j = 0; j < pool.length; j += Math.max(1, (pool.length / 40) | 0)) {
             const m = pool[j];
@@ -683,7 +670,7 @@ module.exports = {
           spots.push({ x: best.x, y: best.y });
         }
         for (const s of spots) {
-          this.zones.push({ kind: 'acid', x: s.x, y: s.y, r: 90, t: 6, owner: h });
+          this.zones.push({ kind: 'acid', x: s.x, y: s.y, r: 90, t: 6 + UT, owner: h });
           this.fx(['boom', Math.round(s.x), Math.round(s.y), 90, 2]);
         }
         break;
@@ -709,9 +696,9 @@ module.exports = {
     C.wait -= dt;
     if (C.wait > 0) return;
     const m = this.nearestMob(h.x, h.y, 500);
-    if (!m || C.n >= 5) { h.chain = null; return; } // 5 enchaînements au plus
+    if (!m || C.n >= (C.max || 5)) { h.chain = null; return; } // 5 enchaînements au plus (plus avec « Danse infinie »)
     C.n++;
-    const killed = this.dashBehind(h, m, 2.6);
+    const killed = this.dashBehind(h, m, C.mult || 2.6);
     if (killed) C.wait = 0.16;
     else h.chain = null;
   }

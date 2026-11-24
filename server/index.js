@@ -209,7 +209,7 @@ app.post('/api/me/skill', auth, (req, res) => {
   }
   const rank = u.skills[n.id] || 0;
   if (rank >= n.max) return res.status(400).json({ error: 'Rang maximum atteint.' });
-  if (n.requires && !u.skills[n.requires]) return res.status(400).json({ error: 'Débloque d’abord la compétence précédente.' });
+  if (n.requires && (u.skills[n.requires] || 0) < GD.requiredRank(n.requires)) return res.status(400).json({ error: GD.SKILLS[n.requires].ult ? 'Débloque d’abord l’ultime.' : `Place au moins ${GD.requiredRank(n.requires)} points dans « ${GD.SKILLS[n.requires].name} ».` });
   if (GD.skillPoints(u).free < 1) return res.status(400).json({ error: 'Pas assez de points de compétence.' });
   u.skills[n.id] = rank + 1;
   if (n.init && cur.tier === 0) u.cls = n.base; // entrée dans la branche de classe
