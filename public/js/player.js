@@ -255,6 +255,49 @@
     sizer.style.width = `${TREE_BOARD * z}px`; sizer.style.height = `${TREE_BOARD * z}px`;
     board.style.transform = `scale(${z})`;
   }
+  // Infobulle de l'arbre (au survol à la souris)
+  let tipEl = null;
+  function tipped(node, title, text, foot, color) {
+    node.addEventListener('pointerenter', (e) => {
+      if (e.pointerType !== 'mouse' || treeDrag.moved) return;
+      tipEl ||= document.body.appendChild(el('div', { class: 'ttip hidden' }));
+      tipEl.replaceChildren(el('b', { style: `color:${color || 'var(--gold)'}` }, title), el('div', {}, text), foot ? el('div', { class: 'tiny muted', style: 'margin-top:4px' }, foot) : '');
+      tipEl.classList.remove('hidden');
+      moveTip(e);
+    });
+    node.addEventListener('pointermove', moveTip);
+    node.addEventListener('pointerleave', () => tipEl && tipEl.classList.add('hidden'));
+    return node;
+  }
+  function moveTip(e) {
+    if (!tipEl) return;
+    const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    let x = e.clientX + 16, y = e.clientY + 16;
+    if (x + w > window.innerWidth - 8) x = e.clientX - w - 16;
+    if (y + h > window.innerHeight - 8) y = e.clientY - h - 16;
+    tipEl.style.left = `${Math.max(8, x)}px`; tipEl.style.top = `${Math.max(8, y)}px`;
+  }
+  // Glisser sur l'arbre (clic maintenu) pour le déplacer quand il est zoomé
+  const treeDrag = { on: false, moved: false };
+  function enableTreeDrag(wrap) {
+    wrap.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      Object.assign(treeDrag, { on: true, moved: false, x: e.clientX, y: e.clientY, sl: wrap.scrollLeft, st: wrap.scrollTop });
+    });
+    wrap.addEventListener('pointermove', (e) => {
+      if (!treeDrag.on) return;
+      const dx = e.clientX - treeDrag.x, dy = e.clientY - treeDrag.y;
+      if (!treeDrag.moved && Math.abs(dx) + Math.abs(dy) < 6) return;
+      if (!treeDrag.moved) { treeDrag.moved = true; wrap.classList.add('dragging'); wrap.setPointerCapture(e.pointerId); if (tipEl) tipEl.classList.add('hidden'); }
+      wrap.scrollLeft = treeDrag.sl - dx; wrap.scrollTop = treeDrag.st - dy;
+      // la page défile aussi quand l'arbre est déjà au bord (mode « Ajuster »)
+      if (!wrap.classList.contains('zoomed')) window.scrollBy(0, -(e.movementY || 0));
+    });
+    const end = () => { treeDrag.on = false; wrap.classList.remove('dragging'); setTimeout(() => { treeDrag.moved = false; }, 0); };
+    wrap.addEventListener('pointerup', end); wrap.addEventListener('pointercancel', end);
+    // un glissement ne doit pas sélectionner la pastille sous le curseur
+    wrap.addEventListener('click', (e) => { if (treeDrag.moved) { e.stopPropagation(); e.preventDefault(); } }, true);
+  }
   function setTreeZoom(z) { treeZoom = z === null ? null : Math.max(0.25, Math.min(1.6, z)); renderClasses(); }
   // réajuste l'arbre quand la largeur change (ou quand l'onglet devient visible)
   if (window.ResizeObserver) new ResizeObserver(() => { if (treeZoom === null) applyTreeZoom(); }).observe(document.getElementById('classTree'));
@@ -304,10 +347,11 @@
       const label = n.ult ? '✨' : n.mastery ? '★' : `${st.rank}/${n.max}`;
       if (n.ult) {
         const S = GD.CLASSES[n.spec];
-        return el('button', { class: cls, title: `${S.ultName} — ${S.ultDesc}`, onclick: () => { selSkill = n.id; renderClasses(); } },
-          el('b', {}, `✨ ${S.ultName}`), el('span', {}, S.ultDesc), el('em', {}, st.rank ? 'Débloqué' : `Niveau ${PR.ULT_LEVEL}`));
+        // seul le nom de l'ultime reste affiché ; son effet apparaît au survol
+        return tipped(el('button', { class: cls, onclick: () => { selSkill = n.id; renderClasses(); } },
+          el('b', {}, `✨ ${S.ultName}`), el('em', {}, st.rank ? 'Débloqué' : `Niveau ${PR.ULT_LEVEL}`)), `✨ ${S.ultName}`, S.ultDesc, st.rank ? 'Débloqué' : st.reason || `Ultime · niveau ${PR.ULT_LEVEL}`, S.color);
       }
-      return el('button', { class: cls, title: `${nodeTitle(n)} — ${nodeText(n)}`, onclick: () => { selSkill = n.id; renderClasses(); } }, label);
+      return tipped(el('button', { class: cls, onclick: () => { selSkill = n.id; renderClasses(); } }, label), nodeTitle(n), nodeText(n), `${st.rank}/${n.max}${st.reason && !st.can ? ' · ' + st.reason : ''}`, n.spec ? GD.CLASSES[n.spec].color : n.init ? GD.CLASSES[n.base].color : GD.CLASSES.habitant.color);
     };
 
     // Détail de la compétence sélectionnée
@@ -395,9 +439,11 @@
       el('button', { class: 'small', onclick: () => setTreeZoom((treeZoom || fitZoom()) / 1.25) }, '−'),
       el('button', { class: 'small' + (treeZoom === null ? ' primary' : ''), onclick: () => setTreeZoom(null) }, 'Ajuster'),
       el('button', { class: 'small', onclick: () => setTreeZoom((treeZoom || fitZoom()) * 1.25) }, '+'),
-      el('span', { class: 'small muted' }, 'Clique sur une pastille pour voir son effet.'));
+      el('span', { class: 'small muted' }, 'Survole une pastille pour voir son effet, clique pour la choisir. Maintiens le clic pour déplacer l’arbre.'));
     tree.className = 'sktree';
     tree.replaceChildren(detail, zoomBar, wrap);
+    enableTreeDrag(wrap);
+    if (tipEl) tipEl.classList.add('hidden');
     applyTreeZoom();
   }
 

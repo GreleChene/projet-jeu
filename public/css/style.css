@@ -337,9 +337,14 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 .tlbl { width: 92px; text-align: center; font-weight: 800; font-size: .72rem; line-height: 1.1; text-shadow: 0 1px 0 #000, 0 0 4px #000; }
 .tlbl.here { text-decoration: underline; }
 .tultcard { display: flex; align-items: flex-end; gap: 4px; }
-.tultcard .tnode.tult { width: 158px; }
+.tultcard .tnode.tult { width: 136px; min-height: 0; align-items: center; text-align: center; }
 .tultcard .tnode.tmastery { width: 30px; height: 30px; margin: 0; }
 .tultcard .tnode + .tnode::before { display: none; }
 .tboard .tnode { margin: 0; }
 .tboard .tlocked { filter: grayscale(1) brightness(.75); }
 .tboard .tlocked .tnode:not(.tult), .tboard .tnode.tlocked:not(.tult), .tboard .tlbl.tlocked { opacity: .55; }
+
+.tboard-wrap { cursor: grab; user-select: none; }
+.tboard-wrap.dragging { cursor: grabbing; }
+.tboard-wrap.dragging .tnode { pointer-events: none; }
+.ttip { position: fixed; z-index: 300; max-width: 280px; background: var(--panel); border: 2px solid var(--gold); border-radius: 10px; padding: 8px 10px; font-size: .8rem; line-height: 1.35; box-shadow: 0 8px 24px rgba(0,0,0,.55); pointer-events: none; }
