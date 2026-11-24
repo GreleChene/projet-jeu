@@ -182,12 +182,11 @@ module.exports = {
     if (c.summons || c.pets) {
       T.summon -= dt;
       if (T.summon <= 0) {
-        T.summon = 1;
         let total = this.allies.filter((a) => a.ownerId === h.id && !a.charmed).length;
         for (const [kind, n] of this.summonPlan(h, c)) {
           if (total >= summonCap(h)) break;
           const have = this.allies.filter((a) => a.ownerId === h.id && a.type === 'ally_' + kind).length;
-          if (have < n) { this.spawnAlly(h, 'ally_' + kind, h.x, h.y); total++; T.summon = kind === 'rat' || kind === 'pigeon' ? 3 : 8; break; }
+          if (have < n) { this.spawnAlly(h, 'ally_' + kind, h.x, h.y); total++; T.summon = GD.SUMMON_EVERY; break; }
         }
       }
     }
@@ -384,7 +383,7 @@ module.exports = {
     const a = {
       nid: this.nid++, type, ownerId: owner.id, x: x + U.rand(-20, 20), y: y + U.rand(-20, 20),
       pow: 1 + GD.SUMMON_RANK_POWER * Math.max(0, ((owner.summonRanks || {})[type.slice(5)] || 1) - 1),
-      maxHp: Math.round(owner.maxHp * d.hp * (owner.summonMult || 1) * (1 + GD.SUMMON_RANK_POWER * Math.max(0, ((owner.summonRanks || {})[type.slice(5)] || 1) - 1))), hp: 0, size: d.size, speed: d.speed, range: d.range, cd: d.cd,
+      maxHp: Math.round(owner.maxHp * d.hp * (owner.summonMult || 1) * (1 + GD.SUMMON_RANK_POWER * Math.max(0, ((owner.summonRanks || {})[type.slice(5)] || 1) - 1))), hp: 0, size: d.size, speed: d.speed, range: d.range, cd: d.atkMul ? owner.cd / d.atkMul : d.cd, markT: 1,
       atkT: 0, facing: 0, attackAnim: 0, target: null, retargetT: 0, offset: Math.random() * Math.PI * 2, ...extra
     };
     a.hp = a.maxHp;
@@ -399,7 +398,11 @@ module.exports = {
     if (a.hp > 0) return;
     // un monstre charmé qui meurt compte comme une élimination pour l'enchanteresse
     if (a.charmed) this.endCharm(a);
-    else this.fx(['death', Math.round(a.x), Math.round(a.y), GD.MOB_IDS.indexOf(a.type)]);
+    else {
+      this.fx(['death', Math.round(a.x), Math.round(a.y), GD.MOB_IDS.indexOf(a.type)]);
+      const o = this.heroes.get(a.ownerId);
+      if (o && o.timers.summon <= 0) o.timers.summon = GD.SUMMON_RESPAWN;
+    }
   },
 
   endCharm(a) {
@@ -417,6 +420,19 @@ module.exports = {
       if (!o) { a.hp = 0; continue; }
       a.attackAnim -= dt;
       if (a.charmed) { a.charmed.t -= dt; if (a.charmed.t <= 0) { this.endCharm(a); continue; } }
+      // aigle : marque un ennemi toutes les 5 s (+100 % de dégâts reçus pendant 3 s)
+      const mk = MOBS[a.type].marks;
+      if (mk && !a.charmed) {
+        a.markT -= dt;
+        if (a.markT <= 0) {
+          const m = this.nearestMob(a.x, a.y, 420, (x) => !x.status.mark);
+          if (m) {
+            a.markT = mk.every;
+            m.status.mark = { t: mk.dur, v: mk.v + md(o, 'mark') };
+            this.fx(['hawk', Math.round(a.x), Math.round(a.y - 30), Math.round(m.x), Math.round(m.y - m.size), 2]);
+          }
+        }
+      }
       // nuée de rapaces : les oiseaux foncent sur les ennemis les plus proches d'eux
       const raptor = o.buffs.raptor > 0;
       const anchor = raptor ? a : o.alive ? o : { x: WORLD.CX, y: WORLD.CY };
@@ -443,10 +459,11 @@ module.exports = {
           a.facing = Math.atan2(t.y - a.y, t.x - a.x);
           const dmg = a.charmed ? a.power : o.dmg * MOBS[a.type].dmg * (o.buffs.beast > 0 ? 1.5 + md(o, 'ultDmg') : 1) * (raptor ? 1.5 : 1) * (o.summonMult || 1) * (a.pow || 1);
           const ad = MOBS[a.type];
-          if (ad.ranged && !a.charmed) this.shoot({ kind: 'arrow', side: 'hero', x: a.x, y: a.y - 14, target: t, dmg, owner: o, speed: 620 });
-          else this.damageMob(t, dmg, o, { byAlly: true, onHit: ad.onHit || null });
-          const oc = CLASSES[o.cls];
-          if (a.type === 'ally_falcon' && oc.mark && t.hp > 0) t.status.mark = { t: oc.mark.dur, v: oc.mark.v + md(o, 'mark') };
+          const crit = !a.charmed && ad.critMul && Math.random() < Math.min(0.9, (o.crit || 0) * ad.critMul);
+          const hit = dmg * (crit ? 2 : 1);
+          const onHit = ad.poison && !a.charmed ? { poison: o.dmg * ad.poison.pct, dur: ad.poison.dur } : ad.onHit || null;
+          if (ad.ranged && !a.charmed) this.shoot({ kind: 'arrow', side: 'hero', x: a.x, y: a.y - 14, target: t, dmg: hit, crit, owner: o, speed: 620 });
+          else this.damageMob(t, hit, o, { byAlly: true, crit, onHit });
           if (raptor && t.hp > 0) t.status.blind = { t: 1e6 }; // aveuglé définitivement
         }
       } else {

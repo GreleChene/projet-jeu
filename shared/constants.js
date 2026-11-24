@@ -53,7 +53,7 @@
 
     eleveur: { name: 'Éleveur', tier: 1, parent: 'habitant', color: '#2e9e57', weapon: 'whip', hp: 120, dmg: 9, range: 110, cd: 1.0, speed: 80, armor: 0.05, summons: { wolf: 1 }, desc: 'Combat aux côtés d’un loup apprivoisé.' },
     dompteur: { name: 'Dompteur', tier: 2, parent: 'eleveur', color: '#d98c3a', weapon: 'whip', hp: 150, dmg: 11, range: 120, cd: 1.0, speed: 80, armor: 0.08, pets: ['rat', 'wolf', 'bear'], extraPets: ['bear', 'wolf', 'rat'], ult: 'beastcall', ultName: 'Cri de la meute', ultDesc: 'Soigne ses bêtes et augmente leurs dégâts de 50 % pendant 10 s.', desc: 'Rats, loups et ours obéissent à sa voix (6 invocations au plus).' },
-    fauconnier: { name: 'Fauconnier', tier: 2, parent: 'eleveur', color: '#b5835a', weapon: 'falcon', hp: 135, dmg: 11, range: 130, cd: 1.0, speed: 82, armor: 0.06, pets: ['falcon', 'pigeon', 'eagle'], extraPets: ['eagle', 'falcon', 'pigeon'], mark: { v: 0.1, dur: 4 }, ult: 'hawkstorm', ultName: 'Nuée de rapaces', ultDesc: 'Ses oiseaux sont soignés et foncent sur les ennemis les plus proches : ils les aveuglent définitivement et font 50 % de dégâts en plus pendant 5 s.', desc: 'Ses faucons marquent les ennemis (+10 % de dégâts reçus), ses pigeons les harcèlent, son aigle assomme les plus forts.' },
+    fauconnier: { name: 'Fauconnier', tier: 2, parent: 'eleveur', color: '#b5835a', weapon: 'falcon', hp: 135, dmg: 11, range: 130, cd: 1.0, speed: 82, armor: 0.06, pets: ['pigeon', 'eagle', 'falcon'], extraPets: ['falcon', 'eagle', 'pigeon'], ult: 'hawkstorm', ultName: 'Nuée de rapaces', ultDesc: 'Ses oiseaux sont soignés et foncent sur les ennemis les plus proches : ils les aveuglent définitivement et font 50 % de dégâts en plus pendant 5 s.', desc: 'Ses pigeons harcèlent les ennemis, son aigle les marque (+100 % de dégâts reçus), ses faucons frappent fort (6 invocations au plus).' },
     necromancien: { name: 'Nécromancien', tier: 2, parent: 'eleveur', color: '#5b4a7a', weapon: 'scythe', hp: 130, dmg: 11, range: 140, cd: 1.0, speed: 78, armor: 0.05, pets: ['slime', 'zombie', 'skelarcher'], extraPets: ['skelarcher', 'zombie', 'slime'], ult: 'revive', ultName: 'Relève-toi', ultDesc: 'Ramène un allié mort à la vie avec 60 % de ses PV (sans allié mort : invoque 3 de ses créatures en renfort).', desc: 'Invoque slimes, zombies et squelettes archers (6 invocations au plus).' },
 
     archer: { name: 'Archer', tier: 1, parent: 'habitant', color: '#27ae60', weapon: 'bow', projectile: 'arrow', hp: 100, dmg: 11, range: 340, cd: 0.9, speed: 85, armor: 0.02, desc: 'Tire de très loin.' },
@@ -87,7 +87,7 @@
     feu: [['Étincelle', { dmg: 0.05 }], ['Combustion', { burnMul: 0.15 }], ['Pyromancie', { dmg: 0.06 }], ['Brasier', { burnMul: 0.15 }], ['Âme ardente', { crit: 0.03 }]],
     soin: [['Prière', { healMul: 0.1 }], ['Lumière bénie', { armor: 0.02, hp: 0.03 }], ['Grâce', { healMul: 0.1 }], ['Robe sacrée', { hp: 0.05 }], ['Sanctuaire', { healMul: 0.1 }]],
     dompteur: [['Rats', {}, 'rat'], ['Complicité', { hp: 0.05 }], ['Loups', {}, 'wolf'], ['Instinct sauvage', { dmg: 0.05 }], ['Ours', {}, 'bear']],
-    fauconnier: [['Faucons', {}, 'falcon'], ['Marque profonde', { mark: 0.03 }], ['Pigeons', {}, 'pigeon'], ['Gant de cuir', { hp: 0.05 }], ['Aigle', {}, 'eagle']],
+    fauconnier: [['Pigeons', {}, 'pigeon'], ['Gant de cuir', { hp: 0.05 }], ['Aigle', {}, 'eagle'], ['Marque profonde', { mark: 0.1 }], ['Faucons', {}, 'falcon']],
     necromancien: [['Slimes', {}, 'slime'], ['Rites sombres', { dmg: 0.05 }], ['Zombies', {}, 'zombie'], ['Peau morte', { armor: 0.03 }], ['Squelettes archers', {}, 'skelarcher']],
     arbaletrier: [['Mécanisme huilé', { atkspd: 0.05 }], ['Carreaux lourds', { dmg: 0.05 }], ['Visée', { crit: 0.03 }], ['Cadence', { atkspd: 0.05 }], ['Perforation', { dmg: 0.05 }]],
     trappeur: [['Mâchoires d’acier', { trapRoot: 0.3 }], ['Ingéniosité', { trapMax: 1 }], ['Épines', { dmg: 0.05 }], ['Pistage', { speed: 0.05 }], ['Embuscade', { crit: 0.03 }]],
@@ -122,12 +122,20 @@
   };
   // Invocations débloquées par les nœuds de l'arbre (6 au plus, 9 avec la compétence d'après-ultime)
   const SUMMONS = {
-    rat: { name: 'Rats', icon: '🐀' }, wolf: { name: 'Loups', icon: '🐺' }, bear: { name: 'Ours', icon: '🐻' },
-    falcon: { name: 'Faucons', icon: '🦅' }, pigeon: { name: 'Pigeons', icon: '🕊️' }, eagle: { name: 'Aigle', icon: '🪶' },
-    slime: { name: 'Slimes', icon: '🟢' }, zombie: { name: 'Zombies', icon: '🧟' }, skelarcher: { name: 'Squelettes archers', icon: '🏹' }
+    rat: { name: 'Rats', icon: '🐀', role: 'frappe à 60 % des dégâts du héros et empoisonne 2 s' },
+    wolf: { name: 'Loups', icon: '🐺', role: 'frappe à 100 % des dégâts du héros, 1,5 fois plus vite que lui' },
+    bear: { name: 'Ours', icon: '🐻', role: 'frappe à 150 % des dégâts du héros' },
+    pigeon: { name: 'Pigeons', icon: '🕊️', role: 'frappe à 50 % des dégâts du héros, 1,5 fois plus vite que lui' },
+    eagle: { name: 'Aigle', icon: '🪶', role: 'marque un ennemi toutes les 5 s : +100 % de dégâts reçus pendant 3 s' },
+    falcon: { name: 'Faucons', icon: '🦅', role: 'frappe à 200 % des dégâts du héros' },
+    slime: { name: 'Slimes', icon: '🟢', role: '300 % des PV du héros, frappe à 75 % de ses dégâts' },
+    zombie: { name: 'Zombies', icon: '🧟', role: '90 % des PV du héros, frappe à 110 % de ses dégâts' },
+    skelarcher: { name: 'Squelettes archers', icon: '🏹', role: 'tire 1,1 fois plus vite que le héros, 1,2 fois ses chances de critique' }
   };
   // 1 créature au rang 1 du nœud, une 2e au rang SUMMON_SECOND_RANK
   const SUMMON_CAP = 6, SUMMON_CAP_MAX = 9, SUMMON_RANK_POWER = 0.2, SUMMON_SECOND_RANK = 3;
+  // une invocation toutes les SUMMON_EVERY s jusqu'au quota ; SUMMON_RESPAWN s après la mort d'une invocation
+  const SUMMON_EVERY = 10, SUMMON_RESPAWN = 5;
   // Arbre d'initiation (avant le choix de classe) : une compétence liée à chaque classe.
   // En choisissant sa classe, les points des autres initiations sont rendus.
   const INITIATION = {
@@ -167,7 +175,7 @@
   // Effet d'un nœud d'invocation, pour l'affichage
   function summonText(n) {
     const S = SUMMONS[n.summon];
-    return `Invoque ${S.name.toLowerCase()} ${S.icon} : 1 au rang 1, 2 au rang ${SUMMON_SECOND_RANK}. Chaque rang : +${Math.round(SUMMON_RANK_POWER * 100)} % de PV et de dégâts. ${SUMMON_CAP} invocations au plus (${SUMMON_CAP_MAX} après l’ultime).`;
+    return `Invoque ${S.name.toLowerCase()} ${S.icon} (${S.role}) : 1 au rang 1, 2 au rang ${SUMMON_SECOND_RANK}. Une invocation toutes les ${SUMMON_EVERY} s ; ${SUMMON_RESPAWN} s après une mort. Chaque rang : +${Math.round(SUMMON_RANK_POWER * 100)} % de PV et de dégâts. ${SUMMON_CAP} invocations au plus (${SUMMON_CAP_MAX} après l’ultime).`;
   }
   // Branche (spécialisation) déjà entamée : les autres branches sont alors bloquées
   // Arbre : le centre (Paysan), une branche par classe (initiation), une sous-branche par spécialisation.
@@ -670,16 +678,16 @@
     geant_magma: { name: 'Géant de magma', boss: 2, shape: 'elemental', color: '#ff5a1a', hp: 5000, dmg: 140, speed: 30, range: 80, cd: 2, size: 90, aura: { burn: 8, radius: 160 }, xp: 4000, gold: 1200, abilities: [{ type: 'slam', cd: 6, radius: 280, dmg: 1.4, burn: 14 }, { type: 'volley', cd: 7, count: 22, proj: 'fire', dmg: 0.5 }, { type: 'summon', cd: 10, mob: 'elementaire', count: 2 }] },
 
     // Invocations alliées (dessinées avec le même style)
-    ally_wolf: { name: 'Loup', ally: true, shape: 'wolf', color: '#9a8a74', hp: 0.6, dmg: 0.6, speed: 115, range: 22, cd: 0.8, size: 12 },
-    ally_bear: { name: 'Ours', ally: true, shape: 'boar', color: '#6b4a2e', hp: 1.6, dmg: 1.0, speed: 75, range: 30, cd: 1.3, size: 18 },
+    ally_wolf: { name: 'Loup', ally: true, shape: 'wolf', color: '#9a8a74', hp: 0.6, dmg: 1.0, atkMul: 1.5, speed: 115, range: 22, cd: 0.8, size: 12 },
+    ally_bear: { name: 'Ours', ally: true, shape: 'boar', color: '#6b4a2e', hp: 1.6, dmg: 1.5, speed: 75, range: 30, cd: 1.3, size: 18 },
     ally_skeleton: { name: 'Squelette', ally: true, shape: 'skeleton', color: '#e8e2cf', hp: 0.5, dmg: 0.5, speed: 85, range: 24, cd: 1, size: 12 },
-    ally_rat: { name: 'Rat', ally: true, shape: 'rat', color: '#7d7684', hp: 0.25, dmg: 0.3, speed: 125, range: 18, cd: 0.6, size: 9 },
-    ally_slime: { name: 'Slime', ally: true, shape: 'slime', color: '#58c84a', hp: 0.9, dmg: 0.35, speed: 60, range: 22, cd: 1.1, size: 12, onHit: { slow: 0.3, dur: 1.5 } },
-    ally_zombie: { name: 'Zombie', ally: true, shape: 'zombie', color: '#7a9a5a', hp: 1.3, dmg: 0.65, speed: 50, range: 26, cd: 1.3, size: 15 },
-    ally_falcon: { name: 'Faucon', ally: true, flying: true, shape: 'bird', color: '#9a6a3e', hp: 0.35, dmg: 0.5, speed: 175, range: 20, cd: 0.8, size: 9 },
-    ally_pigeon: { name: 'Pigeon', ally: true, flying: true, shape: 'bird', color: '#9aa3b0', hp: 0.25, dmg: 0.3, speed: 165, range: 18, cd: 0.55, size: 8 },
-    ally_eagle: { name: 'Aigle', ally: true, flying: true, shape: 'bird', color: '#4a3220', hp: 0.7, dmg: 1.1, speed: 150, range: 24, cd: 1.4, size: 13, onHit: { freeze: 0.6 } },
-    ally_skelarcher: { name: 'Squelette archer', ally: true, ranged: true, shape: 'skeleton', color: '#e8e2cf', hp: 0.5, dmg: 0.55, speed: 80, range: 230, cd: 1.4, size: 12 }
+    ally_rat: { name: 'Rat', ally: true, shape: 'rat', color: '#7d7684', hp: 0.25, dmg: 0.6, speed: 125, range: 18, cd: 0.9, size: 9, poison: { pct: 0.2, dur: 2 } },
+    ally_slime: { name: 'Slime', ally: true, shape: 'slime', color: '#58c84a', hp: 3.0, dmg: 0.75, speed: 60, range: 22, cd: 1.1, size: 12 },
+    ally_zombie: { name: 'Zombie', ally: true, shape: 'zombie', color: '#7a9a5a', hp: 0.9, dmg: 1.1, speed: 50, range: 26, cd: 1.3, size: 15 },
+    ally_falcon: { name: 'Faucon', ally: true, flying: true, shape: 'bird', color: '#9a6a3e', hp: 0.45, dmg: 2.0, speed: 175, range: 20, cd: 1.0, size: 10 },
+    ally_pigeon: { name: 'Pigeon', ally: true, flying: true, shape: 'bird', color: '#9aa3b0', hp: 0.25, dmg: 0.5, atkMul: 1.5, speed: 165, range: 18, cd: 0.8, size: 8 },
+    ally_eagle: { name: 'Aigle', ally: true, flying: true, shape: 'bird', color: '#4a3220', hp: 0.7, dmg: 1.0, speed: 150, range: 24, cd: 1.2, size: 13, marks: { every: 5, v: 1.0, dur: 3 } },
+    ally_skelarcher: { name: 'Squelette archer', ally: true, ranged: true, shape: 'skeleton', color: '#e8e2cf', hp: 0.5, dmg: 1.0, atkMul: 1.1, critMul: 1.2, speed: 80, range: 230, cd: 1.4, size: 12 }
   };
   const MOB_IDS = Object.keys(MOBS);
 
@@ -761,5 +769,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });
