@@ -304,11 +304,28 @@ app.put('/api/me/equip', auth, (req, res) => {
   } else {
     const it = findItem(u, uid);
     if (!it) return res.status(400).json({ error: 'Objet introuvable' });
+    if (GD.isConsumable(it.t)) return res.status(400).json({ error: 'Cet objet ne s’équipe pas : utilise-le.' });
     if (!GD.canUse(it.t, u.cls)) return res.status(400).json({ error: 'Cet objet n’est pas fait pour ta classe.' });
     const lock = lockOf(u, uid);
     if (lock) return res.status(400).json({ error: `Cet objet est en ${lock}.` });
     u.equip[GD.TEMPLATES[it.t].slot] = it.uid;
   }
+  afterProfileChange(u);
+  res.json({ user: publicUser(u) });
+});
+
+// Parchemin de mémoire : rend 1 point de compétence perdu en reconversion
+app.post('/api/inventory/use', auth, (req, res) => {
+  const u = req.user;
+  const it = findItem(u, (req.body || {}).uid);
+  if (!it || !GD.isConsumable(it.t)) return res.status(400).json({ error: 'Objet introuvable' });
+  const lock = lockOf(u, it.uid);
+  if (lock) return res.status(400).json({ error: `Cet objet est en ${lock}.` });
+  if (GD.TEMPLATES[it.t].consumable === 'skill') {
+    if (!(u.skillLost > 0)) return res.status(400).json({ error: 'Tu n’as aucun point de compétence perdu à récupérer.' });
+    u.skillLost--;
+  }
+  takeItem(u, it.uid);
   afterProfileChange(u);
   res.json({ user: publicUser(u) });
 });
@@ -348,14 +365,17 @@ app.post('/api/glacons/open', auth, (req, res) => {
   giveItem(u, item);
   db.markDirty();
   // la rareté secrète n'est jamais nommée publiquement
-  if (item.r === 5) game.pushFeed(`🌌 ${u.pseudo} a trouvé quelque chose d’inconnu dans un glaçon…`);
+  if (GD.isConsumable(item.t)) game.pushFeed(`📜 ${u.pseudo} trouve un ${GD.TEMPLATES[item.t].name} dans un glaçon !`);
+  else if (item.r === 5) game.pushFeed(`🌌 ${u.pseudo} a trouvé quelque chose d’inconnu dans un glaçon…`);
   else if (item.r === 4) game.pushFeed(`✨ ${u.pseudo} obtient un objet légendaire : ${GD.itemName(item, u.cls)} !`);
   res.json({ user: publicUser(u), item });
 });
 
 // Contenu d'un glaçon : 60% universel, 35% set de sa classe (moins si la classe a moins de 5 objets), 5% set d'une autre classe
 function rollItem(cls) {
-  const all = Object.keys(GD.TEMPLATES);
+  // parfois un parchemin de mémoire à la place d'une pièce d'équipement
+  if (Math.random() < GD.GLACONS.SCROLL_CHANCE) return { uid: crypto.randomUUID(), t: 'memoire', r: GD.TEMPLATES.memoire.rarity, at: Date.now() };
+  const all = Object.keys(GD.TEMPLATES).filter((t) => !GD.isConsumable(t));
   const fam = GD.familyOf(cls);
   const universal = all.filter((t) => !GD.TEMPLATES[t].families);
   const mine = all.filter((t) => GD.TEMPLATES[t].families && GD.TEMPLATES[t].families.includes(fam));

@@ -302,7 +302,7 @@
     const lossNow = Math.floor(pts.spent * PR.SKILL_RESPEC_LOSS);
     $('#evoHint').replaceChildren(
       el('span', {}, 'Classe : ', el('b', { style: `color:${cur.color}` }, cur.name), ' · '),
-      el('b', { style: 'color:var(--gold)' }, `${pts.free} point(s) de compétence`), ` à dépenser (1 tous les ${PR.SKILL_EVERY} niveaux · ${pts.spent} attribué(s)${pts.lost ? ` · ${pts.lost} perdu(s) en reconversion` : ''}).`,
+      el('b', { style: 'color:var(--gold)' }, `${pts.free} point(s) de compétence`), ` à dépenser (1 tous les ${PR.SKILL_EVERY} niveaux · ${pts.spent} attribué(s)${pts.lost ? ` · ${pts.lost} perdu(s) en reconversion, récupérables avec un 📜 Parchemin de mémoire` : ''}).`,
       el('div', { class: 'small muted', style: 'margin-top:4px' }, started
         ? `Voie choisie : ${GD.CLASSES[started].name}. Les autres branches sont bloquées. Ultime au niveau ${PR.ULT_LEVEL}.`
         : `Choisis ta voie : dès que tu places un point dans une branche, l’autre se bloque. Ultime au niveau ${PR.ULT_LEVEL}.`),
@@ -443,13 +443,14 @@
   // Carte d'objet réutilisable (inventaire, place marchande)
   function itemCard(it, opts = {}) {
     const t = GD.TEMPLATES[it.t], usable = GD.canUse(it.t, me.cls);
-    return el('div', { class: 'inv-item' + (usable || opts.noLock ? '' : ' locked') + (opts.worn ? ' worn' : ''), style: `--rc:${rarColor(it.r)}` },
+    return el('div', { class: 'inv-item' + (usable || t.consumable || opts.noLock ? '' : ' locked') + (opts.worn ? ' worn' : ''), style: `--rc:${rarColor(it.r)}` },
       itemCanvas(it),
       el('div', { class: 'meta' },
         el('span', { class: 'rtag' }, rarName(it.r)),
         el('b', {}, GD.itemName(it, me.cls)),
         el('span', { class: 'muted' }, statsText(it)),
-        el('div', { class: 'muted' }, `Set ${GD.SETS[t.set].name}${t.families ? ' (' + t.families.map((f) => GD.CLASSES[f].name).join(', ') + ')' : ' (toutes classes)'}${usable ? '' : ' · pas pour ta classe'}`),
+        t.consumable ? el('div', { class: 'muted' }, 'Objet à usage unique')
+          : el('div', { class: 'muted' }, `Set ${GD.SETS[t.set].name}${t.families ? ' (' + t.families.map((f) => GD.CLASSES[f].name).join(', ') + ')' : ' (toutes classes)'}${usable ? '' : ' · pas pour ta classe'}`),
         ...(opts.lines || []).map((l) => el('div', { class: 'small' }, l))),
       opts.buttons ? el('div', { class: 'btns' }, ...opts.buttons) : '');
   }
@@ -461,13 +462,24 @@
   // Aperçu du héros portant un objet donné
   function itemCanvas(item, w, h, scale) {
     const cv = el('canvas', { width: w || 48, height: h || 56 });
-    const slot = GD.TEMPLATES[item.t].slot;
+    const tpl = GD.TEMPLATES[item.t];
+    if (tpl.consumable) {
+      const W = w || 48, H = h || 56, dpr = window.devicePixelRatio || 1;
+      cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+      const c = cv.getContext('2d');
+      c.scale(dpr, dpr);
+      c.font = `${Math.round(Math.min(W, H) * 0.7)}px sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(tpl.icon || '✨', W / 2, H / 2 + 2);
+      return cv;
+    }
+    const slot = tpl.slot;
     const gear = { ...myGear(), [slot]: { t: item.t, r: item.r } };
     heroCanvas(cv, () => ({ cls: me.cls, look: me.look, gear, moving: false }), { scale: scale || 0.95, static: true, y: 0.93 });
     return cv;
   }
 
   function statsText(item) {
+    if (GD.TEMPLATES[item.t].consumable) return GD.TEMPLATES[item.t].desc;
     const st = GD.itemStats(item);
     return Object.entries(st).map(([k, v]) => `+${Math.round(v * 100)}% ${GD.STAT_NAMES[k]}`).join(' · ');
   }
@@ -517,8 +529,8 @@
     // inventaire
     const inv = me.inventory.slice().sort((a, b) => b.r - a.r || (b.at || 0) - (a.at || 0));
     $('#invCount').textContent = `${inv.length} objet(s)`;
-    $('#invTabs').replaceChildren(...['all', ...GD.SLOTS].map((s) => el('button', { class: 'small' + (s === invFilter ? ' active' : ''), onclick: () => { invFilter = s; renderEquip(); } },
-      s === 'all' ? 'Tout' : `${SLOT_ICONS[s]} ${GD.SLOT_NAMES[s]}`)));
+    $('#invTabs').replaceChildren(...['all', ...GD.SLOTS, 'consumable'].map((s) => el('button', { class: 'small' + (s === invFilter ? ' active' : ''), onclick: () => { invFilter = s; renderEquip(); } },
+      s === 'all' ? 'Tout' : s === 'consumable' ? '📜 Parchemins' : `${SLOT_ICONS[s]} ${GD.SLOT_NAMES[s]}`)));
     const worn = wornUids();
     const list = inv.filter((it) => invFilter === 'all' || GD.TEMPLATES[it.t].slot === invFilter);
     $('#invList').replaceChildren(...(list.length ? list.map((it) => {
@@ -529,8 +541,9 @@
         worn: isWorn,
         lines: lock ? [LOCK_LABEL[lock]] : [],
         buttons: lock ? [el('button', { class: 'small', onclick: () => goMarket() }, 'Voir')] : [
-          isWorn ? el('button', { class: 'small', onclick: () => equip(null, t.slot) }, 'Retirer')
-            : el('button', { class: 'small primary', disabled: !usable, onclick: () => equip(it.uid) }, 'Équiper'),
+          t.consumable ? el('button', { class: 'small primary', disabled: !me.skillLost, title: me.skillLost ? '' : 'Aucun point de compétence perdu', onclick: () => useItem(it) }, 'Utiliser')
+            : isWorn ? el('button', { class: 'small', onclick: () => equip(null, t.slot) }, 'Retirer')
+              : el('button', { class: 'small primary', disabled: !usable, onclick: () => equip(it.uid) }, 'Équiper'),
           isWorn ? '' : el('button', { class: 'small', title: `Recycler contre ${val} Grêlons`, onclick: () => recycle(it) }, '♻️ ', hail(), String(val)),
           isWorn ? '' : el('button', { class: 'small', onclick: () => goMarket(it.uid) }, '🏪')]
       });
@@ -540,6 +553,12 @@
   async function equip(uid, slot) {
     $('#invError').textContent = '';
     try { setUser((await api('/api/me/equip', { method: 'PUT', body: uid ? { uid } : { uid: null, slot } })).user); }
+    catch (e) { $('#invError').textContent = e.message; }
+  }
+  async function useItem(it) {
+    $('#invError').textContent = '';
+    if (!(await ask(`Utiliser ce ${GD.TEMPLATES[it.t].name} pour récupérer 1 point de compétence perdu en reconversion ?`, { title: '📜 Parchemin de mémoire', ok: 'Utiliser' }))) return;
+    try { setUser((await api('/api/inventory/use', { body: { uid: it.uid } })).user); toast('📜 +1 point de compétence récupéré !'); }
     catch (e) { $('#invError').textContent = e.message; }
   }
   async function recycle(it) {
@@ -620,7 +639,7 @@
       item.r >= 5 ? el('div', { class: 'small', style: 'color:#ff7ad9' }, 'Tu as découvert une rareté secrète !') : '',
       itemCanvas(item, 120, 130, 2.3),
       el('h3', { style: 'margin:.2em 0' }, GD.itemName(item, me.cls)),
-      el('div', { class: 'small muted' }, `${GD.SLOT_NAMES[t.slot]} · Set ${GD.SETS[t.set].name}`),
+      el('div', { class: 'small muted' }, t.consumable ? 'Objet à usage unique · à utiliser depuis l’inventaire' : `${GD.SLOT_NAMES[t.slot]} · Set ${GD.SETS[t.set].name}`),
       el('div', { class: 'small', style: 'margin:6px 0 12px' }, statsText(item)),
       el('div', { class: 'row', style: 'justify-content:center' },
         usableNow ? el('button', { class: 'primary', onclick: async () => { await equip(item.uid); closeIce(); } }, 'Équiper') : '',
@@ -829,7 +848,7 @@
       sec('🧊 Glaçons', ul([
         `Tu gagnes ${G.PER_WAVE} glaçon pour chaque manche passée avec ton héros en jeu.`,
         ['Un glaçon s’achète ', hail(), `${G.PRICE} Grêlons.`],
-        `Chaque glaçon contient 1 objet (arme ou armure) : ${Math.round(G.UNIVERSAL_CHANCE * 100)}% une pièce d’un set universel, ${Math.round((1 - G.UNIVERSAL_CHANCE - G.OTHER_CLASS_CHANCE) * 100)}% une pièce du set de ta famille de classes, ${Math.round(G.OTHER_CLASS_CHANCE * 100)}% une pièce du set d’une autre classe (à échanger ou vendre sur la place marchande). Un habitant n’a pas encore de set : ses ${Math.round((1 - G.UNIVERSAL_CHANCE - G.OTHER_CLASS_CHANCE) * 100)}% vont aux pièces universelles.`,
+        `Chaque glaçon contient 1 objet (arme ou armure) : ${Math.round(G.UNIVERSAL_CHANCE * 100)}% une pièce d’un set universel, ${Math.round((1 - G.UNIVERSAL_CHANCE - G.OTHER_CLASS_CHANCE) * 100)}% une pièce du set de ta famille de classes, ${Math.round(G.OTHER_CLASS_CHANCE * 100)}% une pièce du set d’une autre classe (à échanger ou vendre sur la place marchande). Un habitant n’a pas encore de set : ses ${Math.round((1 - G.UNIVERSAL_CHANCE - G.OTHER_CLASS_CHANCE) * 100)}% vont aux pièces universelles. Un glaçon sur ${Math.round(1 / G.SCROLL_CHANCE)} environ contient à la place un 📜 Parchemin de mémoire, qui rend 1 point de compétence perdu en reconversion (vendable et échangeable).`,
         ['Recycler un objet rapporte des Grêlons : plus l’objet est rare, plus il en rapporte, au maximum le prix d’un glaçon (', hail(), `${G.PRICE}).`]])),
       sec('🏪 Place marchande', ul([
         'Mets tes objets en vente au prix que tu veux en Grêlons, éventuellement réservés à un joueur précis.',

@@ -380,7 +380,7 @@
 
   // Glaçons (coffres)
   // Contenu : 60% set universel, 35% set de sa classe, 5% set d'une AUTRE classe (à échanger sur la place marchande)
-  const GLACONS = { PRICE: 75, PER_BOSS: 1, START: 3, UNIVERSAL_CHANCE: 0.6, OTHER_CLASS_CHANCE: 0.05, FAST_OPEN_AFTER: 20 };
+  const GLACONS = { PRICE: 75, PER_BOSS: 1, START: 3, UNIVERSAL_CHANCE: 0.6, OTHER_CLASS_CHANCE: 0.05, FAST_OPEN_AFTER: 20, SCROLL_CHANCE: 0.03 };
   // Recyclage : rapporte des Grêlons, une fraction du prix d'un glaçon selon la rareté (au maximum le prix d'un glaçon).
   // Le montant suit automatiquement GLACONS.PRICE.
   const recycleValue = (r) => Math.max(1, Math.round(GLACONS.PRICE * Math.min(1, (RARITIES[r] || RARITIES[0]).recycle)));
@@ -434,13 +434,17 @@
       };
     }
   }
+  // Objets à usage unique (pas des pièces d'équipement) : trouvés dans les glaçons, échangeables et vendables.
+  // Parchemin de mémoire : rend 1 point de compétence perdu lors d'une reconversion.
+  TEMPLATES.memoire = { slot: 'consumable', consumable: 'skill', name: 'Parchemin de mémoire', icon: '📜', rarity: 3, desc: 'Rend 1 point de compétence perdu en reconversion', hp: 0, armor: 0, dmg: 0, speed: 0 };
+  const isConsumable = (tid) => !!(TEMPLATES[tid] && TEMPLATES[tid].consumable);
   const setSize = (sid) => Object.values(TEMPLATES).filter((t) => t.set === sid).length;
   const STAT_NAMES = { hp: 'PV', dmg: 'dégâts', armor: 'défense', speed: 'vitesse', crit: 'critique', atkspd: 'vitesse d’attaque', ult: 'charge de l’ultime', harvest: 'récolte' };
 
   // Un objet (modèle) est-il utilisable par cette classe ?
   function canUse(tid, cls) {
     const t = TEMPLATES[tid];
-    if (!t) return false;
+    if (!t || t.consumable) return false;
     return !t.families || t.families.includes(familyOf(cls));
   }
   // Statistiques d'un objet selon sa rareté
@@ -488,7 +492,7 @@
   // Apparence d'une pièce pour le dessin
   function itemLook(item) {
     const t = TEMPLATES[item && item.t];
-    if (!t) return null;
+    if (!t || !t.set) return null;
     const set = SETS[t.set], r = RARITIES[item.r] || RARITIES[0];
     return { style: t.style, shape: r.shape, main: set.main, trim: item.r >= 5 ? '#2fd6e0' : item.r >= 4 ? '#f2c14e' : set.trim, rune: item.r >= 5, rarity: item.r };
   }
@@ -665,5 +669,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128 }
   };
 
-  return { setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

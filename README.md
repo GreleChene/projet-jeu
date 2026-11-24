@@ -85,6 +85,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
   - **Grêlons** : monnaie personnelle, gagnée en combattant et conservée entre les parties. Elle sert à acheter des glaçons, et le recyclage d'objets en rapporte.
   - **Écus** 🪙 : trésor collectif de la partie en cours (éliminations, récoltes des paysans, bonus de fin de manche : 20 + 0,5 par manche). L'équipe le dépense lors des votes. Les écus d'élimination et les récoltes diminuent au fil de la partie (÷2 vers la manche 30, ÷4 vers la manche 90) pour qu'il ne reste pas des milliers d'écus inutilisés en fin de partie.
 - **Glaçons 🧊 (coffres).**
+  - **📜 Parchemin de mémoire** : environ 3 % des glaçons contiennent un parchemin au lieu d'une pièce d'équipement. Utilisé depuis l'inventaire, il rend 1 point de compétence perdu en reconversion. Il se vend, s'échange et se recycle comme un objet épique.
   - On gagne 1 glaçon par boss vaincu (3 aux manches 95 et 100, qui ont trois boss), ou on l'achète 75 Grêlons.
   - Contenu : 60 % une pièce d'un set universel, 35 % une pièce du set de sa classe, 5 % une pièce du set d'une **autre** classe (à vendre, donner ou échanger).
   - À l'ouverture, une animation montre le glaçon qui tremble, se fissure et éclate. Sa lueur intérieure trahit la rareté.
