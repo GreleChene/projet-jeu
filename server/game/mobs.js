@@ -151,6 +151,12 @@ module.exports = {
       }
       if (m.charging) { this.updateMobCharge(m, dt); continue; }
       if (speedMul === 0) continue; // gelé
+      // charmé (enchanteresse) : n'attaque plus et erre
+      if (m.status.charm) {
+        m.wanderA = (m.wanderA === undefined ? Math.random() * Math.PI * 2 : m.wanderA) + U.rand(-2, 2) * dt;
+        this.moveToward(m, m.x + Math.cos(m.wanderA) * 20, m.y + Math.sin(m.wanderA) * 20, m.speed * 0.3 * speedMul, dt);
+        continue;
+      }
 
       for (const ab of m.abil) {
         ab.t -= dt;
@@ -175,7 +181,9 @@ module.exports = {
       if (dist <= reach + 4 && m.atkT <= 0) {
         m.atkT = m.cd;
         m.attackAnim = 0.25;
-        this.mobAttack(m, d);
+        // aveuglé (fauconnier) : une attaque sur deux est ratée
+        if (m.status.blind && Math.random() < 0.5) this.fx(['text', Math.round(m.x), Math.round(m.y - m.size - 12), 'raté', '#cfd6e0']);
+        else this.mobAttack(m, d);
       }
       // séparation douce
       if (!m.boss) {
@@ -355,13 +363,26 @@ module.exports = {
   /* --------------------------- Dégâts & morts --------------------------- */
   damageMob(m, amount, owner, opts = {}) {
     if (m.hp <= 0) return false;
+    // marque du faucon et acide : dégâts reçus augmentés
+    if (m.status.mark) amount *= 1 + m.status.mark.v;
+    if (m.status.acid) amount *= 1 + m.status.acid.v;
     m.hp -= amount;
+    // Berserker : se soigne d'une part des dégâts infligés
+    if (owner && owner.cls && !opts.dot && !opts.byAlly && owner.alive) {
+      const rc = CLASSES[owner.cls] && CLASSES[owner.cls].rage;
+      if (rc) owner.hp = Math.min(owner.maxHp, owner.hp + amount * rc.leech);
+    }
+    if (opts.extra && owner && m.hp > 0) {
+      if (opts.extra.venom) this.addVenom(m, owner, 1);
+      const ch = opts.extra.charm;
+      if (ch && !m.boss && Math.random() < ch.chance) { m.status.charm = { t: ch.dur }; this.fx(['charm', Math.round(m.x), Math.round(m.y - m.size - 10)]); }
+    }
     if (owner && !opts.dot) m.lastHitBy = owner;
     if (opts.onHit) {
       const oh = opts.onHit;
       this.applyStatus(m, m.boss && oh.freeze ? { ...oh, freeze: Math.min(oh.freeze, 0.8) } : oh);
     }
-    if (owner && owner.ult !== undefined && !opts.dot && !opts.byAlly) owner.ult = Math.min(1, owner.ult + 0.004);
+    if (owner && owner.ult !== undefined && !opts.dot && !opts.byAlly && !opts.splash) owner.ult = Math.min(1, owner.ult + 0.004);
     if (!opts.dot && (opts.crit || m.boss || Math.random() < 0.25)) {
       this.numBudget = (this.numBudget || 0) + 1;
       if (this.numBudget < 30) this.fx(['num', Math.round(m.x), Math.round(m.y - m.size - 6), Math.round(amount), opts.crit ? 1 : 0]);

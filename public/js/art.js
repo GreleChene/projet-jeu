@@ -377,6 +377,65 @@
       case 'pitchfork': shaft(-3, 9, W); for (let i = -2; i <= 2; i += 2) for (let k = 10; k <= 12 + L; k++) along(k, atk ? 0 : i, atk ? i : 0, tier ? M : '#8d8597'); for (let i = -2; i <= 2; i++) along(10, atk ? 0 : i, atk ? i : 0, tier ? M : '#8d8597'); break;
       case 'axe': shaft(-1, 8, W); for (let k = 6; k <= 9; k++) for (let i = 1; i <= 3 + (k === 7 || k === 8 ? 1 : 0); i++) along(k, atk ? 0 : i, atk ? -i : 0, i > 2 ? M : Md); break;
       case 'pickaxe': shaft(-1, 8, W); for (let i = -4; i <= 4; i++) along(9 - Math.abs(i) * 0.3, atk ? 0 : i, atk ? i : 0, tier ? M : '#8d8597'); break;
+      case 'greataxe': { // hache à deux mains : long manche, double lame
+        shaft(-3, 12, W);
+        for (let k = 8; k <= 12; k++) {
+          const w = k === 8 || k === 12 ? 2 : 4;
+          for (let i = 1; i <= w; i++) { along(k, atk ? 0 : i, atk ? -i : 0, i === w ? Md : M); along(k, atk ? 0 : -i, atk ? i : 0, i === w ? Md : M); }
+        }
+        along(13, 0, 0, gold);
+        break;
+      }
+      case 'lute': { // luth : caisse ronde, manche, chevilles
+        const bx = x - 1, by = y + 1;
+        for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) if (i * i + j * j * 1.3 <= 10) G.px(bx + i, by + j, i * i + j * j * 1.3 >= 7 ? Wd : W);
+        G.px(bx, by, '#2a1a12'); G.px(bx + 1, by, '#2a1a12');
+        for (let k = 1; k <= 8; k++) G.px(bx + Math.round(k * 0.6) + 2, by - k - 2, k > 6 ? gold : Wd);
+        G.line(bx - 1, by + 2, bx + 6, by - 9, '#f3ead7');
+        break;
+      }
+      case 'harp': { // harpe : colonne, console courbe, caisse en biais, quelques cordes
+        const hx = x - 1, hy = y + 1;
+        for (let k = 0; k <= 9; k++) G.px(hx, hy - k, k > 7 ? gold : W);
+        for (let s2 = 0; s2 <= 6; s2++) G.px(hx + s2, hy - 9 + Math.round(s2 * 0.5), gold);
+        for (let s2 = 0; s2 <= 6; s2++) { const by = hy - Math.round(s2 * 0.85); G.px(hx + s2, by, Wd); G.px(hx + s2, by + 1, W); }
+        for (const s2 of [2, 4]) G.line(hx + s2, hy - 8 + Math.round(s2 * 0.5), hx + s2, hy - Math.round(s2 * 0.85) - 1, '#f3ead7');
+        G.px(hx + 6, hy - 6, col);
+        break;
+      }
+      case 'drum': { // tambour à la hanche + baguette
+        const dx0 = x - 4, dy0 = y + 1;
+        G.rect(dx0, dy0, 7, 5, col); G.rect(dx0, dy0, 7, 1, '#f3ead7'); G.rect(dx0, dy0 + 4, 7, 1, shade(col, -0.35));
+        for (let i = 0; i < 7; i += 2) G.px(dx0 + i, dy0 + 2, gold);
+        if (atk) { G.line(x + 2, y - 3, x - 1, y, W); G.px(x + 2, y - 4, '#f3ead7'); }
+        else { G.line(x, y - 1, x + 4, y - 6, W); G.px(x + 4, y - 7, '#f3ead7'); }
+        break;
+      }
+      case 'falcon': { // gant de fauconnier et faucon perché
+        G.rect(x - 1, y - 1, 3, 3, '#7a4a28'); G.px(x - 1, y + 1, '#5a3418');
+        const fx0 = x, fy0 = y - 5;
+        G.rect(fx0 - 1, fy0, 4, 3, '#8a5a34'); G.rect(fx0, fy0 + 1, 3, 2, '#b98a5a');
+        G.rect(fx0 + 2, fy0 - 2, 2, 2, '#f3ead7'); G.px(fx0 + 3, fy0 - 2, '#1a1214'); G.px(fx0 + 4, fy0 - 1, '#f2c14e');
+        G.px(fx0 - 2, fy0 + 1, '#5a3418'); G.px(fx0 - 2, fy0 + 2, '#5a3418');
+        if (atk) { G.rect(fx0 - 3, fy0 - 2, 3, 1, '#6e4526'); G.rect(fx0 + 1, fy0 - 3, 3, 1, '#6e4526'); }
+        break;
+      }
+      case 'shortbow': {
+        const h = 5 + L;
+        for (let j = -h; j <= h; j++) { const bx = Math.round(Math.sqrt(Math.max(0, 1 - (j * j) / (h * h))) * 2.5); G.px(x + 1 + bx, y + j, j % 2 ? W : Wd); }
+        G.line(x + 1, y - h, x + 1, y + h, '#f3ead7'); if (atk) G.line(x - 2, y, x + 5, y, '#d8dde3');
+        // carquois de pièges à la ceinture
+        G.rect(x - 9, y + 3, 3, 2, '#8d8597'); G.px(x - 8, y + 2, '#5e3a1f');
+        break;
+      }
+      case 'flask': { // fiole d'alchimiste
+        const fx0 = x, fy0 = atk ? y - 1 : y - 3;
+        G.rect(fx0, fy0, 4, 4, '#7fd13b'); G.px(fx0, fy0, '#c8ff9a'); G.rect(fx0, fy0 + 3, 4, 1, '#4f8f1f');
+        G.rect(fx0 + 1, fy0 - 2, 2, 2, '#e8f6ff'); G.rect(fx0 + 1, fy0 - 3, 2, 1, '#8a5a30');
+        // fioles de rechange à la ceinture
+        G.rect(10, Y0 + 21, 2, 3, '#b066ff'); G.px(10, Y0 + 20, '#8a5a30');
+        break;
+      }
       default: shaft(0, 6, W);
     }
     if (tier >= 4) { G.px(x + dx * 6 + 1, y + dy * 6, '#2fd6e0'); }
@@ -976,6 +1035,39 @@
         poly(ctx, [-11, -45, -15, -42, -10, -44], '#151018', 0.8);
         break;
       }
+      case 'menestrel': { // taverne : maison à colombages, enseigne avec chope, notes qui s'envolent
+        rrect(ctx, 10, -64, 8, 18, 1.5, S[1], 1.8);
+        for (let i = 0; i < 3; i++) { ctx.save(); ctx.globalAlpha = 0.35 - i * 0.1; circle(ctx, 14 + Math.sin(t + i) * 3, -72 - i * 9 - ((t * 8) % 9), 4 + i * 2, '#e8e2f0', 0.01); ctx.restore(); }
+        gableHouse(ctx, {
+          x0: -34, w: 44, h: 30, d: 16, rh: 22, ov: 7, wall: '#f0dcc0', roof: '#a33a3a', rows: 5,
+          frontFn: () => {
+            ctx.strokeStyle = '#4a2c18'; ctx.lineWidth = 2.4;
+            ctx.beginPath(); ctx.moveTo(-34, -15); ctx.lineTo(10, -15); ctx.moveTo(-12, -30); ctx.lineTo(-12, 0); ctx.moveTo(-34, -30); ctx.lineTo(-24, -15); ctx.moveTo(10, -30); ctx.lineTo(0, -15); ctx.stroke();
+          },
+          gableFn: (xm, top) => { win(ctx, xm - 4, top + 10, 8, 7, t); },
+          sideFn: () => { ctx.strokeStyle = '#4a2c18'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(16, -15); ctx.stroke(); }
+        });
+        door(ctx, -28, 12, 15, W[1], true);
+        win(ctx, -6, -12, 10, 8, t);
+        // enseigne qui se balance
+        const sw = Math.sin(t * 1.6) * 0.12;
+        line(ctx, 10, -24, 22, -24, W[2], 2);
+        ctx.save(); ctx.translate(20, -24); ctx.rotate(sw);
+        line(ctx, -5, 0, -5, 5, '#3c3546', 1); line(ctx, 5, 0, 5, 5, '#3c3546', 1);
+        rrect(ctx, -8, 5, 16, 12, 2, '#6e4526', 1.4);
+        rrect(ctx, -4, 7.5, 7, 8, 1.5, '#f2c14e', 1); rrect(ctx, 3, 9, 3, 4, 1, '#f2c14e', 0.8); ctx.fillStyle = '#ffffff'; ctx.fillRect(-4, 7, 7, 2);
+        ctx.restore();
+        // tonneau
+        rrect(ctx, 14, -9, 11, 13, 4, '#8a5a30', 1.4); line(ctx, 14.5, -5, 24.5, -5, '#3c3546', 1.2); line(ctx, 14.5, 0, 24.5, 0, '#3c3546', 1.2);
+        // notes de musique
+        for (let i = 0; i < 2; i++) {
+          const ph = (t * 0.5 + i * 0.5) % 1;
+          ctx.save(); ctx.globalAlpha = 1 - ph; ctx.fillStyle = i ? '#ffd34d' : '#ff7ad9';
+          ctx.font = 'bold 13px sans-serif'; ctx.fillText(i ? '♪' : '♫', -20 + i * 14 + Math.sin(t * 3 + i) * 3, -40 - ph * 26);
+          ctx.restore();
+        }
+        break;
+      }
       case 'soldat': default: { // caserne : fortin crénelé avec herse
         box(ctx, -38, 64, 32, 16, S[0]);
         ctx.save(); ctx.beginPath(); ctx.rect(-38, -32, 64, 32); ctx.clip();
@@ -1062,6 +1154,24 @@
       case 'poison': glow(ctx, F.poison, 9); circle(ctx, 0, 0, 5, '#58e01f', 1.5); break;
       case 'fireball': glow(ctx, F.burn, 26); circle(ctx, 0, 0, 14, '#ff7a1a', 2.5); circle(ctx, 3, -3, 6, '#ffd76a', 0.01); break;
       case 'rock': ctx.rotate(t * 8); rrect(ctx, -8, -7, 16, 14, 5, P.stone[1], 2); break;
+      case 'note': case 'charm': { // note de musique (dorée) ou note-cœur (rose)
+        ctx.rotate(-a);
+        const c1 = kind === 'charm' ? '#ff7ad9' : '#ffd34d';
+        glow(ctx, c1, 10);
+        ctx.translate(0, Math.sin(t * 14 + x * 0.05) * 3);
+        ctx.fillStyle = '#1a1214'; ctx.beginPath(); ctx.ellipse(-2, 3, 5, 4, -0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = c1; ctx.beginPath(); ctx.ellipse(-2, 3, 3.6, 2.8, -0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1a1214'; ctx.fillRect(1.5, -9, 2.6, 12);
+        ctx.fillStyle = c1; ctx.fillRect(2, -8.5, 1.6, 11);
+        ctx.fillStyle = '#1a1214'; ctx.fillRect(2, -10, 7, 3); ctx.fillStyle = c1; ctx.fillRect(2.5, -9.5, 6, 2);
+        break;
+      }
+      case 'flask': {
+        ctx.rotate(t * 10);
+        glow(ctx, '#7fd13b', 8);
+        circle(ctx, 0, 2, 5, '#7fd13b', 1.5); rrect(ctx, -2, -6, 4, 5, 1, '#e8f6ff', 1.2); rrect(ctx, -2, -8, 4, 2, 0.5, '#8a5a30', 0.8);
+        break;
+      }
     }
     ctx.restore();
   }

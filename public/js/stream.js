@@ -152,6 +152,17 @@
       case 'uproot': burst(e[1], e[2], P.wood[1], 10, 180, 4); add({ k: 'puff', x: e[1], y: e[2], dur: 0.6, r: 26 }); shake = Math.max(shake, 6); break;
       case 'bdestroy': burst(e[1], e[2] - 20, P.stone[1], 30, 220, 5); burst(e[1], e[2] - 20, P.biome.fire.accent[0], 16, 160, 4); add({ k: 'puff', x: e[1], y: e[2] - 20, dur: 0.9, r: 50 }); shake = Math.max(shake, 10); break;
       case 'bbuild': burst(e[1], e[2] - 10, P.wood[0], 18, 140, 4); add({ k: 'puff', x: e[1], y: e[2], dur: 0.7, r: 40 }); break;
+      case 'shock': { // onde de choc (tambour) : 0 passif, 1 coup, 2 ultime
+        const big = e[4] === 2;
+        add({ k: 'ring', x: e[1], y: e[2], r: e[3], color: big ? '#ffd34d' : '#e0a060', dur: big ? 0.8 : e[4] === 1 ? 0.25 : 0.45, w: big ? 14 : e[4] === 1 ? 4 : 8 });
+        if (e[4] !== 1) burst(e[1], e[2], '#c08040', big ? 30 : 10, big ? 260 : 140, 4);
+        if (big) shake = Math.max(shake, 10);
+        break;
+      }
+      case 'hawk': add({ k: 'hawk', x: e[1], y: e[2], x2: e[3], y2: e[4], dur: 0.35 }); break;
+      case 'snap': add({ k: 'text', x: e[1], y: e[2] - 20, s: 'CLAC !', color: '#d8dde3', dur: 0.8, size: 16 }); burst(e[1], e[2], '#8d8597', 8, 90, 3); break;
+      case 'charm': add({ k: 'text', x: e[1], y: e[2], s: '💗', color: '#ff7ad9', dur: 1.1, size: 20 }); break;
+      case 'anthem': add({ k: 'ring', x: e[1], y: e[2], r: 420, color: '#ffd34d', dur: 1, w: 12 }); add({ k: 'flash', dur: 0.4, color: '#ffd34d' }); break;
       case 'bossin': shake = Math.max(shake, 16); add({ k: 'flash', dur: 0.6, color: '#ff3d5a' }); break;
       case 'announce': announce = { title: e[1], sub: e[2], t: 0 }; break;
       case 'feed': feed.push({ text: e[1], t: 0 }); if (feed.length > 7) feed.shift(); break;
@@ -285,6 +296,8 @@
       attack: Math.max(0, h.attackT), zombie: !!(h.f & HF.ZOMBIE), stealth: !!(h.f & HF.STEALTH)
     });
     if (h.f & HF.SHIELD) { ctx.save(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(h.x, h.y - HERO_TOP * 0.42, HERO_TOP * 0.56, 0, Math.PI * 2); ctx.strokeStyle = P.fx.frost; ctx.lineWidth = 3; ctx.stroke(); ctx.restore(); }
+    if (h.f & HF.ANTHEM && Math.random() < 0.12) fx.push({ k: 'text', x: h.x + (Math.random() - 0.5) * 24, y: h.y - HERO_TOP - 4, s: '♪', color: '#ffd34d', dur: 0.9, t: 0, size: 16 });
+    else if (h.f & HF.SONG && Math.random() < 0.03) fx.push({ k: 'text', x: h.x + (Math.random() - 0.5) * 24, y: h.y - HERO_TOP, s: '♪', color: '#ff9fd0', dur: 0.8, t: 0, size: 13 });
     if (h.f & HF.FURY && Math.random() < 0.3) fx.push({ k: 'part', x: h.x + (Math.random() - 0.5) * 16, y: h.y - 10, vx: 0, vy: -60, dur: 0.4, t: 0, color: P.fx.burn, size: 3 });
     if (h.f & HF.POISON && Math.random() < 0.15) fx.push({ k: 'part', x: h.x + (Math.random() - 0.5) * 16, y: h.y - 20, vx: 0, vy: -40, dur: 0.5, t: 0, color: P.fx.poison, size: 3 });
     if (h.f & HF.BURN && Math.random() < 0.2) fx.push({ k: 'part', x: h.x + (Math.random() - 0.5) * 16, y: h.y - 20, vx: 0, vy: -70, dur: 0.4, t: 0, color: P.fx.burn, size: 3 });
@@ -305,7 +318,11 @@
     if (!ally && f & MF.BURN && Math.random() < 0.15) fx.push({ k: 'part', x: m.x, y: m.y - size, vx: 0, vy: -60, dur: 0.4, t: 0, color: P.fx.burn, size: 3 });
     if (!ally && f & MF.POISON && Math.random() < 0.1) fx.push({ k: 'part', x: m.x, y: m.y - size, vx: 0, vy: -40, dur: 0.5, t: 0, color: P.fx.poison, size: 3 });
     if (!ally && f & MF.SLOW) { ctx.fillStyle = A.rgba(P.fx.frost, 0.35); ctx.beginPath(); ctx.ellipse(m.x, m.y, size, size * 0.35, 0, 0, Math.PI * 2); ctx.fill(); }
-    if (r[4] < 100 && !boss) bar(m.x - size, m.y - size * A.mobTop(type) - 6, size * 2, 4, r[4] / 100, ally ? P.ui.ok : elite ? P.ui.gold : P.ui.danger);
+    const top = m.y - size * A.mobTop(type);
+    if ((!ally && f & MF.CHARM) || (ally && f & 2)) text('💗', m.x, top - 10 + Math.sin(time * 4) * 2, 14, '#ff7ad9', 'center');
+    if (!ally && f & MF.MARK) { ctx.save(); ctx.strokeStyle = '#ff4d4d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(m.x, m.y - size * 0.6, size * 0.75, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(m.x - size, m.y - size * 0.6); ctx.lineTo(m.x + size, m.y - size * 0.6); ctx.stroke(); ctx.restore(); }
+    if (!ally && f & MF.BLIND && Math.random() < 0.06) fx.push({ k: 'text', x: m.x, y: top - 6, s: '✶', color: '#fff6c0', dur: 0.5, t: 0, size: 12 });
+    if (r[4] < 100 && !boss) bar(m.x - size, top - 6, size * 2, 4, r[4] / 100, ally ? (f & 2 ? '#ff7ad9' : P.ui.ok) : elite ? P.ui.gold : P.ui.danger);
   }
 
   // Vignettage léger (pré-calculé) pour donner de la profondeur
@@ -390,6 +407,38 @@
           const a = time * 0.6 + i * 1.3;
           ctx.fillStyle = i % 2 ? P.biome.poison.accent[0] : P.biome.poison.accent[2];
           ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.3, y + Math.sin(a) * r * 0.15, r * 0.7, r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+      } else if (layer === 0 && kind === 'trap') {
+        // piège à mâchoires
+        ctx.save(); ctx.translate(x, y);
+        ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, 2, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#1a1214'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(0, 0, 11, 5, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = '#a8b0ba'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = '#d8dde3'; for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; ctx.fillRect(Math.cos(a) * 9 - 1, Math.sin(a) * 4 - 2, 2, 3); }
+        ctx.fillStyle = '#c0392b'; ctx.fillRect(-1.5, -1.5, 3, 3);
+        ctx.restore();
+      } else if (layer === 0 && kind === 'thorns') {
+        // champ de ronces
+        ctx.save(); const fade = Math.min(1, t10 / 10);
+        ctx.globalAlpha = 0.35 * fade; ctx.fillStyle = '#3d5a1e'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.9 * fade; ctx.strokeStyle = '#2e4a14'; ctx.lineWidth = 3;
+        for (let i = 0; i < 22; i++) {
+          const a = i * 2.39996, d = Math.sqrt((i + 0.5) / 22) * r * 0.9;
+          const bx = x + Math.cos(a) * d, by = y + Math.sin(a) * d * 0.6;
+          ctx.beginPath(); ctx.moveTo(bx - 8, by + 3); ctx.quadraticCurveTo(bx, by - 12 - Math.sin(time * 2 + i) * 2, bx + 8, by + 3); ctx.stroke();
+          ctx.fillStyle = '#c94c6e'; ctx.fillRect(bx - 1.5, by - 9, 3, 3);
+        }
+        ctx.restore();
+      } else if (layer === 0 && kind === 'acid') {
+        // flaque d'acide (vert vif, bulles)
+        ctx.save(); const fade = Math.min(1, t10 / 10);
+        ctx.globalAlpha = 0.55 * fade; ctx.fillStyle = '#9be33a'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 0.8 * fade; ctx.lineWidth = 3; ctx.strokeStyle = '#4f8f1f'; ctx.stroke();
+        for (let i = 0; i < 6; i++) {
+          const ph = (time * 0.9 + i * 0.37) % 1;
+          ctx.globalAlpha = (1 - ph) * fade; ctx.strokeStyle = '#e8ffb0'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(x + Math.cos(i * 2.4) * r * 0.5, y + Math.sin(i * 2.4) * r * 0.3, 3 + ph * 6, 0, Math.PI * 2); ctx.stroke();
         }
         ctx.restore();
       } else if (layer === 1 && kind === 'smoke') {
@@ -489,6 +538,16 @@
         case 'dash': {
           ctx.globalAlpha = (1 - k) * 0.8; ctx.strokeStyle = P.fx.shadow; ctx.lineWidth = 10 * (1 - k); ctx.lineCap = 'round';
           ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x2, f.y2); ctx.stroke(); break;
+        }
+        case 'hawk': { // faucon qui fond sur sa proie
+          const px = f.x + (f.x2 - f.x) * k, py = f.y + (f.y2 - f.y) * k;
+          ctx.globalAlpha = 0.5 * (1 - k); ctx.strokeStyle = '#d8c4a0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(px, py); ctx.stroke();
+          ctx.globalAlpha = 1; ctx.save(); ctx.translate(px, py); ctx.rotate(Math.atan2(f.y2 - f.y, f.x2 - f.x));
+          ctx.fillStyle = '#1a1214'; ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-6, -9); ctx.lineTo(-3, 0); ctx.lineTo(-6, 9); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#9a6a3e'; ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-5, -7); ctx.lineTo(-2, 0); ctx.lineTo(-5, 7); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = '#f3ead7'; ctx.fillRect(4, -1.5, 3, 3);
+          ctx.restore();
+          break;
         }
         case 'puff': {
           ctx.globalAlpha = (1 - k) * 0.6; ctx.fillStyle = '#d8d0e0';

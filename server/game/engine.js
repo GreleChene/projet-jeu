@@ -306,7 +306,7 @@ class Game {
       nid: this.nid++, id, userId, name, isBot,
       x: WORLD.CX + Math.cos(a) * 110, y: WORLD.CY + Math.sin(a) * 80,
       facing: a, alive: true, hp: 1, maxHp: 1, ult: 0, atkT: 0, retargetT: 0, target: null,
-      buffs: {}, status: {}, timers: { stealth: 0, dash: 3, heal: 2, harvest: 0, summon: 0 },
+      buffs: {}, status: {}, timers: { stealth: 0, dash: 3, heal: 2, harvest: 0, summon: 0, aura: 0, quake: 3, hawk: 1, trap: 2, storm: 0 },
       zombie: false, deathX: 0, deathY: 0, attackAnim: 0, retreating: false, harvesting: false,
       runKills: 0, runGold: 0, runXp: 0, idleAngle: a, dashing: null, chain: null
     };
@@ -355,12 +355,13 @@ class Game {
     h.hp = Math.max(1, Math.min(h.maxHp, Math.round(h.maxHp * ratio)));
     // amélioration spéciale de l'habitation (selon la classe actuelle)
     const fam = GD.familyOf(h.cls), sp = GD.HOUSE_SPECIALS[fam], lvl = GD.houseSpecial(p, fam) * (sp ? sp.per : 0);
-    h.xpMult = 1; h.summonMult = 1;
+    h.xpMult = 1; h.summonMult = 1; h.auraMult = 1;
     if (fam === 'soldat') h.armor = Math.min(0.75, h.armor + lvl);
     else if (fam === 'mage') h.ultRate += lvl;
     else if (fam === 'paysan') h.harvestMult += lvl;
     else if (fam === 'habitant') h.xpMult = 1 + lvl;
     else if (fam === 'eleveur') h.summonMult = 1 + lvl;
+    else if (fam === 'menestrel') h.auraMult = 1 + lvl;
     const hb = this.run.buildings.find((b) => b.owners.includes(h.id));
     if (hb && hb.family === fam) this.recomputeBuilding(hb, true);
     if (prevCls && prevCls !== h.cls) {
@@ -770,7 +771,7 @@ class Game {
       kind: o.kind, side: o.side, x: o.x, y: o.y, dmg: o.dmg, speed: o.speed || 500,
       target: o.target || null, pierce: o.pierce || 1, hit: new Set(), life: o.life || 3,
       owner: o.owner || null, onHit: o.onHit || null, explode: o.explode || 0, crit: o.crit || false,
-      tx: o.tx, ty: o.ty, radius: o.radius || 14
+      tx: o.tx, ty: o.ty, radius: o.radius || 14, extra: o.extra || null
     };
     const tx = o.target ? o.target.x : o.tx, ty = o.target ? o.target.y : o.ty;
     const a = o.angle !== undefined ? o.angle : Math.atan2(ty - o.y, tx - o.x);
@@ -800,7 +801,7 @@ class Game {
         for (const m of hits) {
           if (m.hp <= 0 || p.hit.has(m) || (m.x - p.x) ** 2 + (m.y - p.y) ** 2 > (m.size + p.radius) ** 2) continue;
           p.hit.add(m);
-          this.damageMob(m, p.dmg, p.owner, { crit: p.crit, onHit: p.onHit, kind: p.kind });
+          this.damageMob(m, p.dmg, p.owner, { crit: p.crit, onHit: p.onHit, kind: p.kind, extra: p.extra });
           if (p.hit.size >= p.pierce) { done = true; break; }
         }
       } else if (p.side === 'mob') {
@@ -844,6 +845,7 @@ class Game {
         }
       }
       if (HAZARD_KINDS.includes(z.kind)) this.hazardTick(z, dt);
+      if (z.owner && z.t > 0) this.heroZoneTick(z, dt);
       if (z.kind === 'telegraph' && z.t <= 0 && z.onEnd) z.onEnd();
       if (z.kind === 'tline' && z.t <= 0 && z.onEnd) z.onEnd();
     }
@@ -890,6 +892,42 @@ class Game {
     }
   }
 
+  // Zones posées par les héros (trappeur, alchimiste)
+  heroZoneTick(z, dt) {
+    const o = z.owner;
+    if (z.kind === 'trap') {
+      // piège à mâchoires : se referme sur le premier monstre qui passe
+      const m = this.mobsInRadius(z.x, z.y, z.r)[0];
+      if (!m) return;
+      const T = CLASSES[o.cls].traps || { root: 2, mult: 3 };
+      this.damageMob(m, o.dmg * T.mult * this.dmgMul(o), o, { onHit: m.boss ? { slow: 0.6, dur: T.root } : { freeze: T.root } });
+      this.fx(['snap', Math.round(z.x), Math.round(z.y)]);
+      z.t = 0;
+      return;
+    }
+    z.tick = (z.tick || 0) - dt;
+    if (z.tick > 0) return;
+    if (z.kind === 'thorns') {
+      z.tick = 0.5;
+      for (const m of this.mobsInRadius(z.x, z.y, z.r)) {
+        this.applyStatus(m, { slow: 0.6, dur: 0.7 });
+        this.damageMob(m, o.dmg * 0.4, o, { dot: true });
+      }
+    } else if (z.kind === 'acid') {
+      z.tick = 1;
+      for (const m of this.mobsInRadius(z.x, z.y, z.r)) { this.addVenom(m, o, 3); m.status.acid = { t: 1.5, v: 0.3 }; }
+    }
+  }
+
+  // Ajoute des doses de venin (alchimiste)
+  addVenom(m, h, n) {
+    const c = CLASSES[h.cls].venom;
+    if (!c || m.hp <= 0) return;
+    const prev = m.status.venom && m.status.venom.t > 0 ? m.status.venom.n : 0;
+    m.status.venom = { n: Math.min(c.max, prev + n), dps: h.dmg * c.pct, t: c.dur, boss: c.boss };
+    m.lastHitBy = h;
+  }
+
   inSmoke(x, y) {
     for (const z of this.zones) if (z.kind === 'smoke' && (x - z.x) ** 2 + (y - z.y) ** 2 < z.r * z.r) return true;
     return false;
@@ -912,6 +950,9 @@ class Game {
     if (s.slow) { s.slow.t -= dt; if (s.slow.t <= 0) delete s.slow; else speed *= 1 - s.slow.v; }
     if (s.poison) { s.poison.t -= dt; dmgFn(s.poison.dps * dt, 'poison'); if (s.poison.t <= 0) delete s.poison; }
     if (s.burn) { s.burn.t -= dt; dmgFn(s.burn.dps * dt, 'burn'); if (s.burn.t <= 0) delete s.burn; }
+    // venin de l'alchimiste : doses cumulées, renforcé contre les boss
+    if (s.venom) { s.venom.t -= dt; dmgFn(s.venom.n * s.venom.dps * (u.boss ? s.venom.boss : 1) * dt, 'poison'); if (s.venom.t <= 0) delete s.venom; }
+    for (const k of ['mark', 'acid', 'blind', 'charm']) if (s[k]) { s[k].t -= dt; if (s[k].t <= 0) delete s[k]; }
     return speed;
   }
 
@@ -1052,7 +1093,9 @@ class Game {
       if (h.alive && this.isInvisible(h)) f |= HF.STEALTH;
       if (h.zombie) f |= HF.ZOMBIE;
       if (h.attackAnim > 0) f |= HF.ATTACK;
-      if (h.buffs.fury > 0) f |= HF.FURY;
+      if (h.buffs.fury > 0 || h.buffs.frenzy > 0) f |= HF.FURY;
+      if (h.buffs.song > 0) f |= HF.SONG;
+      if (h.buffs.anthem > 0) f |= HF.ANTHEM;
       if (h.buffs.shield > 0) f |= HF.SHIELD;
       if (h.status.slow || h.status.freeze) f |= HF.SLOW;
       if (h.status.poison) f |= HF.POISON;
@@ -1070,12 +1113,15 @@ class Game {
       if (m.attackAnim > 0) f |= MF.ATTACK;
       if (m.status.slow) f |= MF.SLOW;
       if (m.status.freeze) f |= MF.FROZEN;
-      if (m.status.poison) f |= MF.POISON;
+      if (m.status.poison || m.status.venom) f |= MF.POISON;
+      if (m.status.charm) f |= MF.CHARM;
+      if (m.status.mark || m.status.acid) f |= MF.MARK;
+      if (m.status.blind) f |= MF.BLIND;
       if (m.status.burn) f |= MF.BURN;
       if (m.charging) f |= MF.CHARGE;
       return [m.nid, MOB_INDEX[m.type], round(m.x), round(m.y), Math.ceil((100 * m.hp) / m.maxHp), f, Math.round(m.facing * 100)];
     });
-    const allies = this.allies.map((a) => [a.nid, MOB_INDEX[a.type], round(a.x), round(a.y), Math.ceil((100 * a.hp) / a.maxHp), (a.attackAnim > 0 ? 4 : 0) | (a.zombieOwner ? 1 : 0), Math.round(a.facing * 100)]);
+    const allies = this.allies.map((a) => [a.nid, MOB_INDEX[a.type], round(a.x), round(a.y), Math.ceil((100 * a.hp) / a.maxHp), (a.attackAnim > 0 ? 4 : 0) | (a.zombieOwner ? 1 : 0) | (a.charmed ? 2 : 0), Math.round(a.facing * 100)]);
     const proj = this.projectiles.map((p) => [PROJ_INDEX[p.kind], round(p.x), round(p.y), Math.round(Math.atan2(p.vy, p.vx) * 100)]);
     const zones = this.zones.map((z) => [ZONE_INDEX[z.kind], round(z.x), round(z.y), round(z.r), Math.round(z.t * 10), z.x2 !== undefined ? round(z.x2) : 0, z.y2 !== undefined ? round(z.y2) : 0]);
     const bosses = this.mobs.filter((m) => m.boss).map((m) => [MOB_INDEX[m.type], Math.ceil((1000 * m.hp) / m.maxHp), Math.ceil(m.hp), Math.ceil(m.maxHp)]);
