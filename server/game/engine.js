@@ -900,7 +900,8 @@ class Game {
       const m = this.mobsInRadius(z.x, z.y, z.r)[0];
       if (!m) return;
       const T = CLASSES[o.cls].traps || { root: 2, mult: 3 };
-      this.damageMob(m, o.dmg * T.mult * this.dmgMul(o), o, { onHit: m.boss ? { slow: 0.6, dur: T.root } : { freeze: T.root } });
+      const root = T.root + ((o.mods && o.mods.trapRoot) || 0);
+      this.damageMob(m, o.dmg * T.mult * this.dmgMul(o), o, { onHit: m.boss ? { slow: 0.6, dur: root } : { freeze: root } });
       this.fx(['snap', Math.round(z.x), Math.round(z.y)]);
       z.t = 0;
       return;
@@ -923,8 +924,9 @@ class Game {
   addVenom(m, h, n) {
     const c = CLASSES[h.cls].venom;
     if (!c || m.hp <= 0) return;
+    const mods = h.mods || {};
     const prev = m.status.venom && m.status.venom.t > 0 ? m.status.venom.n : 0;
-    m.status.venom = { n: Math.min(c.max, prev + n), dps: h.dmg * c.pct, t: c.dur, boss: c.boss };
+    m.status.venom = { n: Math.min(c.max + (mods.venomMax || 0), prev + n), dps: h.dmg * c.pct * (1 + (mods.venomMul || 0)), t: c.dur, boss: c.boss };
     m.lastHitBy = h;
   }
 

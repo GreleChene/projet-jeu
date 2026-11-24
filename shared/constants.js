@@ -85,26 +85,26 @@
    */
   const SKILL_TREE = {
     paladin: [['Foi inébranlable', { hp: 0.05 }], ['Aura de protection', { armor: 0.03 }], ['Bouclier sacré', { hp: 0.06 }], ['Ferveur', { dmg: 0.04 }], ['Rempart vivant', { armor: 0.03 }]],
-    berserker: [['Sang chaud', { dmg: 0.05 }], ['Peau épaisse', { hp: 0.05 }], ['Soif de sang', { hp: 0.04, dmg: 0.02 }], ['Hurlement', { ult: 0.08 }], ['Carnage', { crit: 0.03 }]],
+    berserker: [['Sang chaud', { dmg: 0.05 }], ['Peau épaisse', { hp: 0.05 }], ['Soif de sang', { leech: 0.01 }], ['Hurlement', { ult: 0.08 }], ['Carnage', { crit: 0.03 }]],
     chevalier: [['Entraînement martial', { dmg: 0.05 }], ['Galop', { speed: 0.05 }], ['Lance affûtée', { dmg: 0.06 }], ['Armure de joute', { armor: 0.03 }], ['Fougue', { atkspd: 0.04 }]],
     glace: [['Froid mordant', { dmg: 0.04 }], ['Armure de givre', { armor: 0.03 }], ['Concentration', { ult: 0.08 }], ['Cœur de glace', { hp: 0.05 }], ['Blizzard', { dmg: 0.05 }]],
     feu: [['Étincelle', { dmg: 0.05 }], ['Combustion', { crit: 0.03 }], ['Pyromancie', { dmg: 0.06 }], ['Brasier', { ult: 0.06 }], ['Âme ardente', { dmg: 0.05 }]],
     soin: [['Prière', { hp: 0.05 }], ['Méditation', { ult: 0.08 }], ['Lumière bénie', { armor: 0.02, hp: 0.03 }], ['Grâce', { ult: 0.06 }], ['Sanctuaire', { hp: 0.05 }]],
     dompteur: [['Complicité', { hp: 0.05 }], ['Instinct sauvage', { dmg: 0.05 }], ['Chef de meute', { ult: 0.08 }], ['Peau de bête', { armor: 0.03 }], ['Rage animale', { dmg: 0.05 }]],
-    fauconnier: [['Serres acérées', { dmg: 0.05 }], ['Vol rapide', { atkspd: 0.05 }], ['Marque profonde', { crit: 0.03 }], ['Appel du ciel', { ult: 0.08 }], ['Plumage', { hp: 0.05 }]],
+    fauconnier: [['Serres acérées', { dmg: 0.05 }], ['Vol rapide', { hawkRate: 0.1 }], ['Marque profonde', { mark: 0.03 }], ['Appel du ciel', { ult: 0.08 }], ['Plumage', { hp: 0.05 }]],
     necromancien: [['Rites sombres', { dmg: 0.05 }], ['Peau morte', { armor: 0.03 }], ['Moisson d’âmes', { ult: 0.08 }], ['Pacte funèbre', { hp: 0.05 }], ['Faucheuse', { dmg: 0.05 }]],
     arbaletrier: [['Mécanisme huilé', { atkspd: 0.05 }], ['Carreaux lourds', { dmg: 0.05 }], ['Visée', { crit: 0.03 }], ['Cadence', { atkspd: 0.05 }], ['Perforation', { dmg: 0.05 }]],
-    trappeur: [['Mâchoires d’acier', { dmg: 0.05 }], ['Ingéniosité', { ult: 0.08 }], ['Épines', { dmg: 0.05 }], ['Pistage', { speed: 0.05 }], ['Embuscade', { crit: 0.03 }]],
+    trappeur: [['Mâchoires d’acier', { trapRoot: 0.3 }], ['Ingéniosité', { trapMax: 1 }], ['Épines', { dmg: 0.05 }], ['Pistage', { speed: 0.05 }], ['Embuscade', { crit: 0.03 }]],
     arclong: [['Œil perçant', { crit: 0.03 }], ['Tension de la corde', { dmg: 0.05 }], ['Pas léger', { speed: 0.05 }], ['Archerie royale', { dmg: 0.05 }], ['Sang-froid', { crit: 0.03 }]],
     ombre: [['Discrétion', { speed: 0.05 }], ['Lames empoisonnées', { dmg: 0.05 }], ['Fumigènes', { ult: 0.08 }], ['Danse des ombres', { crit: 0.03 }], ['Assassinat', { dmg: 0.06 }]],
-    alchimiste: [['Dosage', { dmg: 0.05 }], ['Concentré', { dmg: 0.05 }], ['Lancer précis', { atkspd: 0.05 }], ['Distillation', { ult: 0.08 }], ['Antidote', { hp: 0.05 }]],
+    alchimiste: [['Dosage', { venomMax: 1 }], ['Concentré', { venomMul: 0.05 }], ['Lancer précis', { atkspd: 0.05 }], ['Distillation', { ult: 0.08 }], ['Antidote', { hp: 0.05 }]],
     fleche: [['Précision', { crit: 0.03 }], ['Vivacité', { atkspd: 0.05 }], ['Exécution', { dmg: 0.06 }], ['Course', { speed: 0.05 }], ['Lame fatale', { crit: 0.03 }]],
     agriculteur: [['Semailles', { harvest: 0.1 }], ['Robustesse', { hp: 0.05 }], ['Abondance', { harvest: 0.12 }], ['Grenier plein', { harvest: 0.12 }], ['Bonne santé', { hp: 0.06 }]],
     bucheron: [['Bras solides', { dmg: 0.05 }], ['Coupe franche', { harvest: 0.1 }], ['Charpentier', { armor: 0.03 }], ['Endurance du bûcheron', { hp: 0.06 }], ['Hache lourde', { dmg: 0.06 }]],
     mineur: [['Endurance', { hp: 0.06 }], ['Filons', { harvest: 0.1 }], ['Peau de pierre', { armor: 0.03 }], ['Veine d’or', { harvest: 0.12 }], ['Mineur aguerri', { dmg: 0.05 }]],
-    troubadour: [['Voix portante', { atkspd: 0.04 }], ['Refrain', { ult: 0.08 }], ['Crescendo', { dmg: 0.05 }], ['Harmonie', { hp: 0.05 }], ['Rappel', { ult: 0.06 }]],
-    tambour: [['Peau tendue', { hp: 0.05 }], ['Cadence', { atkspd: 0.05 }], ['Écho', { armor: 0.03 }], ['Grondement', { dmg: 0.05 }], ['Tonnerre', { ult: 0.08 }]],
-    enchanteresse: [['Doigts agiles', { atkspd: 0.05 }], ['Mélopée', { dmg: 0.05 }], ['Sérénade', { ult: 0.08 }], ['Fascination', { hp: 0.05 }], ['Grâce', { crit: 0.03 }]]
+    troubadour: [['Voix portante', { auraR: 0.15 }], ['Refrain', { ult: 0.08 }], ['Crescendo', { dmg: 0.05 }], ['Harmonie', { hp: 0.05 }], ['Rappel', { anthemDur: 1 }]],
+    tambour: [['Peau tendue', { hp: 0.05 }], ['Cadence', { quakeCd: 0.5 }], ['Écho', { quakeR: 0.1 }], ['Grondement', { dmg: 0.05 }], ['Tonnerre', { quakeStun: 0.2 }]],
+    enchanteresse: [['Doigts agiles', { atkspd: 0.05 }], ['Mélopée', { charmChance: 0.02 }], ['Sérénade', { ult: 0.08 }], ['Fascination', { charmMax: 1 }], ['Grâce', { crit: 0.03 }]]
   };
   // Arbre d'initiation (avant le choix de classe) : une compétence liée à chaque classe.
   // En choisissant sa classe, les points des autres initiations sont rendus.
@@ -365,7 +365,9 @@
       ultRate: 1 + (sb.ult || 0),
       harvestMult: 1 + (sb.harvest || 0),
       range: c.range,
-      leash: c.leash || 9999
+      leash: c.leash || 9999,
+      // bonus de spécialisation (rayon d'aura, pièges, poison…)
+      mods: Object.fromEntries(Object.entries(sb).filter(([k]) => SKILL_MODS[k]))
     };
   }
 
@@ -460,6 +462,26 @@
   const isConsumable = (tid) => !!(TEMPLATES[tid] && TEMPLATES[tid].consumable);
   const setSize = (sid) => Object.values(TEMPLATES).filter((t) => t.set === sid).length;
   const STAT_NAMES = { hp: 'PV', dmg: 'dégâts', armor: 'défense', speed: 'vitesse', crit: 'critique', atkspd: 'vitesse d’attaque', ult: 'charge de l’ultime', harvest: 'récolte' };
+  // Bonus propres à une spécialisation (mécaniques de classe), affichés avec leur propre format
+  const SKILL_MODS = {
+    leech: (v) => `+${Math.round(v * 100)} % de vol de vie`,
+    hawkRate: (v) => `+${Math.round(v * 100)} % de cadence du faucon`,
+    mark: (v) => `+${Math.round(v * 100)} % de dégâts reçus par les ennemis marqués`,
+    trapRoot: (v) => `+${fmtNum(v)} s d’immobilisation des pièges`,
+    trapMax: (v) => `+${v} piège${v > 1 ? 's' : ''} maximum`,
+    venomMax: (v) => `+${v} dose${v > 1 ? 's' : ''} de poison maximum`,
+    venomMul: (v) => `+${Math.round(v * 100)} % de dégâts du poison`,
+    auraR: (v) => `+${Math.round(v * 100)} % de rayon de l’aura`,
+    anthemDur: (v) => `+${fmtNum(v)} s de durée de l’Hymne`,
+    quakeCd: (v) => `onde de choc ${fmtNum(v)} s plus tôt`,
+    quakeR: (v) => `+${Math.round(v * 100)} % de rayon de l’onde`,
+    quakeStun: (v) => `+${fmtNum(v)} s d’étourdissement`,
+    charmChance: (v) => `+${Math.round(v * 100)} % de chance de charme`,
+    charmMax: (v) => `+${v} monstre${v > 1 ? 's' : ''} charmé${v > 1 ? 's' : ''} par l’ultime`
+  };
+  const fmtNum = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+  // Texte d'un bonus (statistique ou bonus de spécialisation)
+  const bonusText = (k, v) => (SKILL_MODS[k] ? SKILL_MODS[k](v) : `+${Math.round(v * 100)}% ${STAT_NAMES[k]}`);
 
   // Un objet (modèle) est-il utilisable par cette classe ?
   function canUse(tid, cls) {
@@ -689,5 +711,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

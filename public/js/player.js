@@ -483,7 +483,7 @@
     const st = GD.itemStats(item);
     return Object.entries(st).map(([k, v]) => `+${Math.round(v * 100)}% ${GD.STAT_NAMES[k]}`).join(' · ');
   }
-  function bonusLine(b) { return Object.entries(b).map(([k, v]) => `+${Math.round(v * 100)}% ${GD.STAT_NAMES[k]}`).join(', '); }
+  function bonusLine(b) { return Object.entries(b).map(([k, v]) => GD.bonusText(k, v)).join(', '); }
 
   function renderGold() {
     $('#hdrGold').replaceChildren(hail(), `${me.gold} Grêlons`);

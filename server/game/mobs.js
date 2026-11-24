@@ -370,7 +370,7 @@ module.exports = {
     // Berserker : se soigne d'une part des dégâts infligés
     if (owner && owner.cls && !opts.dot && !opts.byAlly && owner.alive) {
       const rc = CLASSES[owner.cls] && CLASSES[owner.cls].rage;
-      if (rc) owner.hp = Math.min(owner.maxHp, owner.hp + amount * rc.leech);
+      if (rc) owner.hp = Math.min(owner.maxHp, owner.hp + amount * (rc.leech + ((owner.mods && owner.mods.leech) || 0)));
     }
     if (opts.extra && owner && m.hp > 0) {
       if (opts.extra.venom) this.addVenom(m, owner, 1);

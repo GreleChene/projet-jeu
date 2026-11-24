@@ -7,6 +7,9 @@ const U = require('./util');
 const { WORLD, CLASSES, MOBS } = GD;
 
 
+// Bonus de spécialisation du héros (compétences sur mesure)
+const md = (h, k) => (h.mods && h.mods[k]) || 0;
+
 module.exports = {
   isInvisible(h) {
     return h.buffs.stealth > 0 || this.inSmoke(h.x, h.y);
@@ -88,7 +91,7 @@ module.exports = {
       T.aura -= dt;
       if (T.aura <= 0) {
         T.aura = 0.5;
-        const mul = h.auraMult || 1, r = c.aura.r * Math.sqrt(mul);
+        const mul = h.auraMult || 1, r = c.aura.r * Math.sqrt(mul) * (1 + md(h, 'auraR'));
         for (const o of this.heroes.values()) {
           if (!o.alive || (o.x - h.x) ** 2 + (o.y - h.y) ** 2 > r * r) continue;
           if (!(o.buffs.song > 0)) { o.songAtk = 0; o.songDmg = 0; }
@@ -101,14 +104,15 @@ module.exports = {
     // Tambour de guerre : onde de choc qui repousse et étourdit
     if (c.quake) {
       T.quake += dt;
-      if (T.quake >= c.quake.every) {
-        const near = this.mobsInRadius(h.x, h.y, c.quake.r);
+      const qr = c.quake.r * (1 + md(h, 'quakeR'));
+      if (T.quake >= Math.max(2, c.quake.every - md(h, 'quakeCd'))) {
+        const near = this.mobsInRadius(h.x, h.y, qr);
         if (near.length) {
           T.quake = 0;
-          this.fx(['shock', Math.round(h.x), Math.round(h.y), c.quake.r, 0]);
+          this.fx(['shock', Math.round(h.x), Math.round(h.y), Math.round(qr), 0]);
           for (const m of near) {
             const a = Math.atan2(m.y - h.y, m.x - h.x);
-            if (!m.boss) { m.x += Math.cos(a) * c.quake.push; m.y += Math.sin(a) * c.quake.push; this.applyStatus(m, { freeze: c.quake.stun }); }
+            if (!m.boss) { m.x += Math.cos(a) * c.quake.push; m.y += Math.sin(a) * c.quake.push; this.applyStatus(m, { freeze: c.quake.stun + md(h, 'quakeStun') }); }
             else this.applyStatus(m, { slow: 0.5, dur: 1 });
           }
         }
@@ -120,8 +124,8 @@ module.exports = {
       if (T.hawk <= 0) {
         const m = this.nearestMob(h.x, h.y, c.hawk.range, (x) => MOBS[x.type].ranged) || this.nearestMob(h.x, h.y, c.hawk.range);
         if (m) {
-          T.hawk = c.hawk.every / (h.buffs.song > 0 ? 1 + (h.songAtk || 0) : 1);
-          m.status.mark = { t: c.hawk.markDur, v: c.hawk.mark };
+          T.hawk = c.hawk.every / ((h.buffs.song > 0 ? 1 + (h.songAtk || 0) : 1) * (1 + md(h, 'hawkRate')));
+          m.status.mark = { t: c.hawk.markDur, v: c.hawk.mark + md(h, 'mark') };
           this.fx(['hawk', Math.round(h.x), Math.round(h.y - 40), Math.round(m.x), Math.round(m.y - m.size)]);
           this.damageMob(m, h.dmg * c.hawk.mult * this.dmgMul(h), h, { byAlly: true });
         }
@@ -146,7 +150,7 @@ module.exports = {
       if (T.trap <= 0) {
         const t = h.target && h.target.hp > 0 ? h.target : this.nearestMob(h.x, h.y, 500);
         const mine = this.zones.filter((z) => z.kind === 'trap' && z.owner === h);
-        if (t && mine.length < c.traps.max) {
+        if (t && mine.length < c.traps.max + md(h, 'trapMax')) {
           T.trap = c.traps.every;
           // sur le chemin du monstre vers la tour, un peu devant lui
           const a = Math.atan2(WORLD.CY - t.y, WORLD.CX - t.x), ahead = Math.min(90, Math.max(0, U.dist(t, { x: WORLD.CX, y: WORLD.CY }) - 120));
@@ -341,7 +345,7 @@ module.exports = {
     const dmg = h.dmg * this.dmgMul(h) * (crit ? 2 : 1);
     let onHit = null;
     if (c.onHit) onHit = { slow: c.onHit.slow, burn: c.onHit.burn ? h.dmg * c.onHit.burn : 0, dur: c.onHit.dur };
-    const extra = c.venom ? { venom: true } : c.charm ? { charm: c.charm } : null;
+    const extra = c.venom ? { venom: true } : c.charm ? { charm: { chance: c.charm.chance + md(h, 'charmChance'), dur: c.charm.dur } } : null;
     if (c.projectile) {
       const slow = c.projectile === 'orb' || c.projectile === 'holy' || c.projectile === 'note' || c.projectile === 'charm' || c.projectile === 'flask';
       // les notes du ménestrel traversent les monstres alignés
@@ -645,7 +649,7 @@ module.exports = {
       }
       case 'anthem':
         // les hymnes ne se cumulent pas : la durée est simplement renouvelée
-        for (const o of this.heroes.values()) if (o.alive) o.buffs.anthem = 8;
+        for (const o of this.heroes.values()) if (o.alive) o.buffs.anthem = 8 + md(h, 'anthemDur');
         this.fx(['anthem', Math.round(h.x), Math.round(h.y)]);
         break;
       case 'thunder':
@@ -657,7 +661,7 @@ module.exports = {
         }
         break;
       case 'enchant': {
-        const cand = this.mobsInRadius(h.x, h.y, 320).filter((m) => !m.boss && m.hp > 0).sort((a, b) => b.maxHp - a.maxHp).slice(0, 6);
+        const cand = this.mobsInRadius(h.x, h.y, 320).filter((m) => !m.boss && m.hp > 0).sort((a, b) => b.maxHp - a.maxHp).slice(0, 6 + md(h, 'charmMax'));
         for (const m of cand) {
           this.mobs = this.mobs.filter((x) => x !== m);
           this.allies.push({
