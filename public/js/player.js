@@ -243,9 +243,10 @@
   }
 
   let selSkill = null; // compétence affichée dans le détail de l’arbre
+  let selOpen = false; // bulle d'action ouverte à côté de la pastille sélectionnée
   // Zoom de l'arbre en étoile : null = ajusté à la largeur
   const TREE_BOARD = 1400;
-  let treeZoom = null;
+  let treeZoom = null, keptZoom = null;
   const fitZoom = () => { const w = ($('#classTree .tboard-wrap') || {}).clientWidth || 0; return w ? Math.min(1, (w - 4) / TREE_BOARD) : 0.75; };
   function applyTreeZoom() {
     const wrap = $('#classTree .tboard-wrap');
@@ -257,9 +258,9 @@
   }
   // Infobulle de l'arbre (au survol à la souris)
   let tipEl = null;
-  function tipped(node, title, text, foot, color) {
+  function tipped(node, title, text, foot, color, id) {
     node.addEventListener('pointerenter', (e) => {
-      if (e.pointerType !== 'mouse' || treeDrag.moved) return;
+      if (e.pointerType !== 'mouse' || treeDrag.moved || (selOpen && selSkill === id)) return; // la bulle d'action est déjà ouverte
       tipEl ||= document.body.appendChild(el('div', { class: 'ttip hidden' }));
       tipEl.replaceChildren(el('b', { style: `color:${color || 'var(--gold)'}` }, title), el('div', {}, text), foot ? el('div', { class: 'tiny muted', style: 'margin-top:4px' }, foot) : '');
       tipEl.classList.remove('hidden');
@@ -348,10 +349,10 @@
       if (n.ult) {
         const S = GD.CLASSES[n.spec];
         // seul le nom de l'ultime reste affiché ; son effet apparaît au survol
-        return tipped(el('button', { class: cls, onclick: () => { selSkill = n.id; renderClasses(); } },
-          el('b', {}, `✨ ${S.ultName}`), el('em', {}, st.rank ? 'Débloqué' : `Niveau ${PR.ULT_LEVEL}`)), `✨ ${S.ultName}`, S.ultDesc, st.rank ? 'Débloqué' : st.reason || `Ultime · niveau ${PR.ULT_LEVEL}`, S.color);
+        return tipped(el('button', { class: cls, onclick: () => { selSkill = n.id; selOpen = true; renderClasses(); } },
+          el('b', {}, `✨ ${S.ultName}`), el('em', {}, st.rank ? 'Débloqué' : `Niveau ${PR.ULT_LEVEL}`)), `✨ ${S.ultName}`, S.ultDesc, st.rank ? 'Débloqué' : st.reason || `Ultime · niveau ${PR.ULT_LEVEL}`, S.color, n.id);
       }
-      return tipped(el('button', { class: cls, onclick: () => { selSkill = n.id; renderClasses(); } }, label), nodeTitle(n), nodeText(n), `${st.rank}/${n.max}${st.reason && !st.can ? ' · ' + st.reason : ''}`, n.spec ? GD.CLASSES[n.spec].color : n.init ? GD.CLASSES[n.base].color : GD.CLASSES.habitant.color);
+      return tipped(el('button', { class: cls, onclick: () => { selSkill = n.id; selOpen = true; renderClasses(); } }, label), nodeTitle(n), nodeText(n), `${st.rank}/${n.max}${st.reason && !st.can ? ' · ' + st.reason : ''}`, n.spec ? GD.CLASSES[n.spec].color : n.init ? GD.CLASSES[n.base].color : GD.CLASSES.habitant.color, n.id);
     };
 
     // Détail de la compétence sélectionnée
@@ -359,16 +360,7 @@
     const sel = GD.SKILLS[selSkill], selSt = stateOf(sel);
     const entering = (sel.init && cur.tier === 0) || (sel.spec && cur.tier === 1);
     const who = sel.spec ? GD.CLASSES[sel.spec] : sel.init ? GD.CLASSES[sel.base] : GD.CLASSES.habitant;
-    const detail = el('div', { class: 'panel tdetail', style: `--bc:${who.color}` },
-      el('div', { class: 'row' },
-        el('b', { style: `color:${who.color}` }, nodeTitle(sel)), el('span', { class: 'chip small' }, sel.ult ? (selSt.rank ? 'Débloqué' : 'Ultime') : `${selSt.rank}/${sel.max}`),
-        el('span', { class: 'spacer' }),
-        el('button', { class: 'small' + (selSt.can ? ' primary' : ''), disabled: !selSt.can, onclick: () => learn(sel) }, selSt.can ? (entering ? `Devenir ${GD.CLASSES[sel.spec || sel.base].name} (+1)` : sel.ult ? 'Débloquer (1 pt)' : '+1') : `🔒 ${selSt.reason}`)),
-      el('div', { class: 'small', style: 'margin-top:4px' }, nodeText(sel)),
-      el('div', { class: 'small muted' }, sel.core ? 'Centre de l’arbre : toujours disponible, ne bloque aucune branche.'
-        : sel.init ? `Branche ${who.name} : le premier point fait devenir ${who.name} (niveau ${PR.CLASS_LEVEL}) et grise les autres branches.`
-          : sel.step === 1 ? `Premier point de la sous-branche : fait devenir ${who.name}.` : `Sous-branche ${who.name}.`));
-
+    const actionBtn = () => el('button', { class: 'small' + (selSt.can ? ' primary' : ''), disabled: !selSt.can, onclick: () => learn(sel) }, selSt.can ? (entering ? `Devenir ${GD.CLASSES[sel.spec || sel.base].name} (+1)` : sel.ult ? 'Débloquer (1 pt)' : '+1') : `🔒 ${selSt.reason}`);
     // Indications générales
     $('#evoHint').replaceChildren(
       el('span', {}, 'Classe : ', el('b', { style: `color:${cur.color}` }, cur.name), ' · '),
@@ -392,12 +384,14 @@
     };
     const place = (node, p, extra) => { node.style.left = `${p[0]}px`; node.style.top = `${p[1]}px`; if (extra) node.classList.add(...extra.split(' ').filter(Boolean)); return node; };
     const items = [];
+    const pos = {}; // position de chaque pastille (pour la bulle d'action)
     const R_CLASS = 160, R_LABEL = 245, R_NODES = [300, 344, 388, 432, 476], R_ULT = 575;
     const P0 = GD.CLASSES.habitant;
     items.push(place(el('div', { class: 'tcenter' + (cur.tier === 0 ? ' here' : '') },
       miniHero('habitant', 48),
       el('div', { class: 'title', style: `color:${P0.color}` }, P0.name),
       dot(GD.SKILLS.core_1)), [CX, CY]));
+    pos.core_1 = [CX, CY + 42];
     GD.BASE_CLASSES.forEach((b, k) => {
       const B = GD.CLASSES[b];
       const a0 = -90 + k * (360 / GD.BASE_CLASSES.length);
@@ -408,6 +402,7 @@
         miniHero(b, 40),
         el('div', { class: 'tname', style: `color:${B.color}` }, B.name, base === b ? ' ✓' : '', rowLocked ? ' 🔒' : ''),
         dot(GD.SKILLS[`init_${b}`])), at(R_CLASS, a0), rowLocked ? 'tlocked' : ''));
+      { const c0 = at(R_CLASS, a0); pos[`init_${b}`] = [c0[0], c0[1] + 34]; }
       GD.specsOf(b).forEach((spec, j) => {
         const S = GD.CLASSES[spec];
         const a = a0 + (j - 1) * 21;
@@ -422,6 +417,7 @@
           const p = at(R_NODES[m], a);
           link(prev, p, S.color, (sk[n.id] || 0) > 0, laneLocked);
           items.push(place(dot(n), p, lk));
+          pos[n.id] = p;
           prev = p;
         });
         const ult = GD.SKILLS[`${spec}_ult`], mast = GD.SKILLS[`${spec}_mastery`];
@@ -429,8 +425,20 @@
         link(prev, pu, S.color, (sk[ult.id] || 0) > 0, laneLocked);
         const card = el('div', { class: 'tultcard', style: `--bc:${S.color}` }, dot(ult), dot(mast));
         items.push(place(card, pu, lk));
+        pos[ult.id] = [pu[0] - 20, pu[1]]; pos[mast.id] = [pu[0] + 72, pu[1]];
       });
     });
+    // bulle d'action à côté de la pastille cliquée : nom, rang et bouton pour y dépenser un point
+    if (selOpen && pos[selSkill]) {
+      const [px, py] = pos[selSkill];
+      const pop = el('div', { class: 'tpop' + (px > CX + 250 ? ' left' : ''), style: `left:${px}px;top:${py}px;--bc:${who.color}` },
+        el('div', { class: 'row', style: 'gap:6px' }, el('b', { style: `color:${who.color}` }, nodeTitle(sel)), el('span', { class: 'chip small' }, sel.ult ? (selSt.rank ? 'Débloqué' : 'Ultime') : `${selSt.rank}/${sel.max}`),
+          el('span', { class: 'spacer' }), el('button', { class: 'small', title: 'Fermer', onclick: () => { selOpen = false; renderClasses(); } }, '✕')),
+        el('div', { class: 'tiny', style: 'margin:4px 0 6px' }, nodeText(sel)),
+        sel.init || sel.step === 1 ? el('div', { class: 'tiny muted', style: 'margin-bottom:6px' }, `Le premier point fait devenir ${who.name} et grise les autres branches.`) : '',
+        actionBtn());
+      items.push(pop);
+    }
     const board = el('div', { class: 'tboard', style: `width:${BOARD}px;height:${BOARD}px` }, svg, ...items);
     const sizer = el('div', { class: 'tsizer' }, board);
     const wrap = el('div', { class: 'tboard-wrap' + (treeZoom === null ? '' : ' zoomed') }, sizer);
@@ -439,12 +447,22 @@
       el('button', { class: 'small', onclick: () => setTreeZoom((treeZoom || fitZoom()) / 1.25) }, '−'),
       el('button', { class: 'small' + (treeZoom === null ? ' primary' : ''), onclick: () => setTreeZoom(null) }, 'Ajuster'),
       el('button', { class: 'small', onclick: () => setTreeZoom((treeZoom || fitZoom()) * 1.25) }, '+'),
-      el('span', { class: 'small muted' }, 'Survole une pastille pour voir son effet, clique pour la choisir. Maintiens le clic pour déplacer l’arbre.'));
+      el('span', { class: 'small muted' }, 'Survole une pastille pour voir son effet, clique dessus pour y placer un point. Maintiens le clic pour déplacer l’arbre.'));
+    // garde la position de défilement de l'arbre zoomé quand on sélectionne une pastille
+    const old = tree.querySelector('.tboard-wrap');
+    const keep = old ? [old.scrollLeft, old.scrollTop] : null;
+    // pendant la reconstruction, la page ne doit pas sauter (la pastille cliquée reste sous la souris)
+    const pageY = window.scrollY;
+    if (tree.offsetHeight) tree.style.minHeight = `${tree.offsetHeight}px`;
     tree.className = 'sktree';
-    tree.replaceChildren(detail, zoomBar, wrap);
+    tree.replaceChildren(zoomBar, wrap);
     enableTreeDrag(wrap);
     if (tipEl) tipEl.classList.add('hidden');
     applyTreeZoom();
+    if (keep && treeZoom === keptZoom) { wrap.scrollLeft = keep[0]; wrap.scrollTop = keep[1]; }
+    keptZoom = treeZoom;
+    tree.style.minHeight = '';
+    if (Math.abs(window.scrollY - pageY) > 1) window.scrollTo(0, pageY);
   }
 
   async function learn(n) {
