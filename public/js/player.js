@@ -244,6 +244,14 @@
 
   let selSkill = null; // compétence affichée dans le détail de l’arbre
   let selOpen = false; // bulle d'action ouverte à côté de la pastille sélectionnée
+  let popTimer = null;
+  // ferme la bulle sans reconstruire l'arbre
+  function closePop() {
+    clearTimeout(popTimer);
+    selOpen = false;
+    const pop = document.querySelector('#classTree .tpop');
+    if (pop) pop.remove();
+  }
   // Zoom de l'arbre en étoile : null = ajusté à la largeur
   const TREE_BOARD = 1400;
   let treeZoom = null, keptZoom = null;
@@ -345,14 +353,15 @@
       const st = stateOf(n);
       const cls = 'tnode' + (n.ult ? ' tult' : '') + (n.mastery ? ' tmastery' : '') + (n.init ? ' tinit' : '') + (n.core ? ' tcore' : '')
         + (st.rank ? ' owned' : '') + (st.can ? ' can' : '') + (selSkill === n.id ? ' sel' : '');
-      const label = n.ult ? '✨' : n.mastery ? '★' : `${st.rank}/${n.max}`;
+      const label = n.ult ? '✨' : n.mastery ? (st.rank ? `★${st.rank}` : '★') : `${st.rank}/${n.max}`;
+      const bc = n.spec ? GD.CLASSES[n.spec].color : n.init ? GD.CLASSES[n.base].color : GD.CLASSES.habitant.color;
       if (n.ult) {
         const S = GD.CLASSES[n.spec];
         // seul le nom de l'ultime reste affiché ; son effet apparaît au survol
         return tipped(el('button', { class: cls, onclick: () => { selSkill = n.id; selOpen = true; renderClasses(); } },
           el('b', {}, `✨ ${S.ultName}`), el('em', {}, st.rank ? 'Débloqué' : `Niveau ${PR.ULT_LEVEL}`)), `✨ ${S.ultName}`, S.ultDesc, st.rank ? 'Débloqué' : st.reason || `Ultime · niveau ${PR.ULT_LEVEL}`, S.color, n.id);
       }
-      return tipped(el('button', { class: cls, onclick: () => { selSkill = n.id; selOpen = true; renderClasses(); } }, label), nodeTitle(n), nodeText(n), `${st.rank}/${n.max}${st.reason && !st.can ? ' · ' + st.reason : ''}`, n.spec ? GD.CLASSES[n.spec].color : n.init ? GD.CLASSES[n.base].color : GD.CLASSES.habitant.color, n.id);
+      return tipped(el('button', { class: cls, style: `--bc:${bc}`, 'data-sk': n.id, onclick: () => { selSkill = n.id; selOpen = true; renderClasses(); } }, label), nodeTitle(n), nodeText(n), `${st.rank}/${n.max}${st.reason && !st.can ? ' · ' + st.reason : ''}`, n.spec ? GD.CLASSES[n.spec].color : n.init ? GD.CLASSES[n.base].color : GD.CLASSES.habitant.color, n.id);
     };
 
     // Détail de la compétence sélectionnée
@@ -432,12 +441,20 @@
     if (selOpen && pos[selSkill]) {
       const [px, py] = pos[selSkill];
       const pop = el('div', { class: 'tpop' + (px > CX + 250 ? ' left' : ''), style: `left:${px}px;top:${py}px;--bc:${who.color}` },
-        el('div', { class: 'row', style: 'gap:6px' }, el('b', { style: `color:${who.color}` }, nodeTitle(sel)), el('span', { class: 'chip small' }, sel.ult ? (selSt.rank ? 'Débloqué' : 'Ultime') : `${selSt.rank}/${sel.max}`),
-          el('span', { class: 'spacer' }), el('button', { class: 'small', title: 'Fermer', onclick: () => { selOpen = false; renderClasses(); } }, '✕')),
+        el('button', { class: 'tpop-x', title: 'Fermer', onclick: () => closePop() }, '✕'),
+        el('div', { class: 'tpop-head' }, el('b', { style: `color:${who.color}` }, nodeTitle(sel)), el('span', { class: 'chip small' }, sel.ult ? (selSt.rank ? 'Débloqué' : 'Ultime') : `${selSt.rank}/${sel.max}`)),
         el('div', { class: 'tiny', style: 'margin:4px 0 6px' }, nodeText(sel)),
         sel.init || sel.step === 1 ? el('div', { class: 'tiny muted', style: 'margin-bottom:6px' }, `Le premier point fait devenir ${who.name} et grise les autres branches.`) : '',
         actionBtn());
       items.push(pop);
+      // la bulle se referme toute seule quand la souris s'en éloigne (et de sa pastille)
+      const keepOpen = () => clearTimeout(popTimer);
+      const leave = (e) => { if (e.pointerType === 'mouse') { clearTimeout(popTimer); popTimer = setTimeout(closePop, 450); } };
+      pop.addEventListener('pointerenter', keepOpen); pop.addEventListener('pointerleave', leave);
+      setTimeout(() => {
+        const d = tree.querySelector(`.tboard [data-sk="${selSkill}"]`);
+        if (d) { d.addEventListener('pointerenter', keepOpen); d.addEventListener('pointerleave', leave); }
+      }, 0);
     }
     const board = el('div', { class: 'tboard', style: `width:${BOARD}px;height:${BOARD}px` }, svg, ...items);
     const sizer = el('div', { class: 'tsizer' }, board);
