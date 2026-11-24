@@ -166,21 +166,6 @@ app.put('/api/me/ai', auth, (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
 
-// Habitant → classe de base (les spécialisations se débloquent par l'ultime de l'arbre de compétences)
-app.post('/api/me/class', auth, (req, res) => {
-  const u = req.user;
-  const id = (req.body || {}).cls;
-  const c = GD.CLASSES[id];
-  if (!c || c.tier !== 1) return res.status(400).json({ error: 'Classe inconnue' });
-  if (GD.CLASSES[u.cls].tier !== 0) return res.status(400).json({ error: 'Tu as déjà une classe : utilise la reconversion.' });
-  if (u.level < GD.PROGRESSION.CLASS_LEVEL) return res.status(400).json({ error: `Niveau ${GD.PROGRESSION.CLASS_LEVEL} requis.` });
-  u.cls = id;
-  // les points placés dans les initiations des autres classes sont rendus
-  for (const k of Object.keys(u.skills || {})) if (GD.SKILLS[k] && GD.SKILLS[k].init && GD.SKILLS[k].base !== id) delete u.skills[k];
-  afterProfileChange(u);
-  res.json({ user: publicUser(u) });
-});
-
 /* ============================== Améliorations d'habitation ============================== */
 app.post('/api/me/house', auth, (req, res) => {
   const u = req.user;
@@ -205,34 +190,39 @@ app.post('/api/me/skill', auth, (req, res) => {
   const u = req.user;
   const n = GD.SKILLS[(req.body || {}).id];
   if (!n) return res.status(400).json({ error: 'Compétence inconnue' });
+  const PR = GD.PROGRESSION;
+  const cur = GD.CLASSES[u.cls];
   const base = GD.familyOf(u.cls);
-  const habitant = GD.CLASSES[u.cls].tier === 0;
   u.skills ||= {};
-  if (n.init) {
-    // initiation : librement avant le choix de classe, puis seulement celle de sa classe
-    if (!habitant && n.base !== base) return res.status(400).json({ error: 'Cette initiation n’est pas celle de ta classe.' });
+  if (n.core) {
+    // centre de l'arbre : toujours disponible
+  } else if (n.init) {
+    // branche de classe : le premier point fait devenir cette classe
+    if (cur.tier === 0) { if (u.level < PR.CLASS_LEVEL) return res.status(400).json({ error: `Les branches de classe s’ouvrent au niveau ${PR.CLASS_LEVEL}.` }); }
+    else if (n.base !== base) return res.status(400).json({ error: `Tu as choisi la branche ${GD.CLASSES[base].name} : les autres sont bloquées (reconversion possible).` });
   } else {
-    if (habitant) return res.status(400).json({ error: `Choisis d’abord ta classe (niveau ${GD.PROGRESSION.CLASS_LEVEL}).` });
-    if (n.base !== base) return res.status(400).json({ error: 'Cette compétence n’est pas dans ton arbre.' });
+    if (cur.tier === 0 || n.base !== base) return res.status(400).json({ error: `Entre d’abord dans la branche ${GD.CLASSES[n.base].name}.` });
     const started = GD.startedBranch(u.skills);
     if (started && started !== n.spec) return res.status(400).json({ error: `Tu as choisi la voie ${GD.CLASSES[started].name} : les autres branches sont bloquées (reconversion possible).` });
-    if (n.ult && u.level < GD.PROGRESSION.ULT_LEVEL) return res.status(400).json({ error: `L’ultime se débloque au niveau ${GD.PROGRESSION.ULT_LEVEL}.` });
+    if (n.step === 1 && (u.skills[`init_${n.base}`] || 0) < GD.SKILL_MAX_RANK) return res.status(400).json({ error: `Maîtrise d’abord « ${GD.SKILLS[`init_${n.base}`].name} » (${GD.SKILL_MAX_RANK}/${GD.SKILL_MAX_RANK}).` });
+    if (n.ult && u.level < PR.ULT_LEVEL) return res.status(400).json({ error: `L’ultime se débloque au niveau ${PR.ULT_LEVEL}.` });
   }
   const rank = u.skills[n.id] || 0;
   if (rank >= n.max) return res.status(400).json({ error: 'Rang maximum atteint.' });
   if (n.requires && !u.skills[n.requires]) return res.status(400).json({ error: 'Débloque d’abord la compétence précédente.' });
   if (GD.skillPoints(u).free < 1) return res.status(400).json({ error: 'Pas assez de points de compétence.' });
   u.skills[n.id] = rank + 1;
-  if (n.ult) u.cls = n.spec; // l'ultime fait devenir la spécialisation
+  if (n.init && cur.tier === 0) u.cls = n.base; // entrée dans la branche de classe
+  if (n.spec && GD.CLASSES[u.cls].tier === 1) u.cls = n.spec; // entrée dans la sous-branche : spécialisation
   afterProfileChange(u);
   res.json({ user: publicUser(u) });
 });
 
-// Reconversion : remise à zéro de l'arbre, en perdant un quart des points attribués. Le joueur redevient
-// Habitant et choisit à nouveau sa classe dans l'onglet « Classe & compétences ».
+// Reconversion : remise à zéro de l'arbre, en perdant un quart des points attribués. Le joueur revient au
+// centre de l'arbre (Paysan) et choisit à nouveau sa branche dans l'onglet « Classe & compétences ».
 app.post('/api/me/respec', auth, (req, res) => {
   const u = req.user;
-  if (GD.CLASSES[u.cls].tier === 0) return res.status(400).json({ error: 'Choisis d’abord une classe.' });
+  if (GD.CLASSES[u.cls].tier === 0 && !Object.keys(u.skills || {}).length) return res.status(400).json({ error: 'Ton arbre est déjà vide.' });
   const { spent } = GD.skillPoints(u);
   const lost = Math.floor(spent * GD.PROGRESSION.SKILL_RESPEC_LOSS);
   u.skillLost = (u.skillLost || 0) + lost;

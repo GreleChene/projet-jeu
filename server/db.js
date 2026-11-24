@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const config = require('./config');
-const { DEFAULT_AI, PALETTE, emptyAttrs, PROGRESSION, TEMPLATES, SLOTS, GLACONS, CLASSES, sanitizeLook, randomLook } = require('../shared/constants');
+const { DEFAULT_AI, PALETTE, emptyAttrs, PROGRESSION, TEMPLATES, SLOTS, GLACONS, CLASSES, SKILLS, sanitizeLook, randomLook, houseSpent, recycleValue } = require('../shared/constants');
 
 // Anciennes armures (v1) : remboursées en Grêlons
 const LEGACY_ITEMS = { head_hood: 30, head_leather: 90, head_iron: 250, head_great: 600, head_rune: 1500, body_leather: 140, body_mail: 380, body_plate: 900, body_rune: 2200 };
@@ -62,6 +62,23 @@ function migrateUser(u) {
     u.gearVersion = 3;
   }
   u.inventory ||= [];
+  // v4 : la classe Paysan (récolte) est supprimée. Ses joueurs reviennent au centre de l'arbre sans aucune perte :
+  // points de compétence rendus, Grêlons de l'habitation et objets du set Moisson remboursés.
+  if (!u.noPaysanV1) {
+    const h = u.house || {};
+    const granary = (h.special && h.special.paysan) || 0;
+    for (let i = 0; i < granary; i++) u.gold += Math.round(180 * Math.pow(1.7, i)); // ancien « Grenier »
+    if (h.special) delete h.special.paysan;
+    if (['paysan', 'agriculteur', 'bucheron', 'mineur'].includes(u.cls)) {
+      u.gold += houseSpent(u);
+      u.house = { hp: 0, heal: 0, special: {} };
+      u.cls = 'habitant';
+      u.skills = {};
+    }
+    for (const it of u.inventory) if (/^moisson_/.test(it.t)) u.gold += recycleValue(it.r);
+    u.inventory = u.inventory.filter((it) => !/^moisson_/.test(it.t));
+    u.noPaysanV1 = true;
+  }
   if (u.glaconsOpened === undefined) u.glaconsOpened = u.inventory.length;
   u.inventory = u.inventory.filter((it) => TEMPLATES[it.t]);
   u.equip ||= {};
@@ -82,6 +99,15 @@ function migrateUser(u) {
   // arbres de compétences : un compte déjà spécialisé reçoit sa branche si ses points le permettent
   u.skills ||= {};
   u.skillLost ||= 0;
+  for (const k of Object.keys(u.skills)) if (!SKILLS[k]) delete u.skills[k]; // compétences disparues : points rendus
+  // v3 : vrai arbre (centre, branche de classe, sous-branche). Un Paysan ne garde pas de points dans les initiations
+  // (ils sont rendus) ; une classe de base qui a commencé une sous-branche devient cette spécialisation.
+  if (!u.treeV3) {
+    const c = CLASSES[u.cls] || CLASSES.habitant;
+    if (c.tier === 0) for (const k of Object.keys(u.skills)) if (SKILLS[k] && SKILLS[k].init) delete u.skills[k];
+    if (c.tier === 1) { for (const [k, r] of Object.entries(u.skills)) if (r > 0 && SKILLS[k] && SKILLS[k].spec && SKILLS[k].base === u.cls) { u.cls = SKILLS[k].spec; break; } }
+    u.treeV3 = true;
+  }
   // v2 : branche de 5 compétences + ultime au niveau ULT_LEVEL ; une spécialisation déjà acquise est conservée si le niveau le permet
   if (!u.skillsV2) {
     const c = CLASSES[u.cls];

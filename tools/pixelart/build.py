@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, '.')
 from gen import sheet
-import s_casters as S, gob, gob_archer, s_beasts as B, s_giants as G, s_corrupt as K, s_inferno as N
+import s_casters as S, gob, gob_archer, s_beasts as B, s_giants as G, s_corrupt as K, s_inferno as N, s_allies as Y
 def gframes():
     out = []
     for f in ({}, gob.WALK2, gob.ATK):
@@ -34,6 +34,10 @@ SPR = {
   'elemental': {'pal': N.ELEM_PAL, 'variants': N.ELEM_VAR, 'frames': [N.elemental(0), N.elemental(1), N.elemental(2)]},
   'mother': {'pal': N.MOTHER_PAL, 'frames': [N.mother(0), N.mother(1), N.mother(2)]},
   'skeleton': {'pal': N.SKEL_PAL, 'frames': [N.skeleton(0), N.skeleton(1), N.skeleton(2)]},
+  'rat': {'pal': Y.RAT_PAL, 'frames': [Y.rat(0), Y.rat(1), Y.rat(2)]},
+  'slime': {'pal': Y.SLIME_PAL, 'frames': [Y.slime(0), Y.slime(1), Y.slime(2)]},
+  'skeleton_archer': {'pal': Y.SKEL_PAL, 'frames': [Y.skeleton_archer(0), Y.skeleton_archer(1), Y.skeleton_archer(2)]},
+  'horse': {'pal': Y.HORSE_PAL, 'frames': [Y.horse(0), Y.horse(1)]},
 }
 if __name__ == '__main__':
     only = sys.argv[1].split(',') if len(sys.argv) > 1 else list(SPR)

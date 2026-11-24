@@ -29,6 +29,10 @@ META = {
   'elemental': {'h': 3.2, 'walk': [0, 1], 'atk': 2},
   'mother': {'h': 2.3, 'walk': [0, 1], 'atk': 2},
   'skeleton': {'h': 2.3, 'walk': [0, 1], 'atk': 2},
+  'rat': {'h': 1.0, 'walk': [0, 1], 'atk': 2},
+  'slime': {'h': 1.4, 'walk': [0, 1], 'atk': 2},
+  'skeleton_archer': {'h': 2.3, 'walk': [0, 1], 'atk': 2},
+  'horse': {'h': 2.6, 'walk': [0, 1]},
 }
 data = {k: {**META[k], 'pal': v['pal'], 'variants': v.get('variants', {}), 'frames': v['frames']} for k, v in SPR.items() if k in META}
 missing = [k for k in SPR if k not in META]

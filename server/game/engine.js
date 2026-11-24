@@ -83,7 +83,6 @@ class Game {
       mode: this.nextMode || 'classic', // classic | quick
       difficulty: this.nextDifficulty || 'normal' // facile | normal | difficile
     };
-    this.nodes = Terrain.resourceNodes(this.run.seed);
     this.mobs = []; this.allies = []; this.projectiles = []; this.zones = [];
     for (const h of this.heroes.values()) this.resetHeroForRun(h);
     this.terrainChanged();
@@ -306,8 +305,8 @@ class Game {
       nid: this.nid++, id, userId, name, isBot,
       x: WORLD.CX + Math.cos(a) * 110, y: WORLD.CY + Math.sin(a) * 80,
       facing: a, alive: true, hp: 1, maxHp: 1, ult: 0, atkT: 0, retargetT: 0, target: null,
-      buffs: {}, status: {}, timers: { stealth: 0, dash: 3, heal: 2, harvest: 0, summon: 0, aura: 0, quake: 3, hawk: 1, trap: 2, storm: 0 },
-      zombie: false, deathX: 0, deathY: 0, attackAnim: 0, retreating: false, harvesting: false,
+      buffs: {}, status: {}, timers: { stealth: 0, dash: 3, heal: 2, summon: 0, aura: 0, quake: 3, hawk: 1, trap: 2, storm: 0 },
+      zombie: false, deathX: 0, deathY: 0, attackAnim: 0, retreating: false,
       runKills: 0, runGold: 0, runXp: 0, idleAngle: a, dashing: null, chain: null
     };
   }
@@ -351,6 +350,9 @@ class Game {
     const c = CLASSES[h.cls] || CLASSES.habitant;
     const ratio = h.maxHp > 1 ? h.hp / h.maxHp : 1;
     const st = GD.computeStats({ cls: h.cls, level: h.level, gear: h.gear, skills: p.skills, attrs: p.attrs, upgrades: this.run.upgrades });
+    // l'ultime n'est utilisable qu'une fois débloqué dans l'arbre ; les créatures se débloquent aussi dans la branche
+    h.skills = p.skills || {};
+    h.ultUnlocked = GD.ultUnlocked(h.skills, h.cls);
     Object.assign(h, st);
     h.hp = Math.max(1, Math.min(h.maxHp, Math.round(h.maxHp * ratio)));
     // amélioration spéciale de l'habitation (selon la classe actuelle)
@@ -358,7 +360,6 @@ class Game {
     h.xpMult = 1; h.summonMult = 1; h.auraMult = 1;
     if (fam === 'soldat') h.armor = Math.min(0.75, h.armor + lvl);
     else if (fam === 'mage') h.ultRate += lvl;
-    else if (fam === 'paysan') h.harvestMult += lvl;
     else if (fam === 'habitant') h.xpMult = 1 + lvl;
     else if (fam === 'eleveur') h.summonMult = 1 + lvl;
     else if (fam === 'menestrel') h.auraMult = 1 + lvl;
@@ -999,7 +1000,7 @@ class Game {
         continue;
       }
       const def = GD.BUILDINGS.find((x) => x.family === family) || GD.BUILDINGS[1];
-      const pos = GD.placeBuilding(family, [...r.buildings, ...this.nodes]);
+      const pos = GD.placeBuilding(family, r.buildings);
       const variant = GD.BUILDING_VARIANTS[h.cls];
       const b = { id: this.nid++, owners: [h.id], family, variant: variant ? variant.key : null, name: variant ? variant.name : def.name, ...pos, hp: 0, max: 0, size: 28, isBuilding: true, special: 0, fireT: 1, trapT: 0 };
       this.recomputeBuilding(b, true);
@@ -1102,7 +1103,6 @@ class Game {
       if (h.status.slow || h.status.freeze) f |= HF.SLOW;
       if (h.status.poison) f |= HF.POISON;
       if (h.status.burn) f |= HF.BURN;
-      if (h.harvesting) f |= HF.HARVEST;
       if (h.ult >= 1 && CLASSES[h.cls].ult) f |= HF.ULT;
       if (h.retreating) f |= HF.RETREAT;
       if (h.dashing) f |= HF.DASH;

@@ -136,9 +136,6 @@
         if (tier >= 2) { ctx.beginPath(); ctx.moveTo(3, -2.5); ctx.quadraticCurveTo(10, -4, 14 + tier, 0); ctx.quadraticCurveTo(9, 1, 3, 2.5); ctx.closePath(); fillStroke(ctx, M, 1.2); }
         else poly(ctx, [3, -2.5, 13 + tier, 0, 3, 2.5], M, 1.2);
         break;
-      case 'pitchfork': line(ctx, -4, 0, 16, 0, wood, 2.5); line(ctx, 16, -5, 16, 5, tier ? M : S[1], 1.5); for (const o of [-5, 0, 5]) line(ctx, 16, o, 22 + tier, o, tier ? M : S[0], 1.2); break;
-      case 'axe': line(ctx, -2, 0, 16, 0, wood, 3); ctx.beginPath(); ctx.moveTo(12, -1); ctx.quadraticCurveTo(22 + tier, -10 - tier, 20 + tier, 2); ctx.lineTo(12, 3); fillStroke(ctx, M, 1.5); break;
-      case 'pickaxe': line(ctx, -2, 0, 16, 0, wood, 3); ctx.beginPath(); ctx.moveTo(16, -10 - tier); ctx.quadraticCurveTo(22 + tier, 0, 16, 10 + tier); ctx.lineWidth = 5; ctx.strokeStyle = OL; ctx.stroke(); ctx.lineWidth = 3; ctx.strokeStyle = tier ? M : S[0]; ctx.stroke(); break;
     }
     ctx.restore();
   }
@@ -375,9 +372,6 @@
       }
       case 'crossbow': shaft(-2, 5, W); for (let i = -3; i <= 3; i++) G.px(x + dx * 5 + (atk ? -Math.abs(i) * 0.5 : i), y + dy * 5 + (atk ? i : Math.abs(i) * 0.5), tier ? M : '#8d8597'); break;
       case 'daggers': along(0, 0, 0, Wd); for (let k = 1; k <= 4 + L; k++) along(k, 0, 0, k === 1 ? gold : M); break;
-      case 'pitchfork': shaft(-3, 9, W); for (let i = -2; i <= 2; i += 2) for (let k = 10; k <= 12 + L; k++) along(k, atk ? 0 : i, atk ? i : 0, tier ? M : '#8d8597'); for (let i = -2; i <= 2; i++) along(10, atk ? 0 : i, atk ? i : 0, tier ? M : '#8d8597'); break;
-      case 'axe': shaft(-1, 8, W); for (let k = 6; k <= 9; k++) for (let i = 1; i <= 3 + (k === 7 || k === 8 ? 1 : 0); i++) along(k, atk ? 0 : i, atk ? -i : 0, i > 2 ? M : Md); break;
-      case 'pickaxe': shaft(-1, 8, W); for (let i = -4; i <= 4; i++) along(9 - Math.abs(i) * 0.3, atk ? 0 : i, atk ? i : 0, tier ? M : '#8d8597'); break;
       case 'greataxe': { // hache à deux mains : long manche, double lame
         shaft(-3, 12, W);
         for (let k = 8; k <= 12; k++) {
@@ -483,9 +477,21 @@
     if (mythic) { ctx.save(); ctx.globalAlpha *= 0.35 + 0.15 * Math.sin(t * 4); ctx.translate(0, -14 * p); glow(ctx, '#2fd6e0', 12 * p); ctx.restore(); }
     ctx.scale(flip, 1);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(c, -15 * p, -(Y0 + 31) * p + bob);
+    // monture (chevalier) : le cheval est dessiné sous le cavalier, qui est surélevé
+    const mount = GD.CLASSES[o.cls] && GD.CLASSES[o.cls].mount && !o.noMount ? pixelSprite(o.mount || GD.CLASSES[o.cls].mount) : null;
+    let lift = 0;
+    if (mount) {
+      const mp = Math.max(1, Math.round(p * 0.8));
+      const fi = moving ? mount.sp.walk[Math.floor(t * 6 + (o.seed || 0)) % mount.sp.walk.length] : 0;
+      const mc = pixelCanvas(mount.key, mount.sp, mount.pal, fi, mp);
+      ctx.drawImage(mc, -24 * mp, -mc.height + mp * 2);
+      lift = MOUNT_LIFT * mp;
+    }
+    ctx.drawImage(c, -15 * p + (mount ? -2 * p : 0), -(Y0 + 31) * p + bob - lift);
     ctx.restore();
   }
+  // hauteur dont le cavalier est surélevé, en pixels de la monture
+  const MOUNT_LIFT = 17;
   // Portrait (tête et épaules) pour les vignettes de personnalisation
   function heroPortrait(ctx, w, h, o) {
     const eq = GD.gearFor(o.cls, o.gear || {});
@@ -528,7 +534,8 @@
     yeti: 'yeti', esprit_givre: 'ghost', sorciere_givre: 'witch', liche_putride: 'lich', phenix_noir: 'phoenix', treant: 'treant', treant_colossal: 'treant:colossal',
     rampant: 'crawler', crapaud: 'toad', crapaud_roi: 'toad:king', champignon: 'shroom', champignon_titan: 'shroom:titan', mutant: 'zombie', abomination: 'zombie:abomination',
     araignee: 'spider', araignee_reine: 'spider:queen', diablotin: 'imp', seigneur_diablotin: 'imp:lord', salamandre: 'salamander', salamandre_ancienne: 'salamander:ancient',
-    chien_infernal: 'hound', cerbere: 'cerberus', elementaire: 'elemental', geant_magma: 'elemental:magma', mere_spore: 'mother', ally_skeleton: 'skeleton'
+    chien_infernal: 'hound', cerbere: 'cerberus', elementaire: 'elemental', geant_magma: 'elemental:magma', mere_spore: 'mother', ally_skeleton: 'skeleton',
+    ally_rat: 'rat', ally_slime: 'slime', ally_zombie: 'zombie', ally_skelarcher: 'skeleton_archer'
   };
   const PX_CACHE = new Map();
   function pixelSprite(type) {
@@ -1261,11 +1268,6 @@
       for (const [x1, y1, x2, y2, w] of lava) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineWidth = w; ctx.strokeStyle = '#ff5a1a'; ctx.stroke(); }
     }
 
-    // 4. points de récolte
-    for (const n of T.resourceNodes(seed)) {
-      ctx.save(); ctx.translate(n.x, n.y); ctx.scale(1.5, 1.5); drawNode(ctx, { ...n, x: 0, y: 0 }); ctx.restore();
-    }
-
     // 5. décor (trié par y pour le chevauchement)
     const decor = [];
     for (let ty = 0; ty < T.ROWS; ty++) for (let tx = 0; tx < T.COLS; tx++) {
@@ -1283,27 +1285,6 @@
     return { canvas: cv, lava };
   }
 
-  function drawNode(ctx, n) {
-    const x = n.x, y = n.y;
-    if (n.type === 'field') {
-      rrect(ctx, x - 26, y - 14, 52, 28, 6, '#8a6a3a', 2);
-      for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) {
-        const sx = x - 19 + i * 13, sy = y - 6 + j * 12;
-        line(ctx, sx, sy + 2, sx, sy - 9, '#d9b84a', 1.5);
-        ellipse(ctx, sx, sy - 10, 2.5, 4, '#f2d36b', 1);
-      }
-    } else if (n.type === 'tree') {
-      shadow(ctx, x, y + 2, 20, 6);
-      rrect(ctx, x - 5, y - 22, 10, 24, 3, P.wood[1]);
-      circle(ctx, x - 10, y - 30, 13, '#3f8f3a'); circle(ctx, x + 10, y - 30, 13, '#3f8f3a'); circle(ctx, x, y - 42, 15, '#4ea845');
-      rrect(ctx, x + 10, y - 6, 16, 8, 3, P.wood[0], 1.5);
-    } else {
-      shadow(ctx, x, y + 2, 22, 6);
-      poly(ctx, [x - 22, y, x - 14, y - 22, x + 4, y - 28, x + 20, y - 12, x + 22, y], P.stone[1], 2);
-      poly(ctx, [x - 8, y - 14, x - 3, y - 22, x + 2, y - 14], '#6ec6ff', 1.2);
-      poly(ctx, [x + 8, y - 8, x + 12, y - 15, x + 15, y - 8], P.ui.gold, 1.2);
-    }
-  }
 
   function drawDecor(ctx, d, st) {
     const { x, y, v, b } = d;
@@ -1378,5 +1359,5 @@
     ctx.restore();
   }
 
-  window.Art = { mobTop, heroPortrait, heroTop: (s) => 29 * Math.max(1, Math.round(s * 1.45)), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
+  window.Art = { mobTop, heroPortrait, heroTop: (s, cls) => 29 * Math.max(1, Math.round(s * 1.45)) + (cls && GD.CLASSES[cls] && GD.CLASSES[cls].mount ? MOUNT_LIFT * Math.max(1, Math.round(Math.max(1, Math.round(s * 1.45)) * 0.8)) : 0), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
 })();

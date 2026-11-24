@@ -147,7 +147,6 @@
         break;
       }
       case 'revive': add({ k: 'pillar', x: e[1], y: e[2], color: F.poison, dur: 1.2 }); burst(e[1], e[2] - 20, F.poison, 20, 120); break;
-      case 'towerheal': add({ k: 'ring', x: WORLD.CX, y: WORLD.CY, r: 160, color: F.heal, dur: 0.9, w: 10 }); burst(WORLD.CX, WORLD.CY - 80, F.heal, 24, 160); break;
       case 'summon': add({ k: 'ring', x: e[1], y: e[2], r: e[3], color: '#b14cff', dur: 0.6, w: 8 }); break;
       case 'uproot': burst(e[1], e[2], P.wood[1], 10, 180, 4); add({ k: 'puff', x: e[1], y: e[2], dur: 0.6, r: 26 }); shake = Math.max(shake, 6); break;
       case 'bdestroy': burst(e[1], e[2] - 20, P.stone[1], 30, 220, 5); burst(e[1], e[2] - 20, P.biome.fire.accent[0], 16, 160, 4); add({ k: 'puff', x: e[1], y: e[2] - 20, dur: 0.9, r: 50 }); shake = Math.max(shake, 10); break;
@@ -159,7 +158,7 @@
         if (big) shake = Math.max(shake, 10);
         break;
       }
-      case 'hawk': add({ k: 'hawk', x: e[1], y: e[2], x2: e[3], y2: e[4], dur: 0.35 }); break;
+      case 'hawk': add({ k: 'hawk', x: e[1], y: e[2], x2: e[3], y2: e[4], dur: e[5] === 2 ? 0.5 : 0.35, bird: e[5] || 0 }); if (e[5] === 2) burst(e[3], e[4], '#d8c4a0', 10, 140, 3); break;
       case 'snap': add({ k: 'text', x: e[1], y: e[2] - 20, s: 'CLAC !', color: '#d8dde3', dur: 0.8, size: 16 }); burst(e[1], e[2], '#8d8597', 8, 90, 3); break;
       case 'charm': add({ k: 'text', x: e[1], y: e[2], s: '💗', color: '#ff7ad9', dur: 1.1, size: 20 }); break;
       case 'anthem': add({ k: 'ring', x: e[1], y: e[2], r: 420, color: '#ffd34d', dur: 1, w: 12 }); add({ k: 'flash', dur: 0.4, color: '#ffd34d' }); break;
@@ -368,7 +367,7 @@
       const info = roster.get(id);
       if (!info) continue;
       const dead = h.f & HF.DEAD;
-      const y = h.y - (dead ? 38 : HERO_TOP + 12);
+      const y = h.y - (dead ? 38 : (info && GD.CLASSES[info.cls] && GD.CLASSES[info.cls].mount ? A.heroTop(HERO_SCALE, info.cls) : HERO_TOP) + 12);
       ctx.globalAlpha = dead ? 0.6 : h.f & HF.STEALTH ? 0.45 : 1;
       ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
       ctx.strokeText(info.name, h.x, y);
@@ -543,8 +542,9 @@
           const px = f.x + (f.x2 - f.x) * k, py = f.y + (f.y2 - f.y) * k;
           ctx.globalAlpha = 0.5 * (1 - k); ctx.strokeStyle = '#d8c4a0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(px, py); ctx.stroke();
           ctx.globalAlpha = 1; ctx.save(); ctx.translate(px, py); ctx.rotate(Math.atan2(f.y2 - f.y, f.x2 - f.x));
+          if (f.bird === 2) ctx.scale(1.7, 1.7);
           ctx.fillStyle = '#1a1214'; ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-6, -9); ctx.lineTo(-3, 0); ctx.lineTo(-6, 9); ctx.closePath(); ctx.fill();
-          ctx.fillStyle = '#9a6a3e'; ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-5, -7); ctx.lineTo(-2, 0); ctx.lineTo(-5, 7); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = f.bird === 1 ? '#9aa3b0' : f.bird === 2 ? '#4a3220' : '#9a6a3e'; ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-5, -7); ctx.lineTo(-2, 0); ctx.lineTo(-5, 7); ctx.closePath(); ctx.fill();
           ctx.fillStyle = '#f3ead7'; ctx.fillRect(4, -1.5, 3, 3);
           ctx.restore();
           break;

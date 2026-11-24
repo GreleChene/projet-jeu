@@ -39,12 +39,12 @@
   /* tier 0 = habitant, 1 = classe de base, 2 = spécialisation           */
   /* ------------------------------------------------------------------ */
   const CLASSES = {
-    habitant: { name: 'Habitant', tier: 0, parent: null, color: '#b89b72', weapon: 'club', hp: 100, dmg: 8, range: 36, cd: 1.0, speed: 82, armor: 0, desc: 'Tout le monde commence ici. Un bâton, du courage.' },
+    habitant: { name: 'Paysan', tier: 0, parent: null, color: '#b89b72', weapon: 'club', hp: 100, dmg: 8, range: 36, cd: 1.0, speed: 82, armor: 0, desc: 'Tout le monde commence ici, au centre de l’arbre. Un bâton, du courage.' },
 
     soldat: { name: 'Soldat', tier: 1, parent: 'habitant', color: '#c0392b', weapon: 'sword', shield: true, hp: 170, dmg: 12, range: 42, cd: 0.9, speed: 80, armor: 0.15, desc: 'Combattant au corps à corps, solide et fiable.' },
     paladin: { name: 'Paladin', tier: 2, parent: 'soldat', color: '#f2c14e', weapon: 'hammer', shield: true, hp: 240, dmg: 15, range: 46, cd: 0.95, speed: 78, armor: 0.25, ult: 'whirl', ultName: 'Tourbillon sacré', ultDesc: "Coup d'épée en cercle : 250% des dégâts à tous les ennemis autour.", desc: 'Rempart sacré du royaume.' },
-    berserker: { name: 'Berserker', tier: 2, parent: 'soldat', color: '#a8322d', weapon: 'greataxe', hp: 225, dmg: 18, range: 46, cd: 0.95, speed: 84, armor: 0.12, rage: { max: 0.4, leech: 0.03 }, ult: 'frenzy', ultName: 'Frénésie', ultDesc: 'Pendant 8 s : +50 % de vitesse d’attaque, ne peut pas tomber sous 1 PV, chaque coup touche les ennemis proches. Ensuite ralenti 2 s.', desc: 'Plus il est blessé, plus il frappe fort (+40 % de dégâts sous 30 % de PV) ; se soigne de 3 % des dégâts infligés.' },
-    chevalier: { name: 'Chevalier', tier: 2, parent: 'soldat', color: '#2f6fd1', weapon: 'lance', shield: true, hp: 215, dmg: 17, range: 52, cd: 0.9, speed: 86, armor: 0.2, ult: 'charge', ultName: 'Charge héroïque', ultDesc: 'Charge en avant et inflige 200% de ses dégâts de base sur sa trajectoire.', desc: 'Lance au poing, toujours en première ligne.' },
+    berserker: { name: 'Barbare', tier: 2, parent: 'soldat', color: '#a8322d', weapon: 'greataxe', hp: 225, dmg: 18, range: 46, cd: 0.95, speed: 84, armor: 0.12, rage: { max: 0.4, leech: 0.03 }, ult: 'frenzy', ultName: 'Frénésie', ultDesc: 'Pendant 8 s : +50 % de vitesse d’attaque, ne peut pas tomber sous 1 PV, chaque coup touche les ennemis proches. Ensuite ralenti 2 s.', desc: 'Plus il est blessé, plus il frappe fort (+40 % de dégâts sous 30 % de PV) ; se soigne de 3 % des dégâts infligés.' },
+    chevalier: { name: 'Chevalier', tier: 2, parent: 'soldat', color: '#2f6fd1', weapon: 'lance', shield: true, mount: 'horse', hp: 215, dmg: 17, range: 52, cd: 0.9, speed: 100, armor: 0.2, ult: 'charge', ultName: 'Charge héroïque', ultDesc: 'Charge en avant et inflige 200% de ses dégâts de base sur sa trajectoire.', desc: 'Lance au poing et à cheval, toujours en première ligne.' },
 
     mage: { name: 'Mage', tier: 1, parent: 'habitant', color: '#8e44ad', weapon: 'staff', projectile: 'orb', hp: 90, dmg: 14, range: 260, cd: 1.2, speed: 75, armor: 0, desc: 'Lance des orbes arcaniques à distance.' },
     glace: { name: 'Mage de glace', tier: 2, parent: 'mage', color: '#6ec6ff', weapon: 'staff', projectile: 'ice', hp: 100, dmg: 15, range: 270, cd: 1.15, speed: 75, armor: 0.05, onHit: { slow: 0.35, dur: 1.5 }, ult: 'frostcone', ultName: 'Vague de froid', ultDesc: 'Cône glacial devant lui : 200% des dégâts et gèle les ennemis 2,5 s.', desc: 'Ralentit tout ce qu’il touche.' },
@@ -52,9 +52,9 @@
     soin: { name: 'Mage de soin', tier: 2, parent: 'mage', color: '#7dff8a', weapon: 'staff', projectile: 'holy', hp: 110, dmg: 10, range: 240, cd: 1.2, speed: 78, armor: 0.05, healer: true, ult: 'massheal', ultName: 'Bénédiction', ultDesc: 'Soigne tous les alliés dans un rayon de 350 px (50% PV max).', desc: 'Soigne régulièrement l’allié le plus blessé.' },
 
     eleveur: { name: 'Éleveur', tier: 1, parent: 'habitant', color: '#2e9e57', weapon: 'whip', hp: 120, dmg: 9, range: 110, cd: 1.0, speed: 80, armor: 0.05, summons: { wolf: 1 }, desc: 'Combat aux côtés d’un loup apprivoisé.' },
-    dompteur: { name: 'Dompteur', tier: 2, parent: 'eleveur', color: '#d98c3a', weapon: 'whip', hp: 150, dmg: 11, range: 120, cd: 1.0, speed: 80, armor: 0.08, summons: { wolf: 2, bear: 1 }, ult: 'beastcall', ultName: 'Cri de la meute', ultDesc: 'Soigne ses bêtes et augmente leurs dégâts de 60% pendant 8 s.', desc: 'Loups et ours obéissent à sa voix.' },
-    fauconnier: { name: 'Fauconnier', tier: 2, parent: 'eleveur', color: '#b5835a', weapon: 'falcon', hp: 135, dmg: 11, range: 130, cd: 1.0, speed: 82, armor: 0.06, hawk: { every: 2, range: 400, mult: 1.2, mark: 0.1, markDur: 4 }, ult: 'hawkstorm', ultName: 'Nuée de rapaces', ultDesc: '6 faucons frappent pendant 8 s les monstres les plus proches de la tour et les aveuglent (50 % d’attaques ratées).', desc: 'Son faucon fond sur les ennemis à distance et les marque : +10 % de dégâts reçus.' },
-    necromancien: { name: 'Nécromancien', tier: 2, parent: 'eleveur', color: '#5b4a7a', weapon: 'scythe', hp: 130, dmg: 11, range: 140, cd: 1.0, speed: 78, armor: 0.05, raise: { chance: 0.35, max: 4 }, ult: 'revive', ultName: 'Relève-toi', ultDesc: 'Fait revenir un allié mort à 75% de ses PV ; le « zombie » perd 1% PV/s.', desc: 'Relève squelettes et zombies parmi les morts.' },
+    dompteur: { name: 'Dompteur', tier: 2, parent: 'eleveur', color: '#d98c3a', weapon: 'whip', hp: 150, dmg: 11, range: 120, cd: 1.0, speed: 80, armor: 0.08, pets: [{ kind: 'rat', n: 3, at: 1 }, { kind: 'wolf', n: 2, at: 3 }, { kind: 'bear', n: 1, at: 'ult' }], creatures: '🐀 Rats (dès la spécialisation) · 🐺 Loups (3e compétence) · 🐻 Ours (ultime)', ult: 'beastcall', ultName: 'Cri de la meute', ultDesc: 'Soigne ses bêtes et augmente leurs dégâts de 60% pendant 8 s.', desc: 'Rats, loups et ours obéissent à sa voix.' },
+    fauconnier: { name: 'Fauconnier', tier: 2, parent: 'eleveur', color: '#b5835a', weapon: 'falcon', hp: 135, dmg: 11, range: 130, cd: 1.0, speed: 82, armor: 0.06, hawk: { every: 2, range: 400, mult: 1.2, mark: 0.1, markDur: 4 }, pigeon: { every: 1.2, mult: 0.6, at: 3 }, eagle: { every: 6, mult: 3, stun: 0.6, at: 'ult' }, creatures: '🦅 Faucon (dès la spécialisation) · 🕊️ Pigeon (3e compétence) · 🦅 Aigle (ultime)', ult: 'hawkstorm', ultName: 'Nuée de rapaces', ultDesc: '6 faucons frappent pendant 8 s les monstres les plus proches de la tour et les aveuglent (50 % d’attaques ratées).', desc: 'Son faucon marque les ennemis (+10 % de dégâts reçus), son pigeon les harcèle, son aigle assomme les plus forts.' },
+    necromancien: { name: 'Nécromancien', tier: 2, parent: 'eleveur', color: '#5b4a7a', weapon: 'scythe', hp: 130, dmg: 11, range: 140, cd: 1.0, speed: 78, armor: 0.05, raise: { chance: 0.35, max: 5, kinds: [{ kind: 'slime', at: 1 }, { kind: 'zombie', at: 3 }, { kind: 'skelarcher', at: 'ult' }] }, creatures: '🟢 Slimes (dès la spécialisation) · 🧟 Zombies (3e compétence) · 🏹 Squelettes archers (ultime)', ult: 'revive', ultName: 'Relève-toi', ultDesc: 'Fait revenir un allié mort à 75% de ses PV ; le « zombie » perd 1% PV/s.', desc: 'Relève slimes, zombies et squelettes archers parmi les monstres tués.' },
 
     archer: { name: 'Archer', tier: 1, parent: 'habitant', color: '#27ae60', weapon: 'bow', projectile: 'arrow', hp: 100, dmg: 11, range: 340, cd: 0.9, speed: 85, armor: 0.02, desc: 'Tire de très loin.' },
     arbaletrier: { name: 'Arbalétrier', tier: 2, parent: 'archer', color: '#7f8c8d', weapon: 'crossbow', projectile: 'bolt', hp: 120, dmg: 17, range: 360, cd: 1.15, speed: 82, armor: 0.06, ult: 'rapidfire', ultName: 'Tir en rafale', ultDesc: 'Vitesse d’attaque ×3 pendant 6 s.', desc: 'Carreaux lourds, cadence implacable.' },
@@ -64,19 +64,15 @@
     assassin: { name: 'Assassin', tier: 1, parent: 'habitant', color: '#34495e', weapon: 'daggers', hp: 95, dmg: 15, range: 34, cd: 0.7, speed: 118, armor: 0.02, crit: 0.25, desc: 'Rapide, coups critiques fréquents.' },
     ombre: { name: 'Ombre', tier: 2, parent: 'assassin', color: '#5b4a7a', weapon: 'daggers', hp: 115, dmg: 18, range: 34, cd: 0.65, speed: 122, armor: 0.04, crit: 0.3, stealth: { every: 10, dur: 3 }, ult: 'smoke', ultName: 'Écran de fumée', ultDesc: 'Nuage de fumée : les alliés à l’intérieur deviennent invisibles pour les monstres.', desc: 'Disparaît toutes les 10 s.' },
     alchimiste: { name: 'Alchimiste', tier: 2, parent: 'assassin', color: '#7fd13b', weapon: 'flask', projectile: 'flask', hp: 110, dmg: 13, range: 210, cd: 0.9, speed: 112, armor: 0.03, crit: 0.2, venom: { max: 5, pct: 0.15, dur: 5, boss: 1.5 }, ult: 'acid', ultName: 'Pluie d’acide', ultDesc: '5 fioles sur les plus grands groupes : flaques d’acide pendant 6 s (3 doses de poison par seconde, +30 % de dégâts reçus).', desc: 'Ses fioles empoisonnent (jusqu’à 5 doses cumulées) ; poison renforcé contre les boss.' },
-    fleche: { name: 'Flèche', tier: 2, parent: 'assassin', color: '#e74c3c', weapon: 'daggers', hp: 110, dmg: 19, range: 34, cd: 0.7, speed: 125, armor: 0.03, crit: 0.3, dash: { every: 6, range: 320 }, ult: 'chaindash', ultName: 'Danse mortelle', ultDesc: 'Dash critique derrière un ennemi ; s’il meurt, enchaîne sur un autre, sans limite.', desc: 'Toutes les 6 s, surgit derrière l’ennemi le plus faible.' },
+    fleche: { name: 'Flèche', tier: 2, parent: 'assassin', color: '#e74c3c', weapon: 'daggers', hp: 110, dmg: 19, range: 34, cd: 0.7, speed: 125, armor: 0.03, crit: 0.3, dash: { every: 6, range: 320 }, ult: 'chaindash', ultName: 'Danse mortelle', ultDesc: 'Dash critique derrière un ennemi ; s’il meurt, enchaîne sur un autre (5 fois au plus).', desc: 'Toutes les 6 s, surgit derrière l’ennemi le plus faible.' },
 
-    paysan: { name: 'Paysan', tier: 1, parent: 'habitant', color: '#c8a24a', weapon: 'pitchfork', hp: 115, dmg: 7, range: 40, cd: 1.0, speed: 82, armor: 0.03, harvest: 'any', desc: 'Récolte des écus pour débloquer de meilleures améliorations.' },
-    agriculteur: { name: 'Agriculteur', tier: 2, parent: 'paysan', color: '#f1c40f', weapon: 'scythe', hp: 135, dmg: 9, range: 42, cd: 1.0, speed: 82, armor: 0.05, harvest: 'field', ult: 'harvestheal', ultName: 'Festin', ultDesc: 'Soigne tous les alliés de 35% de leurs PV max.', desc: 'Les champs nourrissent l’armée.' },
-    bucheron: { name: 'Bûcheron', tier: 2, parent: 'paysan', color: '#8b5a2b', weapon: 'axe', hp: 150, dmg: 11, range: 42, cd: 1.05, speed: 80, armor: 0.06, harvest: 'tree', ult: 'towerheal', ultName: 'Réparations', ultDesc: 'Soigne la tour de 12% de ses PV max.', desc: 'Du bois pour réparer les remparts.' },
-    mineur: { name: 'Mineur', tier: 2, parent: 'paysan', color: '#95a5a6', weapon: 'pickaxe', hp: 145, dmg: 10, range: 40, cd: 1.0, speed: 78, armor: 0.08, harvest: 'rock', ult: 'fortify', ultName: 'Fortification', get ultDesc() { return `Augmente les PV max de la tour de ${Math.round(BALANCE.FORTIFY_PCT * 1000) / 10} % (recharge ${BALANCE.FORTIFY_ULT_TIME} s).`; }, desc: 'La pierre rend la tour plus solide.' },
 
     menestrel: { name: 'Ménestrel', tier: 1, parent: 'habitant', color: '#d6457a', weapon: 'lute', projectile: 'note', pierce: 2, hp: 120, dmg: 9, range: 160, cd: 1.0, speed: 82, armor: 0.04, aura: { atkspd: 0.08, dmg: 0, r: 180 }, desc: 'Ses notes traversent les monstres ; les héros proches attaquent 8 % plus vite.' },
     troubadour: { name: 'Troubadour', tier: 2, parent: 'menestrel', color: '#ff9f43', weapon: 'lute', projectile: 'note', pierce: 3, hp: 140, dmg: 11, range: 170, cd: 0.95, speed: 82, armor: 0.05, aura: { atkspd: 0.12, dmg: 0.06, r: 200 }, ult: 'anthem', ultName: 'Hymne de bravoure', ultDesc: 'Pendant 8 s, tous les héros vivants ont +30 % de dégâts et +20 % de vitesse d’attaque (les hymnes ne se cumulent pas).', desc: 'Les héros proches attaquent 12 % plus vite et frappent 6 % plus fort.' },
     tambour: { name: 'Tambour de guerre', tier: 2, parent: 'menestrel', color: '#b5651d', weapon: 'drum', hp: 175, dmg: 11, range: 60, cd: 1.0, speed: 80, armor: 0.1, splash: 70, aura: { atkspd: 0.08, dmg: 0, r: 180 }, quake: { every: 7, r: 130, stun: 0.6, push: 45 }, ult: 'thunder', ultName: 'Roulement de tonnerre', ultDesc: 'Grande onde autour de la tour : étourdit les monstres 2,5 s (boss ralentis) et inflige 500 % des dégâts.', desc: 'Toutes les 7 s, une onde de choc repousse et étourdit les monstres proches.' },
     enchanteresse: { name: 'Enchanteresse', tier: 2, parent: 'menestrel', color: '#ff7ad9', weapon: 'harp', projectile: 'charm', hp: 115, dmg: 12, range: 230, cd: 1.0, speed: 82, armor: 0.04, aura: { atkspd: 0.08, dmg: 0, r: 180 }, charm: { chance: 0.1, dur: 3 }, ult: 'enchant', ultName: 'Chant envoûtant', ultDesc: 'Charme jusqu’à 6 monstres (hors boss) pendant 10 s : ils se battent pour l’équipe, puis meurent.', desc: '10 % de chances par attaque de charmer un monstre 3 s (il n’attaque plus).' }
   };
-  const BASE_CLASSES = ['soldat', 'mage', 'eleveur', 'archer', 'assassin', 'paysan', 'menestrel'];
+  const BASE_CLASSES = ['soldat', 'mage', 'eleveur', 'archer', 'assassin', 'menestrel'];
 
   /*
    * Arbres de compétences : une branche par spécialisation.
@@ -99,9 +95,6 @@
     ombre: [['Discrétion', { speed: 0.05 }], ['Lames empoisonnées', { dmg: 0.05 }], ['Fumigènes', { ult: 0.08 }], ['Danse des ombres', { crit: 0.03 }], ['Assassinat', { dmg: 0.06 }]],
     alchimiste: [['Dosage', { venomMax: 1 }], ['Concentré', { venomMul: 0.05 }], ['Lancer précis', { atkspd: 0.05 }], ['Distillation', { ult: 0.08 }], ['Antidote', { hp: 0.05 }]],
     fleche: [['Précision', { crit: 0.03 }], ['Vivacité', { atkspd: 0.05 }], ['Exécution', { dmg: 0.06 }], ['Course', { speed: 0.05 }], ['Lame fatale', { crit: 0.03 }]],
-    agriculteur: [['Semailles', { harvest: 0.1 }], ['Robustesse', { hp: 0.05 }], ['Abondance', { harvest: 0.12 }], ['Grenier plein', { harvest: 0.12 }], ['Bonne santé', { hp: 0.06 }]],
-    bucheron: [['Bras solides', { dmg: 0.05 }], ['Coupe franche', { harvest: 0.1 }], ['Charpentier', { armor: 0.03 }], ['Endurance du bûcheron', { hp: 0.06 }], ['Hache lourde', { dmg: 0.06 }]],
-    mineur: [['Endurance', { hp: 0.06 }], ['Filons', { harvest: 0.1 }], ['Peau de pierre', { armor: 0.03 }], ['Veine d’or', { harvest: 0.12 }], ['Mineur aguerri', { dmg: 0.05 }]],
     troubadour: [['Voix portante', { auraR: 0.15 }], ['Refrain', { ult: 0.08 }], ['Crescendo', { dmg: 0.05 }], ['Harmonie', { hp: 0.05 }], ['Rappel', { anthemDur: 1 }]],
     tambour: [['Peau tendue', { hp: 0.05 }], ['Cadence', { quakeCd: 0.5 }], ['Écho', { quakeR: 0.1 }], ['Grondement', { dmg: 0.05 }], ['Tonnerre', { quakeStun: 0.2 }]],
     enchanteresse: [['Doigts agiles', { atkspd: 0.05 }], ['Mélopée', { charmChance: 0.02 }], ['Sérénade', { ult: 0.08 }], ['Fascination', { charmMax: 1 }], ['Grâce', { crit: 0.03 }]]
@@ -114,11 +107,12 @@
     eleveur: ['Ami des bêtes', { hp: 0.02, dmg: 0.02 }],
     archer: ['Tir à la cible', { crit: 0.02 }],
     assassin: ['Pas de velours', { speed: 0.03, crit: 0.01 }],
-    paysan: ['Travaux des champs', { hp: 0.03, harvest: 0.05 }],
     menestrel: ['Gammes', { atkspd: 0.03, ult: 0.02 }]
   };
   const SKILL_MAX_RANK = 3;
   const SKILLS = {};
+  // Centre de l'arbre (le Paysan) : disponible à tout moment, ne bloque aucune branche
+  SKILLS.core_1 = { id: 'core_1', core: true, name: 'Courage du paysan', bonus: { hp: 0.02, dmg: 0.02 }, max: SKILL_MAX_RANK, requires: null };
   for (const [base, [name, bonus]] of Object.entries(INITIATION)) {
     SKILLS[`init_${base}`] = { id: `init_${base}`, init: true, base, name, bonus, max: SKILL_MAX_RANK, requires: null };
   }
@@ -131,6 +125,9 @@
     SKILLS[`${spec}_mastery`] = { id: `${spec}_mastery`, base, spec, step: nodes.length + 2, mastery: true, name: `Maîtrise : ${CLASSES[spec].name}`, bonus: { hp: 0.02, dmg: 0.02 }, max: 5, requires: `${spec}_ult` };
   }
   // Branche (spécialisation) déjà entamée : les autres branches sont alors bloquées
+  // Arbre : le centre (Paysan), une branche par classe (initiation), une sous-branche par spécialisation.
+  // Mettre un point dans une branche fait devenir la classe (puis la spécialisation) et grise les autres.
+  const ultUnlocked = (skills, cls) => !!(skills && CLASSES[cls] && CLASSES[cls].tier === 2 && skills[`${cls}_ult`]);
   const startedBranch = (skills) => {
     for (const [id, r] of Object.entries(skills || {})) if (r > 0 && SKILLS[id] && SKILLS[id].spec) return SKILLS[id].spec;
     return null;
@@ -160,7 +157,7 @@
   // Le niveau n'augmente PAS les statistiques : seuls les points de stat (et l'équipement) le font.
   // Chaque niveau rapporte des points de stat et des glaçons.
   const PROGRESSION = {
-    CLASS_LEVEL: 7, // niveau pour quitter « habitant » (et choisir sa classe)
+    CLASS_LEVEL: 7, // niveau pour entrer dans une branche de classe (le Paysan est le centre de l'arbre ; identifiant interne « habitant »)
     ULT_LEVEL: 30, // niveau requis pour débloquer l'ultime (bout de branche)
     MAX_LEVEL: 100,
     POINTS_PER_LEVEL: 1,
@@ -210,8 +207,6 @@
     BOSS_DMG: 0.6, // multiplicateur des dégâts des boss (en plus)
     BOSS_WAVE_EXP: 0.7, // les PV des boss suivent la croissance par manche à la puissance 0,7 (plus douce)
     TOWER_WALLS_PCT: 0.02, // vote « Remparts » : part des PV max de la tour ajoutée (et soignée) par niveau
-    FORTIFY_PCT: 0.01, // ultime du Mineur « Fortification » : part des PV max de la tour ajoutée
-    FORTIFY_ULT_TIME: 75, // temps de charge de l'ultime du Mineur (s), plus long que les autres ultimes
     WAVE_XP_BASE: 10, // récompense de fin de manche (par héros)
     WAVE_XP_PER_WAVE: 4,
     WAVE_GRELONS_BASE: 2,
@@ -222,9 +217,6 @@
     // les écus d'élimination diminuent au fil de la partie (÷2 vers la manche ECUS_LATE_DECAY, ÷4 vers 3× cette manche)
     // pour éviter d'accumuler des milliers d'écus inutilisés en fin de partie
     ECUS_LATE_DECAY: 30,
-    HARVEST_INTERVAL: 3, // paysans : une récolte toutes les X secondes
-    HARVEST_BASE: 1, // les récoltes diminuent aussi au fil de la partie (même règle que les éliminations)
-    HARVEST_PER_LEVEL: 0.08,
     HAZARD_BASE: 2, // zones dangereuses du biome par manche = BASE + PAR_MANCHE×m (max HAZARD_MAX)
     HAZARD_PER_WAVE: 0.08,
     HAZARD_MAX: 4,
@@ -244,7 +236,6 @@
    * car la tour est dessinée en hauteur). Les classes de soutien sont les plus proches.
    */
   const BUILDINGS = [
-    { family: 'paysan', name: 'Ferme', angle: 45, dist: 150 },
     { family: 'habitant', name: 'Chaumière', angle: 129, dist: 160 },
     { family: 'mage', name: 'Tour des mages', angle: 171, dist: 200 },
     { family: 'eleveur', name: 'Étable', angle: 321, dist: 215 },
@@ -268,7 +259,7 @@
     }
   }
   // Classes de soutien (ferme, mine, scierie, chaumière) : au plus près de la tour
-  const SUPPORT_FAMILIES = ['paysan', 'habitant'];
+  const SUPPORT_FAMILIES = ['habitant'];
   // Choisit un emplacement libre, sans chevaucher les habitations existantes : les classes de soutien prennent
   // l'anneau libre le plus proche de la tour ; les autres un emplacement au hasard (classes mélangées), un peu plus loin.
   function placeBuilding(family, taken, rnd) {
@@ -287,7 +278,8 @@
     return { x: s.x, y: s.y };
   }
   // Variante d'habitation selon la spécialisation (les paysans spécialisés ont leur propre bâtiment)
-  const BUILDING_VARIANTS = { mineur: { key: 'mine', name: 'Mine' }, bucheron: { key: 'scierie', name: 'Scierie' } };
+  // (les dessins de la ferme, de la mine et de la scierie restent disponibles dans art.js)
+  const BUILDING_VARIANTS = {};
   /*
    * Améliorations d'habitation (achetées avec des Grêlons, conservées d'une partie à l'autre).
    * PV : s'additionnent quand l'habitation est partagée. Soin : moyenne des occupants (pas de double soin).
@@ -298,7 +290,6 @@
     heal: { name: 'Lits douillets', icon: '🛏️', per: 0.1, max: 10, cost: 100, growth: 1.45, desc: (v) => `+${Math.round(v * 100)}% de puissance de soin` }
   };
   const HOUSE_SPECIALS = {
-    paysan: { name: 'Grenier', icon: '🌾', per: 0.04, max: 5, cost: 180, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% d’écus récoltés` },
     habitant: { name: 'Foyer chaleureux', icon: '🔥', per: 0.03, max: 5, cost: 150, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% d’XP gagnée` },
     mage: { name: 'Bibliothèque', icon: '📚', per: 0.03, max: 5, cost: 200, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% de charge de l’ultime` },
     eleveur: { name: 'Enclos', icon: '🐺', per: 0.06, max: 5, cost: 200, growth: 1.7, desc: (v) => `+${Math.round(v * 100)}% de PV et dégâts des invocations` },
@@ -363,7 +354,6 @@
       speed: c.speed * (1 + A.vitesse.per * a.vitesse + ispeed + (sb.speed || 0)),
       crit: Math.min(0.8, (c.crit || 0.05) + A.critique.per * a.critique + (sb.crit || 0)),
       ultRate: 1 + (sb.ult || 0),
-      harvestMult: 1 + (sb.harvest || 0),
       range: c.range,
       leash: c.leash || 9999,
       // bonus de spécialisation (rayon d'aura, pièges, poison…)
@@ -421,7 +411,7 @@
 
   /*
    * Sets. families = familles autorisées (null = toutes les classes).
-   * bonus[n] = bonus actif quand n pièces du set sont portées (hp/dmg/armor/speed/crit/atkspd/ult/harvest).
+   * bonus[n] = bonus actif quand n pièces du set sont portées (hp/dmg/armor/speed/crit/atkspd/ult).
    */
   const SETS = {
     rempart: { name: 'Rempart', of: 'du Rempart', families: ['soldat'], style: 'heavy', main: '#b8c1cc', trim: '#4e6d95', bonus: { 2: { hp: 0.1 }, 4: { armor: 0.08 }, 5: { dmg: 0.15 } } },
@@ -430,12 +420,11 @@
     faucon: { name: 'Œil-de-faucon', of: 'de l’Œil-de-faucon', families: ['archer'], style: 'leather', main: '#3f5a3a', trim: '#c8a24a', bonus: { 2: { crit: 0.05 }, 4: { atkspd: 0.15 }, 5: { dmg: 0.15 } } },
     lamenuit: { name: 'Lame-nuit', of: 'de la Lame-nuit', families: ['assassin'], style: 'leather', main: '#2b2433', trim: '#e74c3c', bonus: { 2: { speed: 0.1 }, 4: { crit: 0.1 }, 5: { dmg: 0.2 } } },
     barde: { name: 'Barde', of: 'du Barde', families: ['menestrel'], style: 'cloth', main: '#a33a6a', trim: '#f2c14e', bonus: { 2: { atkspd: 0.08 }, 4: { ult: 0.25 }, 5: { dmg: 0.12 } } },
-    moisson: { name: 'Moisson', of: 'de la Moisson', families: ['paysan'], style: 'worker', main: '#a35a2a', trim: '#f1c40f', bonus: { 2: { hp: 0.15 }, 4: { harvest: 0.3 }, 5: { armor: 0.1 } } },
     // sets universels (toutes classes) : 5 pièces, arme comprise (un peu moins forte qu'une arme de classe)
     voyageur: { name: 'Voyageur', of: 'du Voyageur', families: null, style: 'leather', main: '#9a6a3e', trim: '#5e3a1f', weapon: { dmg: 0.09, speed: 0.03 }, bonus: { 2: { speed: 0.06 }, 4: { hp: 0.1 }, 5: { dmg: 0.06 } } },
     givre: { name: 'Givre éternel', of: 'du Givre éternel', families: null, style: 'heavy', main: '#bfe6ff', trim: '#2f6fd1', weapon: { dmg: 0.09, armor: 0.02 }, bonus: { 2: { armor: 0.05 }, 4: { hp: 0.12 }, 5: { dmg: 0.06 } } },
     braise: { name: 'Braise', of: 'de Braise', families: null, style: 'cloth', main: '#9b2f4a', trim: '#ff7a1a', weapon: { dmg: 0.11 }, bonus: { 2: { dmg: 0.06 }, 4: { crit: 0.06 }, 5: { dmg: 0.06 } } },
-    // armes de l'Habitant (avant le choix de classe) : arme seule, sans armure
+    // armes du Paysan (avant le choix de classe) : arme seule, sans armure
     milice: { name: 'Milicien', of: 'du Milicien', families: ['habitant'], weaponOnly: true, style: 'worker', main: '#8a6a40', trim: '#c9a040', weapon: { dmg: 0.12, hp: 0.03 }, bonus: {} },
     pelerin: { name: 'Pèlerin', of: 'du Pèlerin', families: ['habitant'], weaponOnly: true, style: 'leather', main: '#6b5a3a', trim: '#8fc0e0', weapon: { dmg: 0.1, speed: 0.04 }, bonus: {} }
   };
@@ -461,7 +450,7 @@
   TEMPLATES.memoire = { slot: 'consumable', consumable: 'skill', name: 'Parchemin de mémoire', icon: '📜', rarity: 3, desc: 'Rend 1 point de compétence perdu en reconversion', hp: 0, armor: 0, dmg: 0, speed: 0 };
   const isConsumable = (tid) => !!(TEMPLATES[tid] && TEMPLATES[tid].consumable);
   const setSize = (sid) => Object.values(TEMPLATES).filter((t) => t.set === sid).length;
-  const STAT_NAMES = { hp: 'PV', dmg: 'dégâts', armor: 'défense', speed: 'vitesse', crit: 'critique', atkspd: 'vitesse d’attaque', ult: 'charge de l’ultime', harvest: 'récolte' };
+  const STAT_NAMES = { hp: 'PV', dmg: 'dégâts', armor: 'défense', speed: 'vitesse', crit: 'critique', atkspd: 'vitesse d’attaque', ult: 'charge de l’ultime' };
   // Bonus propres à une spécialisation (mécaniques de classe), affichés avec leur propre format
   const SKILL_MODS = {
     leech: (v) => `+${Math.round(v * 100)} % de vol de vie`,
@@ -498,7 +487,7 @@
     return out;
   }
   // Nom affiché : les armes prennent le nom de l'arme réelle de la classe (marteau, arbalète…)
-  const WEAPON_KIND = { club: 'Gourdin', sword: 'Épée', hammer: 'Marteau', lance: 'Lance', staff: 'Bâton', whip: 'Fouet', scythe: 'Faux', bow: 'Arc', longbow: 'Arc long', crossbow: 'Arbalète', daggers: 'Dagues', pitchfork: 'Fourche', axe: 'Hache', pickaxe: 'Pioche' };
+  const WEAPON_KIND = { club: 'Gourdin', sword: 'Épée', hammer: 'Marteau', lance: 'Lance', staff: 'Bâton', whip: 'Fouet', scythe: 'Faux', bow: 'Arc', longbow: 'Arc long', crossbow: 'Arbalète', daggers: 'Dagues' };
   function itemName(item, cls) {
     const t = TEMPLATES[item && item.t];
     if (!t) return '?';
@@ -629,7 +618,11 @@
     // Invocations alliées (dessinées avec le même style)
     ally_wolf: { name: 'Loup', ally: true, shape: 'wolf', color: '#9a8a74', hp: 0.6, dmg: 0.6, speed: 115, range: 22, cd: 0.8, size: 12 },
     ally_bear: { name: 'Ours', ally: true, shape: 'boar', color: '#6b4a2e', hp: 1.6, dmg: 1.0, speed: 75, range: 30, cd: 1.3, size: 18 },
-    ally_skeleton: { name: 'Squelette', ally: true, shape: 'skeleton', color: '#e8e2cf', hp: 0.5, dmg: 0.5, speed: 85, range: 24, cd: 1, size: 12 }
+    ally_skeleton: { name: 'Squelette', ally: true, shape: 'skeleton', color: '#e8e2cf', hp: 0.5, dmg: 0.5, speed: 85, range: 24, cd: 1, size: 12 },
+    ally_rat: { name: 'Rat', ally: true, shape: 'rat', color: '#7d7684', hp: 0.25, dmg: 0.3, speed: 125, range: 18, cd: 0.6, size: 9 },
+    ally_slime: { name: 'Slime', ally: true, shape: 'slime', color: '#58c84a', hp: 0.9, dmg: 0.35, speed: 60, range: 22, cd: 1.1, size: 12, onHit: { slow: 0.3, dur: 1.5 } },
+    ally_zombie: { name: 'Zombie', ally: true, shape: 'zombie', color: '#7a9a5a', hp: 1.3, dmg: 0.65, speed: 50, range: 26, cd: 1.3, size: 15 },
+    ally_skelarcher: { name: 'Squelette archer', ally: true, ranged: true, shape: 'skeleton', color: '#e8e2cf', hp: 0.5, dmg: 0.55, speed: 80, range: 230, cd: 1.4, size: 12 }
   };
   const MOB_IDS = Object.keys(MOBS);
 
@@ -707,9 +700,9 @@
   const NET = {
     PROJ_KINDS: ['arrow', 'bolt', 'orb', 'ice', 'fire', 'holy', 'frost', 'poison', 'fireball', 'rock', 'ballista', 'note', 'charm', 'flask'],
     ZONE_KINDS: ['smoke', 'poison', 'telegraph', 'tline', 'fire', 'ice', 'toxic', 'lava', 'trap', 'thorns', 'acid'],
-    HF: { DEAD: 1, STEALTH: 2, ZOMBIE: 4, ATTACK: 8, FURY: 16, SHIELD: 32, SLOW: 64, POISON: 128, BURN: 256, HARVEST: 512, ULT: 1024, RETREAT: 2048, DASH: 4096, SONG: 8192, ANTHEM: 16384 },
+    HF: { DEAD: 1, STEALTH: 2, ZOMBIE: 4, ATTACK: 8, FURY: 16, SHIELD: 32, SLOW: 64, POISON: 128, BURN: 256, ULT: 1024, RETREAT: 2048, DASH: 4096, SONG: 8192, ANTHEM: 16384 },
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

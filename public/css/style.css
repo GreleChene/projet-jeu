@@ -273,3 +273,49 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 .reward-list { display: grid; gap: 6px; margin-top: 10px; }
 .reward-line { display: flex; justify-content: space-between; padding: 6px 10px; border-radius: 8px; background: rgba(0,0,0,.18); }
 .reward-line b { color: var(--gold); }
+
+/* ---------- Arbre de compétences : centre (Paysan) → branches de classe → sous-branches ---------- */
+.sktree { display: flex; flex-direction: column; gap: 12px; }
+.tdetail { position: sticky; top: 8px; z-index: 5; margin: 0; border-color: var(--bc, var(--gold)); box-shadow: inset 0 0 0 1.5px var(--border), 0 8px 24px rgba(0,0,0,.45); }
+.troot { display: flex; align-items: center; gap: 12px; align-self: center; background: var(--panel2); border: 2px solid var(--outline); border-radius: 999px; padding: 8px 18px 8px 10px; box-shadow: inset 0 0 0 2px var(--gold); }
+.troot canvas, .tclass canvas, .tspec canvas { flex: none; background: #18121f; border-radius: 10px; }
+.troot.here { box-shadow: inset 0 0 0 3px var(--gold), 0 0 18px rgba(242,193,78,.35); }
+.ttrunk { display: flex; flex-direction: column; gap: 12px; position: relative; padding-left: 22px; }
+.ttrunk::before { content: ''; position: absolute; left: 8px; top: -12px; bottom: 30px; width: 4px; border-radius: 2px; background: var(--gold); opacity: .6; }
+.trow { position: relative; display: grid; grid-template-columns: 230px 1fr; gap: 10px; background: var(--panel); border: 2px solid var(--outline); border-radius: var(--radius); padding: 10px; box-shadow: inset 0 0 0 1.5px var(--border), inset 4px 0 0 var(--bc); }
+.trow::before { content: ''; position: absolute; left: -16px; top: 34px; width: 16px; height: 4px; background: var(--gold); opacity: .6; }
+.trow.here { box-shadow: inset 0 0 0 2px var(--bc), 0 0 16px rgba(0,0,0,.35); }
+.tclass { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; align-content: flex-start; }
+.tclass > div:nth-child(2) { flex: 1; min-width: 120px; }
+.tlanes { display: flex; flex-direction: column; gap: 6px; border-left: 3px solid var(--bc); padding-left: 10px; overflow-x: auto; }
+.tlane { display: grid; grid-template-columns: 175px auto; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 10px; }
+.tlane.here { background: rgba(255,255,255,.05); box-shadow: inset 0 0 0 1.5px var(--bc); }
+.tspec { display: flex; gap: 8px; align-items: center; }
+.tname { font-weight: 800; font-size: .95rem; }
+.tiny { font-size: .72rem; line-height: 1.25; }
+.tchain { display: flex; align-items: center; gap: 0; }
+.tchain .tnode + .tnode { margin-left: 8px; position: relative; }
+.tchain .tnode + .tnode::before { content: ''; position: absolute; left: -10px; top: 50%; width: 10px; height: 3px; background: var(--border); }
+.tchain .tnode.owned + .tnode::before { background: var(--bc, var(--gold)); }
+.tnode { flex: none; width: 38px; height: 38px; padding: 0; border-radius: 50%; font-size: .72rem; font-weight: 800; background: #18121f; color: var(--muted); border: 2px solid var(--outline); box-shadow: inset 0 0 0 2px var(--border); cursor: pointer; }
+.tnode.owned { color: #1a1214; background: var(--bc, var(--gold)); box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
+.tnode.can { color: var(--gold); box-shadow: inset 0 0 0 2px var(--gold), 0 0 10px rgba(242,193,78,.45); }
+.tnode.sel { outline: 3px solid #ffffff; outline-offset: 2px; }
+.tnode.tmastery { width: 34px; height: 34px; }
+.tnode.tinit, .tnode.tcore { width: 48px; height: 48px; }
+.tnode.tult { width: 215px; height: auto; min-height: 42px; border-radius: 12px; padding: 5px 8px; text-align: left; display: flex; flex-direction: column; gap: 2px; font-weight: 600; color: var(--text); }
+.tnode.tult b { color: var(--gold); font-size: .8rem; }
+.tnode.tult span { font-size: .7rem; line-height: 1.25; color: var(--text); }
+.tnode.tult em { font-size: .65rem; color: var(--muted); font-style: normal; }
+.tnode.tult.owned { background: #2a2216; color: var(--text); box-shadow: inset 0 0 0 2px var(--gold); }
+.tlocked { filter: grayscale(1) brightness(.8); }
+.tlocked .tname, .tlocked .title, .tlocked .tnode:not(.tult) { opacity: .6; }
+.tlocked .tnode { cursor: default; }
+@media (max-width: 760px) {
+  .trow { grid-template-columns: 1fr; }
+  .tlane { grid-template-columns: 1fr; }
+  .tlanes { overflow-x: visible; }
+  .tlane .tchain { flex-wrap: wrap; row-gap: 8px; }
+  .tchain .tnode.tult { width: 100%; margin-left: 0; }
+  .tchain .tnode.tult::before { display: none; }
+}

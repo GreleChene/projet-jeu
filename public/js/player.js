@@ -11,12 +11,12 @@
 
   /* ============================== Authentification ============================== */
   // Héros de démonstration (écran de connexion) : un set complet par classe, raretés variées
-  const DEMO_SETS = ['rempart', 'arcaniste', 'faucon', 'maitrebete', 'lamenuit', 'moisson'];
+  const DEMO_SETS = ['rempart', 'arcaniste', 'faucon', 'maitrebete', 'lamenuit', 'barde'];
   const DEMO_GEAR = DEMO_SETS.map((sid, i) => Object.fromEntries(GD.SLOTS.map((s) => [s, GD.TEMPLATES[`${sid}_${s}`] ? { t: `${sid}_${s}`, r: [3, 2, 1, 5, 2, 4][i] } : null])));
   (function authArt() {
     const cv = $('#authArt');
     const ctx = cv.getContext('2d');
-    const specs = ['paladin', 'glace', 'arclong', 'necromancien', 'ombre', 'mineur'];
+    const specs = ['paladin', 'glace', 'arclong', 'necromancien', 'ombre', 'troubadour'];
     let t = 0;
     (function loop() {
       t += 1 / 60;
@@ -240,6 +240,7 @@
     return cv;
   }
 
+  let selSkill = null; // compétence affichée dans le détail de l’arbre
   function renderClasses() {
     const PR = GD.PROGRESSION;
     const cur = GD.CLASSES[me.cls];
@@ -252,82 +253,114 @@
     const sk = me.skills || {};
     $('#skillBadge').textContent = pts.free || '';
 
-    // Carte d'une compétence (passive à rangs, ultime ou maîtrise)
-    const node = (n, opts = {}) => {
-      const rank = sk[n.id] || 0;
-      const unlocked = (!n.requires || sk[n.requires]) && !opts.locked;
-      const levelOk = !n.ult || me.level >= PR.ULT_LEVEL;
-      const canBuy = pts.free > 0 && unlocked && levelOk && rank < n.max;
-      if (n.ult) {
-        const S = GD.CLASSES[n.spec];
-        return el('div', { class: 'skill ult' + (rank ? ' owned' : '') + (unlocked ? '' : ' locked') },
-          el('div', { class: 'skill-name' }, `✨ ${S.ultName}`),
-          el('div', { class: 'small' }, S.ultDesc),
-          el('div', { class: 'small muted' }, `Ultime · niveau ${PR.ULT_LEVEL} requis · fait devenir ${S.name}.`),
-          rank ? el('span', { class: 'chip small' }, 'Débloqué')
-            : el('button', { class: 'small primary', disabled: !canBuy, onclick: () => learn(n, S) }, !unlocked ? '🔒' : !levelOk ? `🔒 Niveau ${PR.ULT_LEVEL}` : 'Débloquer (1 pt)'));
-      }
-      return el('div', { class: 'skill' + (rank ? ' owned' : '') + (unlocked ? '' : ' locked') + (n.mastery ? ' mastery' : '') },
-        el('div', { class: 'row', style: 'gap:6px' }, el('span', { class: 'skill-name' }, n.name), el('span', { class: 'spacer' }), el('span', { class: 'chip small' }, `${rank}/${n.max}`)),
-        el('div', { class: 'small muted' }, `${bonusLine(n.bonus)} par rang`),
-        el('button', { class: 'small' + (canBuy ? ' primary' : ''), disabled: !canBuy, onclick: () => learn(n) }, !unlocked ? '🔒' : rank >= n.max ? 'Max' : '+1'));
-    };
-
-    // Habitant : arbre d'initiation + choix de la classe au niveau CLASS_LEVEL
-    if (cur.tier === 0) {
-      const can = me.level >= PR.CLASS_LEVEL;
-      $('#evoHint').replaceChildren(
-        el('div', {}, `Tu es « Habitant ». Entraîne-toi dans l’arbre d’initiation, puis choisis ta classe au niveau ${PR.CLASS_LEVEL}. `,
-          el('b', { style: 'color:var(--gold)' }, `${pts.free} point(s) de compétence`), ` (1 tous les ${PR.SKILL_EVERY} niveaux).`),
-        el('div', { class: 'small muted' }, 'Quand tu choisis ta classe, l’initiation de cette classe est conservée et les points des autres initiations te sont rendus.'),
-        el('div', { class: 'small', style: 'margin-top:4px;color:var(--gold)' }, `⚠️ Tu pourras changer de classe plus tard (reconversion), mais tu perdras ${Math.round(PR.SKILL_RESPEC_LOSS * 100)}\u00a0% des points de compétence attribués.`));
-      tree.className = 'tree skilltree';
-      tree.replaceChildren(...GD.BASE_CLASSES.map((base) => {
-        const b = GD.CLASSES[base];
-        return el('div', { class: 'branch', style: `--bc:${b.color}` },
-          el('div', { class: 'cls' }, miniHero(base),
-            el('div', {},
-              el('div', { class: 'title', style: `color:${b.color}` }, b.name),
-              el('div', { class: 'small muted' }, b.desc),
-              el('div', { class: 'small muted' }, 'Spécialisations : ' + GD.specsOf(base).map((s) => GD.CLASSES[s].name).join(' ou ')))),
-          el('div', { class: 'skill-col' }, node(GD.SKILLS[`init_${base}`])),
-          el('button', { class: 'primary', style: 'margin-top:10px;width:100%', disabled: !can, onclick: () => pickClass(base) }, can ? 'Devenir ' + b.name : `🔒 Niveau ${PR.CLASS_LEVEL}`));
-      }));
-      return;
-    }
-
-    // Classe choisie : initiation + une seule branche de spécialisation
     const base = GD.familyOf(me.cls);
     const started = GD.startedBranch(sk);
     const lossNow = Math.floor(pts.spent * PR.SKILL_RESPEC_LOSS);
+
+    // État d'une compétence (mêmes règles que le serveur)
+    const stateOf = (n) => {
+      const rank = sk[n.id] || 0;
+      let reason = '';
+      if (n.core) { /* toujours disponible */ }
+      else if (n.init) {
+        if (cur.tier === 0) { if (me.level < PR.CLASS_LEVEL) reason = `Niveau ${PR.CLASS_LEVEL} requis`; }
+        else if (n.base !== base) reason = 'Branche bloquée';
+      } else {
+        if (cur.tier === 0 || n.base !== base) reason = cur.tier === 0 ? `Entre d’abord dans la branche ${GD.CLASSES[n.base].name}` : 'Branche bloquée';
+        else if (started && started !== n.spec) reason = 'Branche bloquée';
+        else if (n.step === 1 && (sk[`init_${n.base}`] || 0) < GD.SKILL_MAX_RANK) reason = `${GD.SKILLS[`init_${n.base}`].name} ${GD.SKILL_MAX_RANK}/${GD.SKILL_MAX_RANK} requis`;
+        else if (n.ult && me.level < PR.ULT_LEVEL) reason = `Niveau ${PR.ULT_LEVEL} requis`;
+      }
+      if (!reason && n.requires && !sk[n.requires]) reason = 'Débloque la compétence précédente';
+      if (!reason && rank >= n.max) reason = 'Rang maximum';
+      if (!reason && pts.free < 1) reason = 'Pas de point libre';
+      return { rank, can: !reason, reason };
+    };
+    const nodeTitle = (n) => (n.ult ? `${GD.CLASSES[n.spec].ultName} (ultime)` : n.name);
+    const nodeText = (n) => (n.ult ? GD.CLASSES[n.spec].ultDesc : `${bonusLine(n.bonus)} par rang`);
+
+    // Pastille d'une compétence dans l'arbre (cliquer = voir le détail)
+    const dot = (n) => {
+      const st = stateOf(n);
+      const cls = 'tnode' + (n.ult ? ' tult' : '') + (n.mastery ? ' tmastery' : '') + (n.init ? ' tinit' : '') + (n.core ? ' tcore' : '')
+        + (st.rank ? ' owned' : '') + (st.can ? ' can' : '') + (selSkill === n.id ? ' sel' : '');
+      const label = n.ult ? '✨' : n.mastery ? '★' : `${st.rank}/${n.max}`;
+      if (n.ult) {
+        const S = GD.CLASSES[n.spec];
+        return el('button', { class: cls, title: `${S.ultName} — ${S.ultDesc}`, onclick: () => { selSkill = n.id; renderClasses(); } },
+          el('b', {}, `✨ ${S.ultName}`), el('span', {}, S.ultDesc), el('em', {}, st.rank ? 'Débloqué' : `Niveau ${PR.ULT_LEVEL}`));
+      }
+      return el('button', { class: cls, title: `${nodeTitle(n)} — ${nodeText(n)}`, onclick: () => { selSkill = n.id; renderClasses(); } }, label);
+    };
+
+    // Détail de la compétence sélectionnée
+    if (!selSkill || !GD.SKILLS[selSkill]) selSkill = 'core_1';
+    const sel = GD.SKILLS[selSkill], selSt = stateOf(sel);
+    const entering = (sel.init && cur.tier === 0) || (sel.spec && cur.tier === 1);
+    const who = sel.spec ? GD.CLASSES[sel.spec] : sel.init ? GD.CLASSES[sel.base] : GD.CLASSES.habitant;
+    const detail = el('div', { class: 'panel tdetail', style: `--bc:${who.color}` },
+      el('div', { class: 'row' },
+        el('b', { style: `color:${who.color}` }, nodeTitle(sel)), el('span', { class: 'chip small' }, sel.ult ? (selSt.rank ? 'Débloqué' : 'Ultime') : `${selSt.rank}/${sel.max}`),
+        el('span', { class: 'spacer' }),
+        el('button', { class: 'small' + (selSt.can ? ' primary' : ''), disabled: !selSt.can, onclick: () => learn(sel) }, selSt.can ? (entering ? `Devenir ${GD.CLASSES[sel.spec || sel.base].name} (+1)` : sel.ult ? 'Débloquer (1 pt)' : '+1') : `🔒 ${selSt.reason}`)),
+      el('div', { class: 'small', style: 'margin-top:4px' }, nodeText(sel)),
+      el('div', { class: 'small muted' }, sel.core ? 'Centre de l’arbre : toujours disponible, ne bloque aucune branche.'
+        : sel.init ? `Branche ${who.name} : le premier point fait devenir ${who.name} (niveau ${PR.CLASS_LEVEL}) et grise les autres branches.`
+          : sel.step === 1 ? `Premier point de la sous-branche : fait devenir ${who.name}.` : `Sous-branche ${who.name}.`));
+
+    // Indications générales
     $('#evoHint').replaceChildren(
       el('span', {}, 'Classe : ', el('b', { style: `color:${cur.color}` }, cur.name), ' · '),
       el('b', { style: 'color:var(--gold)' }, `${pts.free} point(s) de compétence`), ` à dépenser (1 tous les ${PR.SKILL_EVERY} niveaux · ${pts.spent} attribué(s)${pts.lost ? ` · ${pts.lost} perdu(s) en reconversion, récupérables avec un 📜 Parchemin de mémoire` : ''}).`,
-      el('div', { class: 'small muted', style: 'margin-top:4px' }, started
-        ? `Voie choisie : ${GD.CLASSES[started].name}. Les autres branches sont bloquées. Ultime au niveau ${PR.ULT_LEVEL}.`
-        : `Choisis ta voie : dès que tu places un point dans une branche, l’autre se bloque. Ultime au niveau ${PR.ULT_LEVEL}.`),
-      el('div', { class: 'row', style: 'margin-top:8px' },
-        el('button', { class: 'small danger', onclick: () => respec(lossNow) }, `🔄 Se reconvertir (perte de ${lossNow} point${lossNow > 1 ? 's' : ''})`)));
-    tree.className = 'tree skilltree';
-    tree.replaceChildren(
-      el('div', { class: 'branch', style: `--bc:${GD.CLASSES[base].color}` },
-        el('div', { class: 'title', style: `color:${GD.CLASSES[base].color}` }, `Initiation : ${GD.CLASSES[base].name}`),
-        el('div', { class: 'skill-col' }, node(GD.SKILLS[`init_${base}`]))),
-      ...GD.specsOf(base).map((spec) => {
+      el('div', { class: 'small muted', style: 'margin-top:4px' }, `Le Paysan est au centre. Une branche par classe (dès le niveau ${PR.CLASS_LEVEL}), puis une sous-branche par spécialisation (ultime au niveau ${PR.ULT_LEVEL}). Dès qu’un point est placé dans une branche, les autres se grisent. Clique sur une pastille pour voir son effet.`),
+      Object.keys(sk).length ? el('div', { class: 'row', style: 'margin-top:8px' },
+        el('button', { class: 'small danger', onclick: () => respec(lossNow) }, `🔄 Se reconvertir (perte de ${lossNow} point${lossNow > 1 ? 's' : ''})`)) : '');
+
+    // Centre de l'arbre : le Paysan
+    const P0 = GD.CLASSES.habitant;
+    const root = el('div', { class: 'troot' + (cur.tier === 0 ? ' here' : '') },
+      miniHero('habitant', 56),
+      el('div', {}, el('div', { class: 'title', style: `color:${P0.color}` }, P0.name), el('div', { class: 'small muted' }, 'Point de départ de tous les héros')),
+      el('div', { class: 'tchain' }, dot(GD.SKILLS.core_1)));
+
+    // Une branche par classe, une sous-branche par spécialisation
+    const rows = GD.BASE_CLASSES.map((b) => {
+      const B = GD.CLASSES[b];
+      const rowLocked = cur.tier > 0 && base !== b;
+      const lanes = GD.specsOf(b).map((spec) => {
         const S = GD.CLASSES[spec];
-        const locked = !!started && started !== spec;
-        const ids = [1, 2, 3, 4, 5, 'ult', 'mastery'].map((i) => GD.SKILLS[`${spec}_${i}`]);
-        return el('div', { class: 'branch' + (started === spec ? ' current' : '') + (locked ? ' branch-locked' : ''), style: `--bc:${S.color}` },
-          el('div', { class: 'cls' }, miniHero(spec, 48), el('div', {}, el('div', { class: 'title', style: `color:${S.color}` }, S.name, me.cls === spec ? ' ✓' : '', locked ? ' 🔒' : ''), el('div', { class: 'small muted' }, S.desc))),
-          el('div', { class: 'skill-col' }, ...ids.map((n) => node(n, { locked }))));
-      }));
+        const laneLocked = rowLocked || (base === b && started && started !== spec);
+        const ids = [1, 2, 3, 4, 5, 'ult', 'mastery'].map((k) => GD.SKILLS[`${spec}_${k}`]);
+        return el('div', { class: 'tlane' + (laneLocked ? ' tlocked' : '') + (me.cls === spec ? ' here' : ''), style: `--bc:${S.color}` },
+          el('div', { class: 'tspec' }, miniHero(spec, 40),
+            el('div', {}, el('div', { class: 'tname', style: `color:${S.color}` }, S.name, me.cls === spec ? ' ✓' : '', laneLocked ? ' 🔒' : ''),
+              el('div', { class: 'tiny muted' }, S.desc),
+              S.creatures ? el('div', { class: 'tiny', style: 'color:var(--gold)' }, S.creatures) : '')),
+          el('div', { class: 'tchain' }, ...ids.map(dot)));
+      });
+      return el('div', { class: 'trow' + (rowLocked ? ' tlocked' : '') + (base === b ? ' here' : ''), style: `--bc:${B.color}` },
+        el('div', { class: 'tclass' }, miniHero(b, 48),
+          el('div', {}, el('div', { class: 'title', style: `color:${B.color}` }, B.name, base === b ? ' ✓' : '', rowLocked ? ' 🔒' : ''), el('div', { class: 'tiny muted' }, B.desc)),
+          el('div', { class: 'tchain' }, dot(GD.SKILLS[`init_${b}`]))),
+        el('div', { class: 'tlanes' }, ...lanes));
+    });
+    tree.className = 'sktree';
+    tree.replaceChildren(detail, root, el('div', { class: 'ttrunk' }, ...rows));
   }
 
-  async function learn(n, S) {
+  async function learn(n) {
     $('#clsError').textContent = '';
-    if (n.ult && !(await ask(`Débloquer « ${S.ultName} » et devenir ${S.name} ?`, { title: '⭐ Ultime' }))) return;
-    try { setUser((await api('/api/me/skill', { body: { id: n.id } })).user); if (n.ult) toast(`Tu es maintenant ${S.name} !`); }
-    catch (e) { $('#clsError').textContent = e.message; }
+    const cur = GD.CLASSES[me.cls];
+    const PR = GD.PROGRESSION;
+    const target = n.init && cur.tier === 0 ? n.base : n.spec && cur.tier === 1 ? n.spec : null;
+    if (target) {
+      const T = GD.CLASSES[target];
+      if (!(await ask(`Placer ce point fait de toi un ${T.name}. Les autres branches seront grisées.\nTu pourras changer plus tard (reconversion), mais tu perdras ${Math.round(PR.SKILL_RESPEC_LOSS * 100)} % des points de compétence attribués et tes améliorations d’habitation seront remises à zéro (${Math.round(GD.HOUSE_RESPEC_REFUND * 100)} % des Grêlons remboursés).`, { title: `Devenir ${T.name} ?`, ok: `Devenir ${T.name}` }))) return;
+    } else if (n.ult && !(await ask(`Débloquer l’ultime « ${GD.CLASSES[n.spec].ultName} » ?`, { title: '✨ Ultime' }))) return;
+    try {
+      setUser((await api('/api/me/skill', { body: { id: n.id } })).user);
+      if (target) toast(`Tu es maintenant ${GD.CLASSES[target].name} !`);
+    } catch (e) { $('#clsError').textContent = e.message; }
   }
 
   async function respec(loss) {
@@ -337,7 +370,7 @@
       `• Tu perds DÉFINITIVEMENT ${loss} point(s) de compétence (${Math.round(GD.PROGRESSION.SKILL_RESPEC_LOSS * 100)}\u00a0% des points que tu as attribués).\n`
       + '• Ton arbre de compétences est remis à zéro.\n'
       + `• Tes améliorations d’habitation sont remises à zéro (${refund} Grêlons remboursés, ${Math.round(GD.HOUSE_RESPEC_REFUND * 100)}\u00a0%).\n`
-      + '• Tu redeviens Habitant et tu choisis à nouveau ta classe (tu peux reprendre la même).\n\n'
+      + '• Tu redeviens Paysan, au centre de l’arbre, et tu choisis à nouveau ta branche (tu peux reprendre la même).\n\n'
       + 'Confirmer la reconversion ?', { title: '⚠️ Reconversion', ok: 'Se reconvertir', danger: true });
     if (!ok) return;
     try {
@@ -351,12 +384,6 @@
     } catch (e) { $('#clsError').textContent = e.message; }
   }
 
-  async function pickClass(cls) {
-    $('#clsError').textContent = '';
-    if (!(await ask(`Tu pourras changer de classe plus tard grâce à la reconversion, mais tu perdras alors définitivement ${Math.round(GD.PROGRESSION.SKILL_RESPEC_LOSS * 100)}\u00a0% des points de compétence attribués, et tes améliorations d’habitation seront remises à zéro (${Math.round(GD.HOUSE_RESPEC_REFUND * 100)}\u00a0% des Grêlons remboursés).`, { title: `Devenir ${GD.CLASSES[cls].name} ?`, ok: `Devenir ${GD.CLASSES[cls].name}` }))) return;
-    try { setUser((await api('/api/me/class', { body: { cls } })).user); toast(`Tu es maintenant ${GD.CLASSES[cls].name} !`); }
-    catch (e) { $('#clsError').textContent = e.message; }
-  }
 
   /* ============================== Statistiques ============================== */
   function renderAttrs() {
@@ -838,13 +865,13 @@
         `Partie rapide : ${GD.MODES.quick.waves} manches, vote d’équipe à chaque manche, une seule zone dangereuse à la fois ; récompenses ×${GD.MODES.quick.rewards}.`,
         ...Object.values(GD.DIFFICULTIES).map((d) => `${d.icon} ${d.name} : monstres ×${d.mobHp} PV, ×${d.mobDmg} dégâts, ×${d.mobCount} nombre ; récompenses (XP, Grêlons) ×${d.rewards}.`),
         'L’admin choisit le mode et la difficulté au lancement de chaque partie.'])),
-      sec('🧬 Classes', el('p', {}, `Tout le monde commence Habitant, avec un arbre d’initiation (une compétence liée à chaque classe). Au niveau ${PR.CLASS_LEVEL}, choisis ta classe : son initiation est conservée, les points des autres te sont rendus. Tu gagnes 1 point de compétence tous les ${PR.SKILL_EVERY} niveaux. L’arbre de ta classe a une branche par spécialisation : 5 compétences passives (3 rangs), l’ultime au bout (niveau ${PR.ULT_LEVEL} requis, il te fait devenir la spécialisation), puis une maîtrise. Dès que tu places un point dans une branche, les autres se bloquent. La reconversion (avec un message d’avertissement) remet tout à zéro et te ramène au choix de classe (tu peux reprendre la même), mais fait perdre définitivement ${Math.round(PR.SKILL_RESPEC_LOSS * 100)}% des points attribués.`),
+      sec('🧬 Classes', el('p', {}, `Tout le monde commence Paysan, au centre de l’arbre de compétences. Tu gagnes 1 point de compétence tous les ${PR.SKILL_EVERY} niveaux. Dès le niveau ${PR.CLASS_LEVEL}, place un point dans la branche d’une classe pour la devenir ; quand son initiation est à ${GD.SKILL_MAX_RANK}/${GD.SKILL_MAX_RANK}, place un point dans une sous-branche pour devenir cette spécialisation (5 compétences, puis l’ultime au niveau ${PR.ULT_LEVEL} et une maîtrise). Dès qu’un point est placé dans une branche, les autres sont grisées : la reconversion remet l’arbre à zéro (${Math.round(PR.SKILL_RESPEC_LOSS * 100)} % des points perdus).`),
         ul(GD.BASE_CLASSES.map((b) => [el('b', { style: `color:${GD.CLASSES[b].color}` }, GD.CLASSES[b].name), ` → ${GD.specsOf(b).map((s) => `${GD.CLASSES[s].name} (${GD.CLASSES[s].ultName})`).join(' / ')}${GD.CLASSES[b].leash ? ` · reste à moins de ${GD.CLASSES[b].leash} px de la tour` : ''}`]))),
       sec('📊 Niveaux & statistiques', el('p', {}, `Les éliminations et les manches passées rapportent de l’XP. Monter de niveau n’augmente pas directement les statistiques : chaque niveau donne ${PR.POINTS_PER_LEVEL} point de stat à répartir librement (réinitialisation gratuite) et ${PR.GLACONS_PER_LEVEL} glaçon 🧊. Seuls les points de stat et l’équipement renforcent ton héros :`),
         ul(GD.ATTR_IDS.map((a) => `${GD.ATTRIBUTES[a].icon} ${GD.ATTRIBUTES[a].name} : ${GD.ATTRIBUTES[a].desc}`))),
       sec('💰 Monnaies', ul([
         [hail(), el('b', {}, 'Grêlons'), ' : ta monnaie personnelle, gagnée en combattant et conservée entre les parties. Elle sert à acheter des glaçons, et tu en récupères en recyclant des objets.'],
-        ['🪙 ', el('b', {}, 'Écus'), ' : le trésor commun de l’équipe pendant une partie (éliminations, récoltes des paysans). Il est dépensé lors des votes.']])),
+        ['🪙 ', el('b', {}, 'Écus'), ' : le trésor commun de l’équipe pendant une partie (éliminations, bonus de fin de manche). Il est dépensé lors des votes.']])),
       sec('🧊 Glaçons', ul([
         `Tu gagnes ${G.PER_WAVE} glaçon pour chaque manche passée avec ton héros en jeu.`,
         ['Un glaçon s’achète ', hail(), `${G.PRICE} Grêlons.`],

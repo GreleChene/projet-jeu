@@ -367,7 +367,7 @@ module.exports = {
     if (m.status.mark) amount *= 1 + m.status.mark.v;
     if (m.status.acid) amount *= 1 + m.status.acid.v;
     m.hp -= amount;
-    // Berserker : se soigne d'une part des dégâts infligés
+    // Barbare : se soigne d'une part des dégâts infligés
     if (owner && owner.cls && !opts.dot && !opts.byAlly && owner.alive) {
       const rc = CLASSES[owner.cls] && CLASSES[owner.cls].rage;
       if (rc) owner.hp = Math.min(owner.maxHp, owner.hp + amount * (rc.leech + ((owner.mods && owner.mods.leech) || 0)));
@@ -382,7 +382,7 @@ module.exports = {
       const oh = opts.onHit;
       this.applyStatus(m, m.boss && oh.freeze ? { ...oh, freeze: Math.min(oh.freeze, 0.8) } : oh);
     }
-    if (owner && owner.ult !== undefined && !opts.dot && !opts.byAlly && !opts.splash) owner.ult = Math.min(1, owner.ult + 0.004);
+    if (owner && owner.ult !== undefined && owner.ultUnlocked && !opts.dot && !opts.byAlly && !opts.splash) owner.ult = Math.min(1, owner.ult + 0.004);
     if (!opts.dot && (opts.crit || m.boss || Math.random() < 0.25)) {
       this.numBudget = (this.numBudget || 0) + 1;
       if (this.numBudget < 30) this.fx(['num', Math.round(m.x), Math.round(m.y - m.size - 6), Math.round(amount), opts.crit ? 1 : 0]);
@@ -419,7 +419,9 @@ module.exports = {
       if (Math.random() > c.raise.chance) continue;
       const n = this.allies.filter((a) => a.ownerId === h.id).length;
       if (n >= c.raise.max) continue;
-      this.spawnAlly(h, 'ally_skeleton', m.x, m.y);
+      const kinds = (c.raise.kinds || [{ kind: 'skeleton', at: 1 }]).filter((k) => this.hasUnlock(h, k.at));
+      if (!kinds.length) continue;
+      this.spawnAlly(h, 'ally_' + U.pick(kinds).kind, m.x, m.y);
       break;
     }
   }

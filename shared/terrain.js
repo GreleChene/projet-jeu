@@ -107,21 +107,6 @@
     return out;
   }
 
-  // Points de récolte des paysans (champs, arbres, rochers) autour de la tour
-  function resourceNodes(seed) {
-    const rnd = mulberry32(seed + 42);
-    const types = ['field', 'tree', 'rock'];
-    const nodes = [];
-    const n = 12;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + (rnd() - 0.5) * 0.3;
-      // entre les bâtiments et la limite des paysans (500 px de la tour)
-      const r = 330 + rnd() * 130;
-      nodes.push({ id: i, type: types[i % 3], x: WORLD.CX + Math.cos(a) * r, y: WORLD.CY + Math.sin(a) * r * 0.8 });
-    }
-    return nodes;
-  }
-
   // Rivières de lave (purement esthétiques)
   function lavaRivers(seed) {
     const rnd = mulberry32(seed + 77);
@@ -143,5 +128,5 @@
     return rivers;
   }
 
-  return { COLS, ROWS, hash2, valueNoise, mulberry32, terrainState, terrainStateQuick, tileDepth, tileBiome, tileDecor, frostTrees, resourceNodes, lavaRivers };
+  return { COLS, ROWS, hash2, valueNoise, mulberry32, terrainState, terrainStateQuick, tileDepth, tileBiome, tileDecor, frostTrees, lavaRivers };
 });

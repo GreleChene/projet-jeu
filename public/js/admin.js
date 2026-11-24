@@ -16,7 +16,7 @@
     $$('[data-act]').forEach((b) => b.addEventListener('click', () => act(b.dataset.act, b.dataset.speed ? { speed: Number(b.dataset.speed) } : undefined)));
     $('#saveSettings').addEventListener('click', saveSettings);
     // liste des classes pour les bots, groupées par famille
-    $('#botCls').replaceChildren(el('option', { value: '' }, 'Aléatoire'), el('option', { value: 'habitant' }, 'Habitant'),
+    $('#botCls').replaceChildren(el('option', { value: '' }, 'Aléatoire'), el('option', { value: 'habitant' }, 'Paysan'),
       ...GD.BASE_CLASSES.map((b) => el('optgroup', { label: GD.CLASSES[b].name },
         el('option', { value: b }, GD.CLASSES[b].name), ...GD.specsOf(b).map((s) => el('option', { value: s }, '↳ ' + GD.CLASSES[s].name)))));
     $('#userFilter').addEventListener('input', renderUsers);
@@ -147,7 +147,7 @@
           el('button', { class: 'small', onclick: () => giveIce(u) }, '+ Glaçons'),
           el('button', { class: 'small', onclick: async () => { const g = await askText(`Fixer les Grêlons de ${u.pseudo} à :`, u.gold, { title: 'Grêlons', type: 'number' }); if (g !== null) editUser(u, { gold: Number(g) }); } }, 'Fixer Grêlons'),
           el('button', { class: 'small', onclick: async () => { const l = await askText(`Niveau de ${u.pseudo} :`, u.level, { title: 'Niveau', type: 'number' }); if (l !== null) editUser(u, { level: Number(l) }); } }, 'Niveau'),
-          el('button', { class: 'small', onclick: async () => { if (await ask(`Remettre la classe de ${u.pseudo} à « Habitant » ?`, { title: 'Reset de classe', ok: 'Remettre', danger: true })) editUser(u, { resetClass: true }); } }, 'Reset classe'),
+          el('button', { class: 'small', onclick: async () => { if (await ask(`Remettre la classe de ${u.pseudo} à « Paysan » ?`, { title: 'Reset de classe', ok: 'Remettre', danger: true })) editUser(u, { resetClass: true }); } }, 'Reset classe'),
           el('button', { class: 'small', onclick: async () => { const p = await askText(`Nouveau mot de passe de ${u.pseudo} (6 caractères min.) :`, '', { title: 'Mot de passe', type: 'password' }); if (p) editUser(u, { password: p }); } }, 'Mot de passe'),
           el('button', { class: 'small danger', onclick: () => editUser(u, { banned: !u.banned }) }, u.banned ? 'Débannir' : 'Bannir'),
           el('button', { class: 'small danger', onclick: () => deleteUser(u) }, 'Supprimer'))))
