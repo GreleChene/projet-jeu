@@ -145,7 +145,7 @@
   const PROGRESSION = {
     CLASS_LEVEL: 7, // niveau pour quitter « habitant » (et choisir sa classe)
     ULT_LEVEL: 30, // niveau requis pour débloquer l'ultime (bout de branche)
-    MAX_LEVEL: 60,
+    MAX_LEVEL: 100,
     POINTS_PER_LEVEL: 1,
     GLACONS_PER_LEVEL: 1,
     SKILL_EVERY: 2, // 1 point de compétence tous les X niveaux
