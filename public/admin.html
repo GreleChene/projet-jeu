@@ -79,9 +79,12 @@
           <h2>🟣 Twitch</h2>
           <div class="row"><input id="twChannel" placeholder="chaîne (ex. hyoneko_)" style="flex:1"><label style="margin:0"><input type="checkbox" id="twEnabled" style="width:auto"> activé</label></div>
           <label style="margin-top:6px"><input type="checkbox" id="twVoteAll" style="width:auto"> Tout le chat peut voter (!1, !2…), même sans héros</label>
+          <div class="row" style="margin-top:6px"><label style="margin:0">💜 Grêlons par abonnement (Prime compris)</label><input id="twSubGrelons" type="number" min="0" style="width:90px"><label style="margin:0">par abonnement offert</label><input id="twGiftGrelons" type="number" min="0" style="width:90px"></div>
+          <p class="small muted" style="margin:4px 0 0">Palier 2 : ×2, palier 3 : ×5. Si le compte Twitch n’est pas encore lié, les Grêlons sont versés à la liaison.</p>
           <div class="row" style="margin-top:6px"><button id="twSave">Enregistrer</button><span class="chip" id="twStatus">—</span></div>
           <p class="small muted">Commandes du chat : <b>!join</b> (rejoindre, compte lié requis), <b>!lier CODE</b> (lier son compte, code affiché sur le site), <b>!1</b> / <b>!2</b>… (votes d’équipe).</p>
           <div class="row"><input id="twTestUser" placeholder="pseudo Twitch" style="flex:1"><input id="twTestMsg" placeholder="message, ex. !join" style="flex:1"><button id="twTest">Simuler</button></div>
+          <div class="row" style="margin-top:6px"><button class="small" data-twsim="sub">Simuler un abonnement</button><button class="small" data-twsim="prime">Simuler Prime</button><button class="small" data-twsim="gift">Simuler 5 abonnements offerts</button></div>
           <div id="twLog" class="small" style="margin-top:6px;max-height:140px;overflow:auto"></div>
           <h2 style="margin-top:20px">Annonce sur le stream</h2>
           <label>Titre</label><input id="annTitle" maxlength="80" placeholder="Merci pour le raid !">

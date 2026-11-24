@@ -25,13 +25,18 @@
     loadTwitch();
     setInterval(loadTwitch, 5000);
     $('#twSave').addEventListener('click', async () => {
-      try { showTwitch(await api('/api/admin/twitch', { body: { channel: $('#twChannel').value, enabled: $('#twEnabled').checked, chatVoteAll: $('#twVoteAll').checked } })); toast('Twitch enregistré'); }
+      try { showTwitch(await api('/api/admin/twitch', { body: { channel: $('#twChannel').value, enabled: $('#twEnabled').checked, chatVoteAll: $('#twVoteAll').checked, subGrelons: Number($('#twSubGrelons').value), giftGrelons: Number($('#twGiftGrelons').value) } })); toast('Twitch enregistré'); }
       catch (e) { toast(e.message); }
     });
     $('#twTest').addEventListener('click', async () => {
       try { showTwitch(await api('/api/admin/twitch/test', { body: { user: $('#twTestUser').value, text: $('#twTestMsg').value } })); refresh(); }
       catch (e) { toast(e.message); }
     });
+    $$('[data-twsim]').forEach((b) => b.addEventListener('click', async () => {
+      if (!$('#twTestUser').value) return toast('Indique un pseudo Twitch');
+      try { showTwitch(await api('/api/admin/twitch/test', { body: { user: $('#twTestUser').value, event: b.dataset.twsim, count: 5 } })); setTimeout(loadUsers, 3500); toast('Événement simulé'); }
+      catch (e) { toast(e.message); }
+    }));
     setInterval(refresh, 2000);
     setInterval(loadUsers, 15000);
   }
@@ -39,7 +44,7 @@
   let twLoaded = false;
   async function loadTwitch() { try { showTwitch(await api('/api/admin/twitch')); } catch (e) { /* */ } }
   function showTwitch(t) {
-    if (!twLoaded) { $('#twChannel').value = t.channel; $('#twEnabled').checked = t.enabled; $('#twVoteAll').checked = t.chatVoteAll; twLoaded = true; }
+    if (!twLoaded) { $('#twChannel').value = t.channel; $('#twEnabled').checked = t.enabled; $('#twVoteAll').checked = t.chatVoteAll; $('#twSubGrelons').value = t.subGrelons; $('#twGiftGrelons').value = t.giftGrelons; twLoaded = true; }
     $('#twStatus').textContent = t.status;
     $('#twLog').replaceChildren(...t.log.map((l) => el('div', {}, `${new Date(l.t).toLocaleTimeString()} · ${l.user} : ${l.text}`)));
   }

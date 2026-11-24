@@ -543,7 +543,10 @@ app.post('/api/admin/twitch', admin, (req, res) => { twitch.configure(req.body |
 app.post('/api/admin/twitch/test', admin, (req, res) => {
   const { user, text } = req.body || {};
   const login = String(user || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 25);
-  if (!login || !text) return res.status(400).json({ error: 'Pseudo Twitch et message requis' });
+  if (!login) return res.status(400).json({ error: 'Pseudo Twitch requis' });
+  const event = (req.body || {}).event;
+  if (['sub', 'prime', 'gift'].includes(event)) { twitch.simulate(login, String(user), event, Number((req.body || {}).count) || 1); return res.json(twitch.info()); }
+  if (!text) return res.status(400).json({ error: 'Pseudo Twitch et message requis' });
   twitch.onChat(login, String(user), String(text).slice(0, 200));
   res.json(twitch.info());
 });

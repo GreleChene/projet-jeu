@@ -5,11 +5,18 @@
  *   !join            → fait rejoindre la bataille au héros du compte lié
  *   !lier CODE       → lie le compte Twitch au compte du site (code affiché dans l'onglet Compte)
  *   !1 … !9 / !vote N → vote d'équipe (pendant la manche et l'entracte)
+ * Abonnements (USERNOTICE, reçus aussi en lecture anonyme) : un abonnement (Prime compris) ou un abonnement offert
+ * rapporte des Grêlons au compte lié. Si le compte Twitch n'est pas encore lié, les Grêlons attendent la liaison.
  */
 const crypto = require('crypto');
 
 const IRC_URL = 'wss://irc-ws.chat.twitch.tv:443';
-const DEFAULTS = { channel: 'hyoneko_', enabled: true, chatVoteAll: true };
+const DEFAULTS = { channel: 'hyoneko_', enabled: true, chatVoteAll: true, subGrelons: 300, giftGrelons: 300 };
+// multiplicateur selon le palier d'abonnement (Prime = palier 1)
+const TIER_MULT = { Prime: 1, 1000: 1, 2000: 2, 3000: 5 };
+const SUB_KINDS = ['sub', 'resub', 'primepaidupgrade', 'giftpaidupgrade', 'anongiftpaidupgrade'];
+// valeurs des tags IRC échappées (\s = espace, \: = point-virgule)
+const unescapeTag = (v) => String(v || '').replace(/\\s/g, ' ').replace(/\\:/g, ';').replace(/\\\\/g, '\\');
 
 class Twitch {
   constructor(db, game, notify) {
@@ -22,6 +29,9 @@ class Twitch {
     this.codes = new Map(); // code -> { userId, expires }
     this.hint = new Map(); // login -> dernier rappel « lie ton compte »
     this.retry = 0;
+    this.seen = new Set(); // identifiants d'événements déjà traités
+    this.batch = new Map(); // login -> annonce groupée (abonnements offerts en masse)
+    db.data.twitchPending = db.data.twitchPending || {}; // login Twitch -> Grêlons en attente de liaison
     db.data.settings.twitch = { ...DEFAULTS, ...(db.data.settings.twitch || {}) };
   }
 
@@ -32,6 +42,7 @@ class Twitch {
     if (typeof s.channel === 'string') t.channel = s.channel.trim().toLowerCase().replace(/^#|^https?:\/\/(www\.)?twitch\.tv\//, '').replace(/[^a-z0-9_]/g, '').slice(0, 25) || DEFAULTS.channel;
     if (s.enabled !== undefined) t.enabled = !!s.enabled;
     if (s.chatVoteAll !== undefined) t.chatVoteAll = !!s.chatVoteAll;
+    for (const k of ['subGrelons', 'giftGrelons']) if (s[k] !== undefined && Number.isFinite(Number(s[k]))) t[k] = Math.max(0, Math.min(100000, Math.round(Number(s[k]))));
     this.db.markDirty();
     this.restart();
   }
@@ -73,6 +84,13 @@ class Twitch {
       this.onChat(m[2].toLowerCase(), tags['display-name'] || m[2], m[3]);
       return;
     }
+    // @tags :tmi.twitch.tv USERNOTICE #chan :message éventuel
+    const n = /^@(\S+) :tmi\.twitch\.tv USERNOTICE #\w+/.exec(line);
+    if (n) {
+      const tags = Object.fromEntries(n[1].split(';').map((kv) => { const i = kv.indexOf('='); return [kv.slice(0, i), unescapeTag(kv.slice(i + 1))]; }));
+      this.onUserNotice(tags);
+      return;
+    }
     if (/ 366 /.test(line) || / JOIN #/.test(line)) { this.status = `connecté à #${this.settings.channel}`; this.retry = 0; }
   }
 
@@ -108,8 +126,10 @@ class Twitch {
       if (prev && prev.id !== target.id) { delete prev.twitchLogin; delete prev.twitchName; }
       target.twitchLogin = login;
       target.twitchName = display;
+      const pending = this.db.data.twitchPending[login] || 0;
+      if (pending) { target.gold += pending; delete this.db.data.twitchPending[login]; }
       this.db.markDirty();
-      this.notify(target.id, `✅ Compte Twitch « ${display} » lié !`, true);
+      this.notify(target.id, `✅ Compte Twitch « ${display} » lié !${pending ? ` +${pending} Grêlons de soutien récupérés.` : ''}`, true);
       this.game.pushFeed(`🔗 ${display} a lié son compte Twitch à ${target.pseudo}`);
       return;
     }
@@ -123,6 +143,55 @@ class Twitch {
       if (u && this.game.heroes.has(u.id)) this.game.castVote(u.id, opt);
       else if (this.settings.chatVoteAll) this.game.castVote('tw:' + login, opt, true);
     }
+  }
+
+  // Abonnement, réabonnement, Prime, abonnement offert…
+  onUserNotice(tags) {
+    if (tags.id) {
+      if (this.seen.has(tags.id)) return;
+      this.seen.add(tags.id);
+      if (this.seen.size > 1000) this.seen.delete(this.seen.values().next().value);
+    }
+    const kind = tags['msg-id'];
+    const login = String(tags.login || '').toLowerCase();
+    if (!login || login === 'ananonymousgifter') return;
+    const display = tags['display-name'] || login;
+    const plan = tags['msg-param-sub-plan'];
+    const mult = TIER_MULT[plan] || 1;
+    // un don en masse arrive comme un « submysterygift » suivi d'un « subgift » par abonnement offert : on ne compte que ces derniers
+    if (SUB_KINDS.includes(kind)) this.rewardSub(login, display, 'sub', this.settings.subGrelons * mult, plan === 'Prime');
+    else if (kind === 'subgift') this.rewardSub(login, display, 'gift', this.settings.giftGrelons * mult);
+  }
+
+  rewardSub(login, display, kind, amount, prime) {
+    if (!(amount > 0)) return;
+    const u = this.userByTwitch(login);
+    if (u) u.gold += amount;
+    else this.db.data.twitchPending[login] = (this.db.data.twitchPending[login] || 0) + amount;
+    this.db.markDirty();
+    // annonces groupées quelques secondes (50 abonnements offerts = une seule annonce)
+    const b = this.batch.get(login) || { display, subs: 0, gifts: 0, amount: 0, prime: false };
+    if (kind === 'gift') b.gifts++; else { b.subs++; b.prime = b.prime || !!prime; }
+    b.amount += amount;
+    if (!b.timer) b.timer = setTimeout(() => this.flushSub(login), 3000);
+    this.batch.set(login, b);
+  }
+
+  flushSub(login) {
+    const b = this.batch.get(login);
+    this.batch.delete(login);
+    if (!b) return;
+    const what = [b.subs ? (b.prime ? 's’abonne avec Prime' : 's’abonne') : '', b.gifts ? `offre ${b.gifts} abonnement${b.gifts > 1 ? 's' : ''}` : ''].filter(Boolean).join(' et ');
+    const u = this.userByTwitch(login);
+    this.game.pushFeed(`💜 ${b.display} ${what} ! +${b.amount} Grêlons${u ? '' : ' (lie ton compte sur le site pour les récupérer)'}`);
+    if (u) this.notify(u.id, `💜 Merci pour ton soutien sur Twitch : +${b.amount} Grêlons !`);
+  }
+
+  // Test depuis l'admin : abonnement, Prime ou abonnements offerts simulés
+  simulate(login, display, event, count) {
+    const plan = event === 'prime' ? 'Prime' : '1000';
+    if (event === 'gift') for (let i = 0; i < Math.max(1, Math.min(100, count | 0)); i++) this.onUserNotice({ 'msg-id': 'subgift', login, 'display-name': display, 'msg-param-sub-plan': plan });
+    else this.onUserNotice({ 'msg-id': 'sub', login, 'display-name': display, 'msg-param-sub-plan': plan });
   }
 
   remind(login, display) {
