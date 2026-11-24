@@ -412,17 +412,5 @@ module.exports = {
       // récompense collective
       for (const h of this.heroes.values()) if (h !== hero) this.reward(h, d.xp * 0.5, d.gold * 0.5);
     }
-    // Nécromanciens : relèvent un squelette
-    for (const h of this.heroes.values()) {
-      const c = CLASSES[h.cls];
-      if (!c.raise || !h.alive || (h.x - m.x) ** 2 + (h.y - m.y) ** 2 > 350 * 350) continue;
-      if (Math.random() > c.raise.chance) continue;
-      const n = this.allies.filter((a) => a.ownerId === h.id && !a.charmed).length;
-      if (n >= this.summonCap(h)) continue;
-      const kinds = Object.keys(h.summonRanks || {});
-      if (!kinds.length) continue;
-      this.spawnAlly(h, 'ally_' + U.pick(kinds), m.x, m.y);
-      break;
-    }
   }
 };

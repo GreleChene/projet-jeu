@@ -19,7 +19,8 @@ module.exports = {
     if (!c.pets) return Object.entries(c.summons || {});
     const ranks = h.summonRanks || {};
     const want = {};
-    for (const [k, n] of Object.entries(c.pets)) if (ranks[k]) want[k] = n;
+    for (const k of c.pets) if (ranks[k]) want[k] = ranks[k] >= GD.SUMMON_SECOND_RANK ? 2 : 1; // 1 créature, 2 au rang 3
+    // au-delà de 6 (compétence d'après-ultime), une créature de plus par type, dans l'ordre extraPets
     let extra = summonCap(h) - GD.SUMMON_CAP;
     for (let i = 0; extra > 0 && i < 12; i++) { const k = (c.extraPets || [])[i % (c.extraPets || [1]).length]; if (want[k]) { want[k]++; extra--; } }
     return Object.entries(want);

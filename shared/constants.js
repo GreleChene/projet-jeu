@@ -52,9 +52,9 @@
     soin: { name: 'Mage de soin', tier: 2, parent: 'mage', color: '#7dff8a', weapon: 'staff', projectile: 'holy', hp: 110, dmg: 10, range: 240, cd: 1.2, speed: 78, armor: 0.05, healer: true, ult: 'massheal', ultName: 'Bénédiction', ultDesc: 'Soigne tous les alliés de 75 % de leurs PV max.', desc: 'Soigne régulièrement l’allié le plus blessé.' },
 
     eleveur: { name: 'Éleveur', tier: 1, parent: 'habitant', color: '#2e9e57', weapon: 'whip', hp: 120, dmg: 9, range: 110, cd: 1.0, speed: 80, armor: 0.05, summons: { wolf: 1 }, desc: 'Combat aux côtés d’un loup apprivoisé.' },
-    dompteur: { name: 'Dompteur', tier: 2, parent: 'eleveur', color: '#d98c3a', weapon: 'whip', hp: 150, dmg: 11, range: 120, cd: 1.0, speed: 80, armor: 0.08, pets: { rat: 3, wolf: 2, bear: 1 }, extraPets: ['bear', 'wolf', 'rat'], ult: 'beastcall', ultName: 'Cri de la meute', ultDesc: 'Soigne ses bêtes et augmente leurs dégâts de 50 % pendant 10 s.', desc: 'Rats, loups et ours obéissent à sa voix (6 invocations au plus).' },
-    fauconnier: { name: 'Fauconnier', tier: 2, parent: 'eleveur', color: '#b5835a', weapon: 'falcon', hp: 135, dmg: 11, range: 130, cd: 1.0, speed: 82, armor: 0.06, pets: { falcon: 2, pigeon: 3, eagle: 1 }, extraPets: ['eagle', 'falcon', 'pigeon'], mark: { v: 0.1, dur: 4 }, ult: 'hawkstorm', ultName: 'Nuée de rapaces', ultDesc: 'Ses oiseaux sont soignés et foncent sur les ennemis les plus proches : ils les aveuglent définitivement et font 50 % de dégâts en plus pendant 5 s.', desc: 'Ses faucons marquent les ennemis (+10 % de dégâts reçus), ses pigeons les harcèlent, son aigle assomme les plus forts.' },
-    necromancien: { name: 'Nécromancien', tier: 2, parent: 'eleveur', color: '#5b4a7a', weapon: 'scythe', hp: 130, dmg: 11, range: 140, cd: 1.0, speed: 78, armor: 0.05, raise: { chance: 0.35 }, ult: 'revive', ultName: 'Relève-toi', ultDesc: 'Ramène un allié mort à la vie avec 60 % de ses PV (sans allié mort : relève 3 de ses créatures).', desc: 'Relève slimes, zombies et squelettes archers parmi les monstres tués (6 invocations au plus).' },
+    dompteur: { name: 'Dompteur', tier: 2, parent: 'eleveur', color: '#d98c3a', weapon: 'whip', hp: 150, dmg: 11, range: 120, cd: 1.0, speed: 80, armor: 0.08, pets: ['rat', 'wolf', 'bear'], extraPets: ['bear', 'wolf', 'rat'], ult: 'beastcall', ultName: 'Cri de la meute', ultDesc: 'Soigne ses bêtes et augmente leurs dégâts de 50 % pendant 10 s.', desc: 'Rats, loups et ours obéissent à sa voix (6 invocations au plus).' },
+    fauconnier: { name: 'Fauconnier', tier: 2, parent: 'eleveur', color: '#b5835a', weapon: 'falcon', hp: 135, dmg: 11, range: 130, cd: 1.0, speed: 82, armor: 0.06, pets: ['falcon', 'pigeon', 'eagle'], extraPets: ['eagle', 'falcon', 'pigeon'], mark: { v: 0.1, dur: 4 }, ult: 'hawkstorm', ultName: 'Nuée de rapaces', ultDesc: 'Ses oiseaux sont soignés et foncent sur les ennemis les plus proches : ils les aveuglent définitivement et font 50 % de dégâts en plus pendant 5 s.', desc: 'Ses faucons marquent les ennemis (+10 % de dégâts reçus), ses pigeons les harcèlent, son aigle assomme les plus forts.' },
+    necromancien: { name: 'Nécromancien', tier: 2, parent: 'eleveur', color: '#5b4a7a', weapon: 'scythe', hp: 130, dmg: 11, range: 140, cd: 1.0, speed: 78, armor: 0.05, pets: ['slime', 'zombie', 'skelarcher'], extraPets: ['skelarcher', 'zombie', 'slime'], ult: 'revive', ultName: 'Relève-toi', ultDesc: 'Ramène un allié mort à la vie avec 60 % de ses PV (sans allié mort : invoque 3 de ses créatures en renfort).', desc: 'Invoque slimes, zombies et squelettes archers (6 invocations au plus).' },
 
     archer: { name: 'Archer', tier: 1, parent: 'habitant', color: '#27ae60', weapon: 'bow', projectile: 'arrow', hp: 100, dmg: 11, range: 340, cd: 0.9, speed: 85, armor: 0.02, desc: 'Tire de très loin.' },
     arbaletrier: { name: 'Arbalétrier', tier: 2, parent: 'archer', color: '#7f8c8d', weapon: 'crossbow', projectile: 'bolt', hp: 120, dmg: 17, range: 360, cd: 1.15, speed: 82, armor: 0.06, ult: 'rapidfire', ultName: 'Tir en rafale', ultDesc: 'Vitesse d’attaque ×3 pendant 6 s.', desc: 'Carreaux lourds, cadence implacable.' },
@@ -126,7 +126,8 @@
     falcon: { name: 'Faucons', icon: '🦅' }, pigeon: { name: 'Pigeons', icon: '🕊️' }, eagle: { name: 'Aigle', icon: '🪶' },
     slime: { name: 'Slimes', icon: '🟢' }, zombie: { name: 'Zombies', icon: '🧟' }, skelarcher: { name: 'Squelettes archers', icon: '🏹' }
   };
-  const SUMMON_CAP = 6, SUMMON_CAP_MAX = 9, SUMMON_RANK_POWER = 0.2;
+  // 1 créature au rang 1 du nœud, une 2e au rang SUMMON_SECOND_RANK
+  const SUMMON_CAP = 6, SUMMON_CAP_MAX = 9, SUMMON_RANK_POWER = 0.2, SUMMON_SECOND_RANK = 3;
   // Arbre d'initiation (avant le choix de classe) : une compétence liée à chaque classe.
   // En choisissant sa classe, les points des autres initiations sont rendus.
   const INITIATION = {
@@ -165,8 +166,8 @@
   }
   // Effet d'un nœud d'invocation, pour l'affichage
   function summonText(n) {
-    const S = SUMMONS[n.summon], c = CLASSES[n.spec], cnt = c.pets && c.pets[n.summon];
-    return `${c.raise ? `Relève des ${S.name.toLowerCase()} ${S.icon} parmi les monstres tués` : `Invoque ${cnt > 1 ? cnt + ' ' + S.name.toLowerCase() : S.name.toLowerCase()} ${S.icon}`}. Chaque rang suivant : +${Math.round(SUMMON_RANK_POWER * 100)} % de PV et de dégâts. ${SUMMON_CAP} invocations au plus (${SUMMON_CAP_MAX} après l’ultime).`;
+    const S = SUMMONS[n.summon];
+    return `Invoque ${S.name.toLowerCase()} ${S.icon} : 1 au rang 1, 2 au rang ${SUMMON_SECOND_RANK}. Chaque rang : +${Math.round(SUMMON_RANK_POWER * 100)} % de PV et de dégâts. ${SUMMON_CAP} invocations au plus (${SUMMON_CAP_MAX} après l’ultime).`;
   }
   // Branche (spécialisation) déjà entamée : les autres branches sont alors bloquées
   // Arbre : le centre (Paysan), une branche par classe (initiation), une sous-branche par spécialisation.
@@ -760,5 +761,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });
