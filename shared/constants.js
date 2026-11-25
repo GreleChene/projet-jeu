@@ -218,7 +218,7 @@
     if (c.unstable) out.push(`Orbe instable : toutes les ${c.unstable.every} attaques, l’orbe explose en zone (rayon ${c.unstable.r}, ${pct(c.unstable.mult)} des dégâts)`);
     if (c.knock) out.push(`Carreau lourd : chaque carreau repousse le monstre de ${c.knock} px (pas les boss)`);
     if (c.farshot) out.push(`Tir de loin : +1 % de dégâts par tranche de ${c.farshot.per} px entre lui et sa cible (jusqu’à +${pct(c.farshot.max)})`);
-    if (c.backstab) out.push(`Coup dans le dos : +${pct(c.backstab)} de dégâts sur un monstre qui attaque un autre héros ou la tour`);
+    if (c.backstab) out.push(`Coup dans le dos : +${pct(c.backstab)} de dégâts sur un monstre qui attaque un autre héros ou la tour, ou qui est ralenti, gelé ou marqué`);
     if (c.crit && c.crit >= 0.2) out.push(`Coups critiques fréquents : ${pct(c.crit)} de chances de base`);
     if (c.mount) out.push('Monte à cheval (+16 % de vitesse) une fois l’ultime débloqué');
     return out;

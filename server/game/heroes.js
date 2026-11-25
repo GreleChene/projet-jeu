@@ -342,8 +342,8 @@ module.exports = {
     let onHit = null;
     // Tir de loin (arc long) : plus la cible est loin, plus ça fait mal
     if (c.farshot) dmg *= 1 + Math.min(c.farshot.max, Math.floor(U.dist(h, t) / c.farshot.per) * 0.01);
-    // Coup dans le dos (assassin) : le monstre attaque quelqu'un d'autre (héros, tour, bâtiment)
-    if (c.backstab && t.target !== h) dmg *= 1 + c.backstab;
+    // Coup dans le dos (assassin) : le monstre attaque quelqu'un d'autre (héros, tour, bâtiment), ou il est ralenti, gelé ou marqué
+    if (c.backstab && (t.target !== h || t.status.slow || t.status.freeze || t.status.mark)) dmg *= 1 + c.backstab;
     // Élan (chevalier) : premier coup après une longue course
     let charged = false;
     if (c.momentum && (h.runDist || 0) >= c.momentum.dist) { dmg *= c.momentum.mult; charged = true; this.fx(['text', Math.round(t.x), Math.round(t.y - t.size - 20), 'Élan !', c.color]); }

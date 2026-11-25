@@ -7,7 +7,7 @@ const { makeGame, run, args } = require('./lib');
 const A = args();
 
 const g = makeGame();
-for (const cls of ['soldat', 'paladin', 'chevalier', 'mage', 'archer', 'arbaletrier', 'arclong', 'assassin']) g.addBot({ cls, level: 25 });
+for (const cls of ['soldat', 'paladin', 'chevalier', 'mage', 'archer', 'arbaletrier', 'arclong', 'assassin', 'glace', 'fauconnier']) g.addBot({ cls, level: 25 });
 g.startRun(8, { mode: 'classic', difficulty: 'normal' });
 g.damageTower = () => {};
 const seen = {};
@@ -20,7 +20,7 @@ g.fx = (e) => {
 const dm = g.damageMob.bind(g);
 g.damageMob = (m, amt, owner, opts = {}) => {
   if (opts.extra && opts.extra.knock) seen['Carreau lourd'] = (seen['Carreau lourd'] || 0) + 1;
-  if (owner && owner.cls === 'assassin' && m.target !== owner) seen['Coup dans le dos'] = (seen['Coup dans le dos'] || 0) + 1;
+  if (owner && owner.cls === 'assassin' && (m.target !== owner || m.status.slow || m.status.freeze || m.status.mark)) seen['Coup dans le dos'] = (seen['Coup dans le dos'] || 0) + 1;
   if (owner && owner.cls === 'arclong') seen['Tir de loin (coups)'] = (seen['Tir de loin (coups)'] || 0) + 1;
   return dm(m, amt, owner, opts);
 };
