@@ -538,7 +538,7 @@ app.get('/api/leaderboard', (req, res) => {
   res.json({ top });
 });
 
-app.get('/api/info', (req, res) => res.json({ publicUrl: config.PUBLIC_URL, twitch: twitch.settings.channel, run: game.publicRunInfo() }));
+app.get('/api/info', (req, res) => res.json({ publicUrl: config.PUBLIC_URL, twitch: twitch.settings.channel, subGrelons: twitch.settings.subGrelons, giftGrelons: twitch.settings.giftGrelons, run: game.publicRunInfo() }));
 
 /* ============================== Twitch ============================== */
 app.post('/api/me/twitch/code', auth, (req, res) => res.json({ code: twitch.newCode(req.user.id), channel: twitch.settings.channel }));

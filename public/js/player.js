@@ -1071,7 +1071,19 @@
 
   /* ---------- Liaison Twitch ---------- */
   let twitchChannel = 'hyoneko_';
-  fetch('/api/info').then((r) => r.json()).then((d) => { if (d.twitch) { twitchChannel = d.twitch; if (me) renderTwitch(); } }).catch(() => {});
+  fetch('/api/info').then((r) => r.json()).then((d) => { if (d.twitch) { twitchChannel = d.twitch; if (me) renderTwitch(); } renderSubRewards(d); }).catch(() => {});
+  // Onglet Compte : ce que rapportent les abonnements Twitch
+  function renderSubRewards(d) {
+    const sub = d.subGrelons || 0, gift = d.giftGrelons || 0;
+    const row = (icon, label, amount, note) => el('div', { class: 'reward-line' }, el('span', {}, `${icon} ${label}`, note ? el('div', { class: 'tiny muted' }, note) : ''), el('b', {}, hail(), ` ${amount} Grêlons`));
+    const glaces = (n) => Math.floor(n / GD.GLACONS.PRICE);
+    $('#subRewards').replaceChildren(el('div', { class: 'reward-list' },
+      row('⭐', 'Abonnement palier 1 ou Prime', sub, `Réabonnements compris · soit ${glaces(sub)} glaçon(s)`),
+      row('⭐⭐', 'Abonnement palier 2', sub * 2, '×2'),
+      row('⭐⭐⭐', 'Abonnement palier 3', sub * 5, '×5'),
+      row('🎁', 'Abonnement offert à quelqu’un', gift, 'Par abonnement offert, pour celui qui l’offre (même multiplicateur selon le palier)')),
+      el('p', { class: 'small muted', style: 'margin-top:8px' }, 'Pas encore lié ? Tes Grêlons sont mis de côté et versés dès que tu lies ton compte Twitch ci-dessus (!lier CODE). Les dons anonymes ne rapportent rien.'));
+  }
   let twitchCode = null;
   function renderTwitch() {
     $('#twitchLink').textContent = `twitch.tv/${twitchChannel}`;
