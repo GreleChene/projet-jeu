@@ -35,9 +35,33 @@
   let feed = [];
   let announce = null;
   let shake = 0;
-  // Caméra : vue rapprochée sur la tour hors des vagues, dézoom sur toute la carte pendant une vague
-  const ZOOM_CALM = 1.28, ZOOM_WAVE = 1;
+  // Caméra : vue normale hors des vagues ; pendant une vague, dézoom au-delà des bords pour voir arriver les monstres
+  const ZOOM_CALM = 1, ZOOM_WAVE = 0.84;
   let camZoom = ZOOM_CALM;
+  // Abords de la carte (visibles seulement pendant le dézoom) : le sol prolongé en miroir, assombri comme une brume
+  const OUT_M = 240;
+  let outskirts = null, outskirtsFor = null;
+  function getOutskirts() {
+    if (!terrain) return null;
+    if (outskirtsFor === terrain.canvas) return outskirts;
+    const W = WORLD.W, H = WORLD.H, src = terrain.canvas;
+    const c = document.createElement('canvas'); c.width = W + OUT_M * 2; c.height = H + OUT_M * 2;
+    const x = c.getContext('2d');
+    for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) {
+      if (!dx && !dy) continue;
+      x.save();
+      x.translate(OUT_M + (dx === 1 ? 2 * W : 0), OUT_M + (dy === 1 ? 2 * H : 0));
+      x.scale(dx ? -1 : 1, dy ? -1 : 1);
+      x.drawImage(src, dx === 0 ? 0 : 0, 0);
+      x.restore();
+    }
+    // brume : plus sombre en s'éloignant de la carte
+    x.fillStyle = 'rgba(14,10,24,0.42)';
+    x.beginPath(); x.rect(0, 0, c.width, c.height); x.rect(OUT_M, OUT_M, W, H); x.fill('evenodd');
+    x.lineWidth = 6; x.strokeStyle = 'rgba(14,10,24,0.55)'; x.strokeRect(OUT_M - 3, OUT_M - 3, W + 6, H + 6);
+    outskirts = c; outskirtsFor = src;
+    return c;
+  }
   let joinUrl = location.host;
   const ambient = [];
 
@@ -229,8 +253,12 @@
     ctx.save();
     const sx = shake > 0 ? (Math.random() - 0.5) * shake : 0, sy = shake > 0 ? (Math.random() - 0.5) * shake : 0;
     ctx.translate(sx, sy);
-    // zoom centré sur la tour (léger décalage vers le bas pour garder la tour et les habitations dans le cadre)
-    if (Math.abs(camZoom - 1) > 0.001) { ctx.translate(WORLD.CX, WORLD.CY + 20); ctx.scale(camZoom, camZoom); ctx.translate(-WORLD.CX, -(WORLD.CY + 20)); }
+    // dézoom centré sur la tour pendant les vagues
+    if (Math.abs(camZoom - 1) > 0.001) {
+      ctx.translate(WORLD.CX, WORLD.CY); ctx.scale(camZoom, camZoom); ctx.translate(-WORLD.CX, -WORLD.CY);
+      const o = getOutskirts();
+      if (o) ctx.drawImage(o, -OUT_M, -OUT_M);
+    }
     if (terrain) ctx.drawImage(terrain.canvas, 0, 0);
     else { ctx.fillStyle = P.biome.prairie.ground[0]; ctx.fillRect(0, 0, WORLD.W, WORLD.H); }
     if (terrain) A.drawLavaGlow(ctx, terrain.lava, time);
