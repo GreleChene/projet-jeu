@@ -56,11 +56,49 @@
       x.restore();
     }
     // brume : plus sombre en s'éloignant de la carte
-    x.fillStyle = 'rgba(14,10,24,0.42)';
+    x.fillStyle = 'rgba(120,126,140,0.35)';
     x.beginPath(); x.rect(0, 0, c.width, c.height); x.rect(OUT_M, OUT_M, W, H); x.fill('evenodd');
-    x.lineWidth = 6; x.strokeStyle = 'rgba(14,10,24,0.55)'; x.strokeRect(OUT_M - 3, OUT_M - 3, W + 6, H + 6);
     outskirts = c; outskirtsFor = src;
     return c;
+  }
+  // Bande de petits nuages gris le long des bords de la carte (les monstres en sortent pendant les vagues)
+  const CLOUD_SPRITES = [];
+  function cloudSprite(i) {
+    if (CLOUD_SPRITES[i]) return CLOUD_SPRITES[i];
+    const rnd = (k) => { const v = Math.sin(i * 91.7 + k * 13.3) * 43758.5453; return v - Math.floor(v); };
+    const c = document.createElement('canvas'); c.width = 170; c.height = 110;
+    const x = c.getContext('2d');
+    const puffs = [];
+    const n = 4 + Math.floor(rnd(1) * 3);
+    for (let k = 0; k < n; k++) puffs.push([30 + (k / (n - 1)) * 110 + (rnd(k + 2) - 0.5) * 16, 62 - Math.sin((k / (n - 1)) * Math.PI) * 22 + (rnd(k + 9) - 0.5) * 10, 20 + rnd(k + 5) * 16]);
+    const blob = (dy, extra, col) => { x.fillStyle = col; x.beginPath(); for (const [px, py, r] of puffs) { x.moveTo(px + r + extra, py + dy); x.arc(px, py + dy, r + extra, 0, Math.PI * 2); } x.fill(); };
+    blob(4, 3, 'rgba(40,38,52,0.55)'); // contour / ombre
+    blob(3, 0, '#8f96a3');               // dessous
+    blob(0, 0, '#c4c9d2');               // corps
+    x.fillStyle = 'rgba(236,240,245,0.85)';
+    for (const [px, py, r] of puffs) { x.beginPath(); x.arc(px - r * 0.25, py - r * 0.3, r * 0.45, 0, Math.PI * 2); x.fill(); }
+    CLOUD_SPRITES[i] = c;
+    return c;
+  }
+  const CLOUDS = (() => {
+    const W = WORLD.W, H = WORLD.H, out = [];
+    const edge = (len, f) => { for (let s = -60; s < len + 60; s += 62) for (let row = 0; row < 2; row++) out.push(f(s + row * 31, row)); };
+    // row 0 : à cheval sur le bord ; row 1 : un peu à l'extérieur
+    edge(W, (s, row) => ({ x: s, y: -10 - row * 70, i: out.length % 6, ph: out.length * 0.7 }));
+    edge(W, (s, row) => ({ x: s, y: H + 10 + row * 70, i: out.length % 6, ph: out.length * 0.7 }));
+    edge(H, (s, row) => ({ x: -20 - row * 80, y: s, i: out.length % 6, ph: out.length * 0.7 }));
+    edge(H, (s, row) => ({ x: W + 20 + row * 80, y: s, i: out.length % 6, ph: out.length * 0.7 }));
+    return out;
+  })();
+  function drawEdgeClouds(alpha) {
+    if (alpha <= 0.01) return;
+    ctx.save(); ctx.globalAlpha = alpha;
+    for (const c of CLOUDS) {
+      const sp = cloudSprite(c.i);
+      const dx = Math.sin(time * 0.25 + c.ph) * 10, dy = Math.cos(time * 0.2 + c.ph) * 4;
+      ctx.drawImage(sp, c.x - sp.width / 2 + dx, c.y - sp.height / 2 + dy);
+    }
+    ctx.restore();
   }
   let joinUrl = location.host;
   const ambient = [];
@@ -284,6 +322,7 @@
     drawGlows();
     drawFx();
     drawAmbient();
+    drawEdgeClouds((1 - camZoom) / (1 - ZOOM_WAVE));
     drawLabels();
     ctx.restore();
     drawVignette();
