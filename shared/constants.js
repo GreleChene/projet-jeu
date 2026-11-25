@@ -191,6 +191,31 @@
     if (d.flying) out.push('Vole');
     return out;
   }
+  // Passifs d'une classe, décrits à partir de ses données (affichés dans l'arbre de compétences)
+  function passiveLines(cls) {
+    const c = CLASSES[cls];
+    if (!c) return [];
+    const pct = (v) => `${Math.round(v * 100)} %`, sec = (v) => `${String(v).replace('.', ',')} s`;
+    const out = [];
+    if (c.rage) out.push(`Rage : jusqu’à +${pct(c.rage.max)} de dégâts quand ses PV baissent (maximum sous 30 % de PV) ; se soigne de ${pct(c.rage.leech)} des dégâts infligés`);
+    if (c.onHit && c.onHit.slow) out.push(`Ses projectiles ralentissent de ${pct(c.onHit.slow)} pendant ${sec(c.onHit.dur)}`);
+    if (c.onHit && c.onHit.burn) out.push(`Ses projectiles brûlent : ${pct(c.onHit.burn)} de ses dégâts par seconde pendant ${sec(c.onHit.dur)}`);
+    if (c.healer) out.push('Toutes les 3 s, soigne l’allié le plus blessé (10 % de ses PV max + 120 % des dégâts du héros)');
+    if (c.summons) out.push(`Invocation : ${Object.entries(c.summons).map(([k, n]) => `${n} ${(SUMMONS[k] || { name: k }).name.toLowerCase().replace(/s$/, '')} ${(SUMMONS[k] || {}).icon || ''}`).join(', ')} à ses côtés`);
+    if (c.pets) out.push(`Invocations débloquées dans l’arbre : ${c.pets.map((k) => `${SUMMONS[k].icon} ${SUMMONS[k].name}`).join(', ')} (${SUMMON_CAP} au plus, ${SUMMON_CAP_MAX} après l’ultime)`);
+    if (c.traps) out.push(`Pose un piège à mâchoires toutes les ${sec(c.traps.every)} (${c.traps.max} au plus) : immobilise ${sec(c.traps.root)} et inflige ${pct(c.traps.mult)} des dégâts`);
+    if (c.stealth) out.push(`Devient invisible ${sec(c.stealth.dur)} toutes les ${sec(c.stealth.every)}`);
+    if (c.venom) out.push(`Ses fioles empoisonnent : jusqu’à ${c.venom.max} doses, ${pct(c.venom.pct)} des dégâts par dose et par seconde pendant ${sec(c.venom.dur)} ; +${pct(c.venom.boss - 1)} contre les boss`);
+    if (c.dash) out.push(`Toutes les ${sec(c.dash.every)}, surgit derrière l’ennemi le plus faible (portée ${c.dash.range}) et frappe à 220 %`);
+    if (c.aura) out.push(`Aura : les héros à moins de ${c.aura.r} px attaquent ${pct(c.aura.atkspd)} plus vite${c.aura.dmg ? ` et font +${pct(c.aura.dmg)} de dégâts` : ''}`);
+    if (c.pierce > 1) out.push(`Ses notes traversent jusqu’à ${c.pierce} monstres alignés`);
+    if (c.quake) out.push(`Toutes les ${sec(c.quake.every)}, onde de choc (rayon ${c.quake.r}) : repousse et étourdit ${sec(c.quake.stun)} les monstres proches (boss ralentis)`);
+    if (c.splash) out.push(`Ses coups touchent aussi les ennemis autour (60 % des dégâts, rayon ${c.splash})`);
+    if (c.charm) out.push(`${pct(c.charm.chance)} de chances par attaque de charmer un monstre ${sec(c.charm.dur)} (il n’attaque plus)`);
+    if (c.crit && c.crit >= 0.2) out.push(`Coups critiques fréquents : ${pct(c.crit)} de chances de base`);
+    if (c.mount) out.push('Monte à cheval (+16 % de vitesse) une fois l’ultime débloqué');
+    return out;
+  }
   function summonText(n) {
     const S = SUMMONS[n.summon];
     return [`Invocation : ${S.name} ${S.icon}`, ...summonEffects(n.summon).map((l) => `• ${l}`),
@@ -795,5 +820,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

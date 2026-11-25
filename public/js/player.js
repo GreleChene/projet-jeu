@@ -310,6 +310,12 @@
   function setTreeZoom(z) { treeZoom = z === null ? null : Math.max(0.25, Math.min(1.6, z)); renderClasses(); }
   // réajuste l'arbre quand la largeur change (ou quand l'onglet devient visible)
   if (window.ResizeObserver) new ResizeObserver(() => { if (treeZoom === null) applyTreeZoom(); }).observe(document.getElementById('classTree'));
+  // Description et passifs d'une classe (infobulles de l'arbre)
+  function passiveBlock(cls) {
+    const L = GD.passiveLines(cls);
+    return L.length ? 'Passif :\n' + L.map((l) => '• ' + l).join('\n') : 'Aucun passif : uniquement ses statistiques et son arme.';
+  }
+  function classInfo(cls) { return `${GD.CLASSES[cls].desc}\n\n${passiveBlock(cls)}`; }
   function renderClasses() {
     const PR = GD.PROGRESSION;
     const cur = GD.CLASSES[me.cls];
@@ -396,10 +402,10 @@
     const pos = {}; // position de chaque pastille (pour la bulle d'action)
     const R_CLASS = 160, R_LABEL = 245, R_NODES = [300, 344, 388, 432, 476], R_ULT = 552, R_POST = [632, 678];
     const P0 = GD.CLASSES.habitant;
-    items.push(place(el('div', { class: 'tcenter' + (cur.tier === 0 ? ' here' : '') },
+    items.push(place(tipped(el('div', { class: 'tcenter' + (cur.tier === 0 ? ' here' : '') },
       miniHero('habitant', 48),
       el('div', { class: 'title', style: `color:${P0.color}` }, P0.name),
-      dot(GD.SKILLS.core_1)), [CX, CY]));
+      dot(GD.SKILLS.core_1)), P0.name, classInfo('habitant'), null, P0.color), [CX, CY]));
     pos.core_1 = [CX, CY + 42];
     GD.BASE_CLASSES.forEach((b, k) => {
       const B = GD.CLASSES[b];
@@ -407,10 +413,10 @@
       const rowLocked = cur.tier > 0 && base !== b;
       const initOwned = (sk[`init_${b}`] || 0) > 0;
       link([CX, CY], at(R_CLASS, a0), B.color, initOwned, rowLocked);
-      items.push(place(el('div', { class: 'tcls' + (base === b ? ' here' : ''), style: `--bc:${B.color}` },
+      items.push(place(tipped(el('div', { class: 'tcls' + (base === b ? ' here' : ''), style: `--bc:${B.color}` },
         miniHero(b, 40),
         el('div', { class: 'tname', style: `color:${B.color}` }, B.name, base === b ? ' ✓' : '', rowLocked ? ' 🔒' : ''),
-        dot(GD.SKILLS[`init_${b}`])), at(R_CLASS, a0), rowLocked ? 'tlocked' : ''));
+        dot(GD.SKILLS[`init_${b}`])), B.name, classInfo(b), null, B.color), at(R_CLASS, a0), rowLocked ? 'tlocked' : ''));
       { const c0 = at(R_CLASS, a0); pos[`init_${b}`] = [c0[0], c0[1] + 34]; }
       GD.specsOf(b).forEach((spec, j) => {
         const S = GD.CLASSES[spec];
@@ -420,7 +426,7 @@
         const ids = [1, 2, 3, 4, 5].map((n) => GD.SKILLS[`${spec}_${n}`]);
         let prev = at(R_CLASS + 34, a0);
         link(prev, at(R_LABEL - 18, a), S.color, (sk[ids[0].id] || 0) > 0, laneLocked);
-        items.push(place(el('div', { class: 'tlbl' + (me.cls === spec ? ' here' : ''), style: `color:${S.color}`, title: S.desc }, S.name, me.cls === spec ? ' ✓' : '', laneLocked ? ' 🔒' : ''), at(R_LABEL, a), lk));
+        items.push(place(tipped(el('div', { class: 'tlbl' + (me.cls === spec ? ' here' : ''), style: `color:${S.color}` }, S.name, me.cls === spec ? ' ✓' : '', laneLocked ? ' 🔒' : ''), S.name, classInfo(spec), null, S.color), at(R_LABEL, a), lk));
         prev = at(R_LABEL + 16, a);
         ids.forEach((n, m) => {
           const p = at(R_NODES[m], a);
@@ -453,6 +459,7 @@
         el('div', { class: 'tpop-head' }, el('b', { style: `color:${who.color}` }, nodeTitle(sel)), el('span', { class: 'chip small' }, sel.ult ? (selSt.rank ? 'Débloqué' : 'Ultime') : `${selSt.rank}/${sel.max}`)),
         el('div', { class: 'tiny', style: 'margin:4px 0 6px' }, nodeText(sel)),
         sel.init || sel.step === 1 ? el('div', { class: 'tiny muted', style: 'margin-bottom:6px' }, `Le premier point fait devenir ${who.name} et grise les autres branches.`) : '',
+        sel.init || sel.step === 1 ? el('div', { class: 'tiny', style: 'margin-bottom:6px' }, passiveBlock(sel.spec || sel.base)) : '',
         actionBtn());
       items.push(pop);
       // la bulle se referme toute seule quand la souris s'en éloigne (et de sa pastille)
