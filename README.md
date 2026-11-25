@@ -158,11 +158,14 @@ public/
   js/stream.js      écran du stream    js/player.js  page joueur    js/admin.js  admin
 test/               tests du moteur (npm test)
 tools/pixelart/     sources des sprites pixel art des monstres (Python + Pillow)
+tools/sim/          simulations sans serveur (durée des parties, économie, équilibrage des classes, invocations)
+tools/captures.js   captures d'écran automatiques du stream et de la page joueur (Playwright)
 ```
 
 ### Graphismes
 
 - **Rendu** (`/stream`) : **héros en pixel art** assemblés à la volée (visage personnalisé, équipement selon le style et la rareté, arme de classe, marche et attaque), tour en pierre avec bannières et torches, habitations en vue 3/4, **monstres en pixel art** dessinés pixel par pixel. Les monstres, la tour et les bâtiments sont pré-rendus en cache par étape d'animation, ce qui garde le stream fluide même avec des centaines de monstres.
+- **Vérifier un changement** : `npm run sim:duree` (durée des parties), `npm run sim:economie` (écus), `npm run sim:classes` (équilibrage), `npm run sim:invocations` ; `npm run captures -- stream` ou `npm run captures -- joueur --onglet=hero` produit des captures dans `captures/` (Playwright requis).
 - **Modifier un monstre** : les sprites sont décrits dans `tools/pixelart/` (`gob.py`, `s_beasts.py`, `s_giants.py`, `s_corrupt.py`, `s_inferno.py`, `s_casters.py`). `python3 build.py wolf,golem apercu.png` produit une planche d'aperçu, `python3 export.py` régénère `public/js/sprites.js`. Les variantes de couleur (loup des neiges, golem d'obsidienne…) sont des palettes dans les mêmes fichiers.
 
 **Cohérence graphique.** Toutes les couleurs viennent de `GameData.PALETTE`, et tous les dessins passent par `public/js/art.js`. Le style est le même partout : aplats, contour sombre unique, ombre portée et proportions « chibi ». Le stream, les aperçus de la page joueur et la boutique utilisent les mêmes fonctions de dessin.

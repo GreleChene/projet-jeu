@@ -7,7 +7,12 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "sim:duree": "node tools/sim/duree.js",
+    "sim:economie": "node tools/sim/economie.js",
+    "sim:classes": "node tools/sim/classes.js",
+    "sim:invocations": "node tools/sim/invocations.js",
+    "captures": "node tools/captures.js"
   },
   "engines": {
     "node": ">=18"
