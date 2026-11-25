@@ -175,7 +175,9 @@ module.exports = {
       if (m.target) { tx = m.target.x; ty = m.target.y; reach = m.range + (m.target.size || 12); }
       else { tx = WORLD.CX; ty = WORLD.CY; reach = m.range + WORLD.TOWER_R; }
       const dist = Math.hypot(tx - m.x, ty - m.y);
-      if (dist > reach) this.moveToward(m, tx, ty, m.speed * speedMul, dt);
+      // dans la brume (hors de la carte), les monstres avancent plus vite jusqu'à entrer dans la zone de jeu
+      const fog = m.x < 0 || m.y < 0 || m.x > WORLD.W || m.y > WORLD.H ? 2.2 : 1;
+      if (dist > reach) this.moveToward(m, tx, ty, m.speed * speedMul * fog, dt);
       else m.facing = Math.atan2(ty - m.y, tx - m.x);
       m.atkT -= dt;
       if (dist <= reach + 4 && m.atkT <= 0) {

@@ -10,6 +10,10 @@
   'use strict';
 
   const WORLD = { W: 1920, H: 1080, CX: 960, CY: 540, TOWER_R: 64, TILE: 40 };
+  // Dézoom du stream pendant les vagues : les monstres apparaissent au bord de cette vue élargie (dans la brume)
+  WORLD.WAVE_ZOOM = 0.75;
+  WORLD.SPAWN_MX = Math.round((WORLD.W / WORLD.WAVE_ZOOM - WORLD.W) / 2); // marge horizontale visible au-delà de la carte
+  WORLD.SPAWN_MY = Math.round((WORLD.H / WORLD.WAVE_ZOOM - WORLD.H) / 2); // marge verticale
 
   /* ------------------------------------------------------------------ */
   /* Palette : TOUTES les couleurs du jeu viennent d'ici (cohérence).    */

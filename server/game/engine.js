@@ -830,7 +830,7 @@ class Game {
           this.damageTower(p.dmg); done = true;
         }
       }
-      if (done || p.life <= 0 || p.x < -100 || p.y < -100 || p.x > WORLD.W + 100 || p.y > WORLD.H + 100) continue;
+      if (done || p.life <= 0 || p.x < -WORLD.SPAWN_MX - 100 || p.y < -WORLD.SPAWN_MY - 100 || p.x > WORLD.W + WORLD.SPAWN_MX + 100 || p.y > WORLD.H + WORLD.SPAWN_MY + 100) continue;
       keep.push(p);
     }
     this.projectiles = keep;
@@ -1073,11 +1073,11 @@ class Game {
   }
 
   edgePoint(angle) {
-    // point sur le bord de l'écran (légèrement à l'extérieur) dans une direction donnée
-    const cx = WORLD.CX, cy = WORLD.CY;
+    // point sur le bord de la vue dézoomée du stream (dans la brume, juste à l'extérieur) dans une direction donnée
+    const cx = WORLD.CX, cy = WORLD.CY, mx = WORLD.SPAWN_MX + 20, my = WORLD.SPAWN_MY + 20;
     const dx = Math.cos(angle), dy = Math.sin(angle);
-    const tx = dx !== 0 ? (dx > 0 ? (WORLD.W + 30 - cx) / dx : (-30 - cx) / dx) : Infinity;
-    const ty = dy !== 0 ? (dy > 0 ? (WORLD.H + 30 - cy) / dy : (-30 - cy) / dy) : Infinity;
+    const tx = dx !== 0 ? (dx > 0 ? (WORLD.W + mx - cx) / dx : (-mx - cx) / dx) : Infinity;
+    const ty = dy !== 0 ? (dy > 0 ? (WORLD.H + my - cy) / dy : (-my - cy) / dy) : Infinity;
     const t = Math.min(tx, ty);
     return { x: cx + dx * t, y: cy + dy * t };
   }

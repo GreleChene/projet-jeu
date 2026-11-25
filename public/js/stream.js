@@ -36,10 +36,10 @@
   let announce = null;
   let shake = 0;
   // Caméra : vue normale hors des vagues ; pendant une vague, dézoom au-delà des bords pour voir arriver les monstres
-  const ZOOM_CALM = 1, ZOOM_WAVE = 0.84;
+  const ZOOM_CALM = 1, ZOOM_WAVE = GD.WORLD.WAVE_ZOOM; // réglé dans shared/constants.js (les monstres apparaissent à ce bord)
   let camZoom = ZOOM_CALM;
   // Abords de la carte (visibles seulement pendant le dézoom) : le sol prolongé en miroir, assombri comme une brume
-  const OUT_M = 240;
+  const OUT_M = Math.max(GD.WORLD.SPAWN_MX, GD.WORLD.SPAWN_MY) + 40;
   let outskirts = null, outskirtsFor = null;
   function getOutskirts() {
     if (!terrain) return null;
