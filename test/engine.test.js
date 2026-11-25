@@ -210,3 +210,14 @@ test('partie rapide : 35 manches, boss et terrain accélérés, 1 zone max ; dif
   h.runXp = 0; g.reward(h, 100, 100);
   assert.ok(Math.abs(h.runXp - 100 * GD.MODES.quick.rewards * GD.DIFFICULTIES.facile.rewards) <= 1);
 });
+
+test('écran de fin : reste affiché jusqu’à la validation d’un admin', () => {
+  const g = makeGame();
+  g.startRun(1);
+  g.gameOver();
+  for (let i = 0; i < 20 * 120; i++) g.tick(0.05); // 2 minutes
+  assert.strictEqual(g.phase, 'gameover', 'toujours sur l’écran de fin après 2 minutes');
+  assert.ok(g.endRunAck(), 'validation par l’admin');
+  assert.strictEqual(g.phase, 'lobby');
+  assert.strictEqual(g.endRunAck(), false, 'rien à valider hors de l’écran de fin');
+});

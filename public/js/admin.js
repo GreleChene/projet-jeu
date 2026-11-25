@@ -73,6 +73,8 @@
     try { d = await api('/api/admin/state'); } catch (e) { return; }
     const r = d.run;
     const jl = r.joinEndsAt ? Math.max(0, Math.ceil((r.joinEndsAt - Date.now()) / 1000)) : null;
+    // écran de fin affiché sur le stream : bouton de validation bien visible
+    $('#ackEnd').classList.toggle('hidden', r.phase !== 'gameover' && r.phase !== 'victory');
     $('#joinState').textContent = r.canJoin ? `🔓 Inscriptions ouvertes${jl !== null ? ` (${jl} s)` : ' (sans limite)'}` : '🔒 Inscriptions fermées';
     $('#runState').replaceChildren(
       el('div', { class: 'stats3' },
@@ -112,7 +114,7 @@
     ['maxHeroes', 'Héros maximum', 'number', 1],
     ['maxAliveMobs', 'Monstres simultanés max', 'number', 10],
     ['autoNext', 'Enchaîner les manches automatiquement', 'checkbox'],
-    ['autoRestart', 'Relancer une partie après une défaite', 'checkbox']
+    ['autoRestart', 'Relancer une partie quand l’écran de fin est validé', 'checkbox']
   ];
   function renderSettings(s) {
     $('#settings').replaceChildren(...SETTINGS.map(([k, label, type, step]) => el('div', {},

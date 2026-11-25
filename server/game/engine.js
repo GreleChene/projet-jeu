@@ -167,6 +167,14 @@ class Game {
     this.announce('La bataille va commencer !', 'Rejoins la défense : tape !join dans le chat');
   }
 
+  // Validation de l'écran de fin par un admin : nouvelle partie (si l'option est cochée) ou retour à l'attente
+  endRunAck() {
+    if (this.phase !== 'gameover' && this.phase !== 'victory') return false;
+    if (this.settings.autoRestart) this.startRun(1);
+    else { this.phase = 'lobby'; this.removePlayerHeroes(); this.resetRun(); }
+    return true;
+  }
+
   stopRun() {
     this.finishRun(false, true);
     this.removePlayerHeroes();
@@ -705,12 +713,8 @@ class Game {
         break;
       case 'gameover':
       case 'victory':
-        r.timer -= dt;
+        // l'écran de fin reste affiché jusqu'à ce qu'un admin le valide (endRunAck)
         this.updateZones(dt);
-        if (r.timer <= 0) {
-          if (this.settings.autoRestart) this.startRun(1);
-          else { this.phase = 'lobby'; this.removePlayerHeroes(); this.resetRun(); }
-        }
         break;
     }
   }

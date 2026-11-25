@@ -576,6 +576,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
     case 'start': game.startRun(b.wave || 1, { mode: b.mode, difficulty: b.difficulty }); break;
     case 'stop': game.stopRun(); break;
     case 'pause': game.paused = true; break;
+    case 'ack': if (!game.endRunAck()) return res.status(400).json({ error: 'Aucun écran de fin à valider.' }); break;
     case 'resume': game.paused = false; break;
     case 'speed': game.speed = [1, 2, 3].includes(Number(b.speed)) ? Number(b.speed) : 1; break;
     case 'skip': game.skipWave(); break;
