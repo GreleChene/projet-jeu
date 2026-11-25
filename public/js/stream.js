@@ -35,6 +35,9 @@
   let feed = [];
   let announce = null;
   let shake = 0;
+  // Caméra : vue rapprochée sur la tour hors des vagues, dézoom sur toute la carte pendant une vague
+  const ZOOM_CALM = 1.28, ZOOM_WAVE = 1;
+  let camZoom = ZOOM_CALM;
   let joinUrl = location.host;
   const ambient = [];
 
@@ -198,6 +201,8 @@
     for (const f of feed) f.t += dt;
     if (announce) { announce.t += dt; if (announce.t > 3.8) announce = null; }
     shake = Math.max(0, shake - dt * 30);
+    const zt = snap && snap.ph === 'wave' ? ZOOM_WAVE : ZOOM_CALM;
+    camZoom += (zt - camZoom) * Math.min(1, dt * 1.6); // transition douce
     updateAmbient(dt);
   }
 
@@ -224,6 +229,8 @@
     ctx.save();
     const sx = shake > 0 ? (Math.random() - 0.5) * shake : 0, sy = shake > 0 ? (Math.random() - 0.5) * shake : 0;
     ctx.translate(sx, sy);
+    // zoom centré sur la tour (léger décalage vers le bas pour garder la tour et les habitations dans le cadre)
+    if (Math.abs(camZoom - 1) > 0.001) { ctx.translate(WORLD.CX, WORLD.CY + 20); ctx.scale(camZoom, camZoom); ctx.translate(-WORLD.CX, -(WORLD.CY + 20)); }
     if (terrain) ctx.drawImage(terrain.canvas, 0, 0);
     else { ctx.fillStyle = P.biome.prairie.ground[0]; ctx.fillRect(0, 0, WORLD.W, WORLD.H); }
     if (terrain) A.drawLavaGlow(ctx, terrain.lava, time);
@@ -250,8 +257,8 @@
     drawFx();
     drawAmbient();
     drawLabels();
-    drawVignette();
     ctx.restore();
+    drawVignette();
     drawHud();
   }
 
