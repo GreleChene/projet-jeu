@@ -64,7 +64,9 @@ class Game {
       wave: 0,
       cleared: 0,
       uprooted: false,
-      tower: { hp: GD.BALANCE.TOWER_BASE_HP, max: GD.BALANCE.TOWER_BASE_HP, ballistaT: 0, catapultT: 0 },
+      tower: { hp: GD.BALANCE.TOWER_BASE_HP, max: GD.BALANCE.TOWER_BASE_HP, boltT: 0, fireT: 2, frostT: 3, zapT: 1, meteorT: 5 },
+      towerSpec: null, // spécialisation choisie au premier vote (attaque, defense, soin, mage)
+      walls: [], // segments de remparts / murets
       // habitations : une par héros, du type de sa classe (refuge et soin entre les manches)
       buildings: [],
       treasury: 0,
@@ -165,6 +167,18 @@ class Game {
     this.paused = false;
     this.openJoin(this.settings.joinWindow);
     this.announce('La bataille va commencer !', 'Rejoins la défense : tape !join dans le chat');
+  }
+
+  // Test (admin) : donne une amélioration gratuitement (ou la spécialisation de la tour)
+  forceUpgrade(id) {
+    const u = UPGRADES[id];
+    if (!u || u.challenge || u.revive || this.run.upgrades[id] >= u.max) return false;
+    if (u.tower && !this.run.towerSpec) this.run.towerSpec = u.tower;
+    const t = this.run.treasury;
+    this.run.treasury = 1e9;
+    this.applyUpgrade(id);
+    this.run.treasury = t;
+    return true;
   }
 
   // Validation de l'écran de fin par un admin : nouvelle partie (si l'option est cochée) ou retour à l'attente
@@ -290,7 +304,7 @@ class Game {
         return sk;
       })(),
       attrs: (() => { const a = GD.emptyAttrs(); for (let i = 1; i < lvl; i++) a[U.pick(GD.ATTR_IDS)]++; return a; })(),
-      ai: { stance: U.pick(['offensive', 'balanced', 'defensive']), target: U.pick(['nearest', 'weakest', 'strongest', 'tower']), retreat: U.pick([0, 25, 50]), ult: U.pick(['asap', 'smart', 'boss']) }
+      ai: { stance: U.pick(['offensive', 'balanced', 'defensive']), target: U.pick(['nearest', 'weakest', 'strongest', 'tower']), ult: U.pick(['asap', 'smart', 'boss']) }
     };
     this.refreshHero(h);
     h.hp = h.maxHp;
@@ -316,7 +330,7 @@ class Game {
       x: WORLD.CX + Math.cos(a) * 110, y: WORLD.CY + Math.sin(a) * 80,
       facing: a, alive: true, hp: 1, maxHp: 1, ult: 0, atkT: 0, retargetT: 0, target: null,
       buffs: {}, status: {}, timers: { stealth: 0, dash: 3, heal: 2, summon: 0, aura: 0, quake: 3, hawk: 1, trap: 2, storm: 0 },
-      zombie: false, deathX: 0, deathY: 0, attackAnim: 0, retreating: false,
+      zombie: false, deathX: 0, deathY: 0, attackAnim: 0,
       runKills: 0, runGold: 0, runXp: 0, idleAngle: a, dashing: null, chain: null
     };
   }
@@ -391,7 +405,7 @@ class Game {
   // Gain d'XP et de Grêlons (monnaie personnelle persistante)
   reward(h, xp, gold) {
     const M = GD.MODES[this.run.mode] || GD.MODES.classic, D = GD.DIFFICULTIES[this.run.difficulty] || GD.DIFFICULTIES.normal;
-    const mult = (1 + 0.2 * this.run.upgrades.banner) * (this.run.pactActive ? 2 : 1) * M.rewards * D.rewards;
+    const mult = (this.run.pactActive ? 2 : 1) * M.rewards * D.rewards;
     xp = Math.round(xp * mult * (h.xpMult || 1)); gold = Math.round(gold * mult);
     // tout est mis de côté et versé à la fin de la partie (payout)
     h.runXp += xp; h.runGold += gold;
@@ -513,11 +527,15 @@ class Game {
       const u = h.userId && this.db.userById(h.userId);
       if (u) u.stats.bestWave = Math.max(u.stats.bestWave, r.cleared);
     }
-    // Infirmerie : réanime des héros morts au hasard à chaque fin de manche (1 au niveau requis, 2 au niveau supérieur)
-    const inf = r.upgrades.infirmary, B = GD.BALANCE;
-    const revives = inf >= B.INFIRMARY_REVIVE2_LEVEL ? 2 : inf >= B.INFIRMARY_REVIVE_LEVEL ? 1 : 0;
-    const dead = U.shuffle([...this.heroes.values()].filter((h) => !h.alive)).slice(0, revives);
-    for (const h of dead) { this.reviveHero(h); this.pushFeed(`⛑️ L’infirmerie réanime ${h.name} !`); }
+    // Soin d'entracte de la tour : 10 % des PV max, jusqu'à 75 % avec une tour de soin au maximum (Fontaine de vie)
+    const healPct = GD.BALANCE.INTERMISSION_HEAL + 0.13 * (r.upgrades.so_fountain || 0);
+    for (const h of this.heroes.values()) if (h.alive && h.hp < h.maxHp) this.healHero(h, h.maxHp * healPct);
+    this.fx(['healring', WORLD.CX, WORLD.CY, 260]);
+    // Sanctuaire des âmes (tour de soin) : réanime 1 héros mort (2 au niveau 2)
+    const dead = U.shuffle([...this.heroes.values()].filter((h) => !h.alive)).slice(0, r.upgrades.so_sanctuary || 0);
+    for (const h of dead) { this.reviveHero(h); this.pushFeed(`⛑️ Le sanctuaire réanime ${h.name} !`); }
+    // remparts et murets : nouveaux PV selon la manche, et une partie est réparée
+    this.refreshWalls(GD.WALLS.REPAIR);
     const bonus = Math.round((GD.BALANCE.WAVE_ECUS_BASE + this.powerWave(r.wave) * GD.BALANCE.WAVE_ECUS_PER_WAVE) * (r.pactActive ? 2 : 1));
     this.addTreasury(bonus);
     r.pactActive = false;
@@ -552,21 +570,25 @@ class Game {
     return Math.round(u.cost * Math.pow(u.growth, this.run.upgrades[id]));
   }
 
+  // Premier vote : la spécialisation de la tour ; ensuite 2 de ses améliorations + Pacte de sang + Économiser
+  // (+ Résurrection s'il y a un mort) : 4 choix, 5 avec la Résurrection
   openVote() {
     const r = this.run;
-    const avail = Object.keys(UPGRADES).filter((id) => {
-      const u = UPGRADES[id];
-      return !u.challenge && !u.revive && id !== 'walls' && r.upgrades[id] < u.max && r.wealthEarned >= u.unlock;
-    });
-    // priorité aux améliorations abordables, puis les autres pour faire rêver
-    const affordable = U.shuffle(avail.filter((id) => this.upgradeCost(id) <= r.treasury));
-    const others = U.shuffle(avail.filter((id) => this.upgradeCost(id) > r.treasury));
-    const opts = [...affordable, ...others].slice(0, 3);
-    // les PV de la tour peuvent toujours être améliorés par vote
-    if (r.upgrades.walls < UPGRADES.walls.max) opts.unshift('walls');
+    let opts;
+    if (!r.towerSpec) opts = Object.keys(GD.TOWER_SPECS).map((k) => 'spec_' + k);
+    else {
+      const avail = Object.keys(UPGRADES).filter((id) => {
+        const u = UPGRADES[id];
+        return u.tower === r.towerSpec && r.upgrades[id] < u.max && (!u.needs || r.upgrades[u.needs] > 0);
+      });
+      // priorité aux améliorations abordables, puis les autres pour faire rêver
+      const affordable = U.shuffle(avail.filter((id) => this.upgradeCost(id) <= r.treasury));
+      const others = U.shuffle(avail.filter((id) => this.upgradeCost(id) > r.treasury));
+      opts = [...affordable, ...others].slice(0, 2);
+      opts.push('pact', 'save');
+    }
     // un héros est mort : l'équipe peut voter sa résurrection
     if ([...this.heroes.values()].some((h) => !h.alive)) opts.push('revive');
-    opts.push('pact', 'save');
     r.vote = { options: opts, votes: new Map(), endsAt: null }; // se termine avec la manche
   }
 
@@ -601,7 +623,8 @@ class Game {
     }
     const counts = {};
     for (const o of v.votes.values()) counts[o] = (counts[o] || 0) + 1;
-    let best = 'save', bestN = 0;
+    // sans aucun vote : spécialisation au hasard au premier vote, sinon on garde les écus
+    let best = v.options[0].startsWith('spec_') ? U.pick(v.options.filter((o) => o.startsWith('spec_'))) : 'save', bestN = 0;
     for (const o of v.options) if ((counts[o] || 0) > bestN) { best = o; bestN = counts[o]; }
     this.applyUpgrade(best);
     const u = UPGRADES[best];
@@ -639,11 +662,16 @@ class Game {
     r.treasury -= cost;
     r.upgrades[id]++;
     const u = UPGRADES[id];
-    this.pushFeed(`${u.icon} ${u.name} niveau ${r.upgrades[id]} !`);
-    if (id === 'walls') {
-      const add = Math.max(1, Math.round(r.tower.max * GD.BALANCE.TOWER_WALLS_PCT));
+    if (u.towerSpec) {
+      r.towerSpec = u.towerSpec;
+      this.announce(`${u.icon} ${u.name} !`, 'La tour se spécialise');
+      this.pushFeed(`${u.icon} L’équipe choisit la ${u.name.toLowerCase()} !`);
+    } else this.pushFeed(`${u.icon} ${u.name} niveau ${r.upgrades[id]} !`);
+    if (id === 'df_keep') {
+      const add = Math.max(1, Math.round(r.tower.max * GD.BALANCE.TOWER_KEEP_PCT));
       r.tower.max += add; r.tower.hp = Math.min(r.tower.max, r.tower.hp + add);
     }
+    if (u.wall || id === 'so_wall' || id === 'df_stone') this.refreshWalls(id === 'df_stone' ? 1 : 0);
     for (const h of this.heroes.values()) this.refreshHero(h);
   }
 
@@ -722,26 +750,125 @@ class Game {
   updateTower(dt) {
     const r = this.run, t = r.tower, up = r.upgrades;
     const wscale = 1 + 0.08 * (r.wave - 1);
-    if (up.ballista > 0) {
-      t.ballistaT -= dt;
-      if (t.ballistaT <= 0) {
-        const tgt = this.nearestMob(WORLD.CX, WORLD.CY, 520);
+    const TX = WORLD.CX, TY = WORLD.CY - 90;
+    // ---- tour d'attaque : grande arbalète (cible unique, boss et élites d'abord)
+    if (up.at_bolt > 0) {
+      t.boltT -= dt;
+      if (t.boltT <= 0) {
+        const tgt = this.nearestMob(TX, TY, 760, (m) => m.boss) || this.nearestMob(TX, TY, 700, (m) => m.elite) || this.nearestMob(TX, TY, 650);
         if (tgt) {
-          t.ballistaT = 1.4 / (1 + 0.2 * up.ballista);
-          this.shoot({ kind: 'ballista', side: 'hero', x: WORLD.CX, y: WORLD.CY - 70, target: tgt, dmg: 14 * (1 + 0.5 * up.ballista) * wscale, speed: 750, pierce: 2 });
+          t.boltT = 1.6 / (1 + 0.2 * (up.at_rate || 0));
+          const big = tgt.boss || tgt.elite;
+          const dmg = 18 * (1 + 0.5 * (up.at_bolt - 1)) * wscale * (big ? 1 + 0.3 * (up.at_sniper || 0) : 1);
+          this.shoot({ kind: 'ballista', side: 'hero', x: TX, y: TY, target: tgt, dmg, speed: 820, extra: up.at_mark ? { markV: 0.1 * up.at_mark } : null });
         }
       }
     }
-    if (up.catapult > 0) {
-      t.catapultT -= dt;
-      if (t.catapultT <= 0) {
+    // ---- tour de mage : sorts de zone
+    const amp = 1 + 0.2 * (up.mg_amp || 0), rate = 1 - 0.1 * (up.mg_rate || 0);
+    if (up.mg_fire > 0) {
+      t.fireT -= dt;
+      if (t.fireT <= 0) {
         const tgt = this.densestMob();
         if (tgt) {
-          t.catapultT = 4.5 - 0.4 * up.catapult;
-          this.shoot({ kind: 'rock', side: 'hero', x: WORLD.CX, y: WORLD.CY - 70, tx: tgt.x, ty: tgt.y, dmg: 30 * up.catapult * wscale, speed: 420, explode: 95 });
+          t.fireT = 6 * rate;
+          this.shoot({ kind: 'fireball', side: 'hero', x: TX, y: TY, tx: tgt.x, ty: tgt.y, dmg: 30 * up.mg_fire * wscale * amp, speed: 520, explode: 110, onHit: { burn: 4 * up.mg_fire * wscale, dur: 3 } });
         }
       }
     }
+    if (up.mg_frost > 0) {
+      t.frostT -= dt;
+      const R = 170 + 30 * up.mg_frost;
+      if (t.frostT <= 0 && this.mobsInRadius(WORLD.CX, WORLD.CY, R).length) {
+        t.frostT = 8 * rate;
+        this.fx(['nova', WORLD.CX, WORLD.CY, R]);
+        for (const m of this.mobsInRadius(WORLD.CX, WORLD.CY, R)) {
+          this.damageMob(m, 8 * up.mg_frost * wscale * amp, null, { onHit: up.mg_frost >= 3 && !m.boss ? { freeze: 1 } : { slow: 0.4, dur: 2 } });
+        }
+      }
+    }
+    if (up.mg_lightning > 0) {
+      t.zapT -= dt;
+      if (t.zapT <= 0) {
+        let cur = this.nearestMob(TX, TY, 600);
+        if (cur) {
+          t.zapT = 3 * rate;
+          const hit = new Set();
+          let px = TX, py = TY - 20;
+          for (let k = 0; k < 1 + 2 * up.mg_lightning && cur; k++) {
+            hit.add(cur);
+            this.fx(['zap', Math.round(px), Math.round(py), Math.round(cur.x), Math.round(cur.y - cur.size)]);
+            px = cur.x; py = cur.y - cur.size;
+            this.damageMob(cur, 14 * (1 + 0.3 * up.mg_lightning) * wscale * amp, null, {});
+            cur = this.nearestMob(px, py, 240, (m) => !hit.has(m));
+          }
+        }
+      }
+    }
+    if (up.mg_meteor > 0) {
+      t.meteorT -= dt;
+      if (t.meteorT <= 0 && this.mobs.length) {
+        t.meteorT = 15 * rate;
+        for (let k = 0; k < 2 * up.mg_meteor; k++) {
+          const m = U.pick(this.mobs);
+          if (!m) break;
+          this.shoot({ kind: 'meteor', side: 'hero', x: m.x + U.rand(-120, 120), y: m.y - 640, tx: m.x, ty: m.y, dmg: 40 * wscale * amp, speed: 900, explode: 85 });
+        }
+      }
+    }
+    // ---- murets bénis (tour de soin) : petit soin des héros à côté
+    if (up.so_wallheal > 0 && r.walls.length) {
+      for (const h of this.heroes.values()) {
+        if (!h.alive || h.hp >= h.maxHp) continue;
+        if (r.walls.some((w) => w.hp > 0 && (w.x - h.x) ** 2 + (w.y - h.y) ** 2 < 70 * 70)) h.hp = Math.min(h.maxHp, h.hp + h.maxHp * 0.004 * up.so_wallheal * dt);
+      }
+    }
+  }
+
+  // Remparts (défense : un côté par amélioration) et murets (soin : tout autour) — segments avec PV.
+  // repair : part des PV max rendue (1 = réparation complète)
+  refreshWalls(repair) {
+    const r = this.run, W = GD.WALLS, up = r.upgrades;
+    const wantSides = {};
+    for (const [side] of Object.entries(W.SIDES)) {
+      const lvl = up['df_wall_' + side] || 0;
+      if (lvl) wantSides[side] = { kind: 'wall', lvl };
+      else if (up.so_wall) wantSides[side] = { kind: 'muret', lvl: up.so_wall };
+    }
+    const scale = 1 + 0.06 * Math.max(0, r.wave - 1);
+    for (const [side, w] of Object.entries(wantSides)) {
+      const base = W.HP[w.kind] * (1 + 0.5 * (w.lvl - 1)) * scale * (w.kind === 'wall' ? 1 + 0.3 * (up.df_stone || 0) : 1);
+      for (let da = -W.SPAN; da <= W.SPAN; da += W.STEP) {
+        const a = W.SIDES[side] + da;
+        let seg = r.walls.find((x) => x.side === side && x.a === a && x.kind === w.kind);
+        if (!seg) {
+          const rad = (a * Math.PI) / 180;
+          seg = { side, a, kind: w.kind, x: WORLD.CX + Math.cos(rad) * W.D * 1.35, y: WORLD.CY + Math.sin(rad) * W.D * 0.85, hp: 0, max: 1 };
+          r.walls.push(seg);
+          seg.hp = base; // nouveau segment : PV pleins
+        }
+        const ratio = seg.max > 0 ? seg.hp / seg.max : 1;
+        seg.max = Math.round(base);
+        seg.hp = Math.min(seg.max, Math.max(0, ratio * seg.max) + seg.max * (repair || 0));
+      }
+    }
+  }
+
+  // Segment de rempart qui barre la route d'un monstre de corps à corps vers sa destination
+  wallBlocking(m, tx, ty) {
+    const r = this.run;
+    if (!r.walls.length) return null;
+    const W = GD.WALLS;
+    const er = (x, y) => Math.hypot((x - WORLD.CX) / 1.35, (y - WORLD.CY) / 0.85);
+    if (er(m.x, m.y) < W.D - 4 || er(tx, ty) > W.D) return null; // déjà à l'intérieur, ou destination à l'extérieur
+    const a = ((Math.atan2((m.y - WORLD.CY) / 0.85, (m.x - WORLD.CX) / 1.35) * 180) / Math.PI + 360) % 360;
+    let best = null;
+    for (const w of r.walls) {
+      if (w.hp <= 0) continue;
+      const d = Math.abs(((a - w.a + 540) % 360) - 180);
+      if (d <= W.STEP / 2 + 1) { best = w; break; }
+    }
+    return best;
   }
 
   /* ============================== Combat générique ============================== */
@@ -946,6 +1073,8 @@ class Game {
   applyStatus(u, oh) {
     if (!oh) return;
     const s = u.status;
+    // Purification (tour de soin) : poison et brûlure plus courts sur les héros
+    if (u.cls && (oh.poison || oh.burn) && this.run.upgrades.so_cleanse) oh = { ...oh, dur: (oh.dur || 3) * (1 - 0.25 * this.run.upgrades.so_cleanse) };
     if (oh.slow) s.slow = { v: Math.max(oh.slow, s.slow && s.slow.t > 0 ? s.slow.v : 0), t: oh.dur || 1.5 };
     if (oh.freeze) s.freeze = { t: oh.freeze };
     if (oh.poison) s.poison = { dps: Math.max(oh.poison, s.poison && s.poison.t > 0 ? s.poison.dps : 0), t: oh.dur || 3 };
@@ -1111,7 +1240,6 @@ class Game {
       if (h.status.poison) f |= HF.POISON;
       if (h.status.burn) f |= HF.BURN;
       if (h.ult >= 1 && CLASSES[h.cls].ult) f |= HF.ULT;
-      if (h.retreating) f |= HF.RETREAT;
       if (h.dashing) f |= HF.DASH;
       heroes.push([h.nid, round(h.x), round(h.y), Math.ceil((100 * h.hp) / h.maxHp), f, Math.round(h.facing * 100), h.level]);
     }
@@ -1139,7 +1267,9 @@ class Game {
     this.numBudget = 0;
     return {
       t: Math.round(this.time * 1000), ph: this.phase, ps: this.paused ? 1 : 0, sp: this.speed, gt: Math.floor(r.playTime || 0), w: r.wave,
-      tw: [Math.ceil(r.tower.hp), r.tower.max], tr: r.treasury, up: r.upgrades,
+      tw: [Math.ceil(r.tower.hp), r.tower.max], tr: r.treasury, up: r.upgrades, ts: r.towerSpec || '',
+      // remparts : [x, y, PV % (0 = détruit), 1 = muret, angle]
+      wl: r.walls.map((w) => [Math.round(w.x), Math.round(w.y), w.hp > 0 ? Math.max(1, Math.ceil((100 * w.hp) / w.max)) : 0, w.kind === 'muret' ? 1 : 0, w.a]),
       left: this.mobs.length + r.queue.length + r.bossPending.length,
       timer: Math.ceil(r.timer), seed: r.seed, tv: this.terrainVersion, ter: this.terrain, rv: this.rosterVersion,
       vote: r.vote ? { o: r.vote.options, c: this.voteCounts(), cost: Object.fromEntries(r.vote.options.map((o) => [o, UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0])) } : null,
@@ -1167,7 +1297,7 @@ class Game {
     return {
       phase: this.phase, paused: this.paused, speed: this.speed, wave: r.wave, cleared: r.cleared, timer: Math.ceil(r.timer),
       tower: { hp: Math.ceil(r.tower.hp), max: r.tower.max }, treasury: r.treasury, wealthEarned: r.wealthEarned,
-      upgrades: r.upgrades, heroes: this.heroes.size, mobs: this.mobs.length + r.queue.length + r.bossPending.length,
+      upgrades: r.upgrades, towerSpec: r.towerSpec, heroes: this.heroes.size, mobs: this.mobs.length + r.queue.length + r.bossPending.length,
       canJoin: this.canJoin(), joinEndsAt: Number.isFinite(r.joinUntil) ? r.joinUntil : null,
       voting: !!r.vote, nextVote: this.nextVoteWave(), voteEvery: this.voteEvery(),
       pact: r.pactActive ? 'active' : r.pactNext ? 'next' : null, era: GD.eraFor(r.mode, Math.max(1, r.wave)).name, ...this.modeInfo()

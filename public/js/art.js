@@ -613,7 +613,7 @@
     const t = o.t || 0, hp = o.hp === undefined ? 1 : o.hp;
     const TP = TAU / 2, TN = 12, f = Math.floor(((t % TP) + TP) % TP / TP * TN);
     const sc = o.scale || 1;
-    const key = JSON.stringify(o.up || {}) + '|' + (hp < 0.33 ? 2 : hp < 0.66 ? 1 : 0) + '|' + f + '|' + sc;
+    const key = (o.spec || '') + '|' + JSON.stringify(o.up || {}) + '|' + (hp < 0.33 ? 2 : hp < 0.66 ? 1 : 0) + '|' + f + '|' + sc;
     let c = TOWER_CACHE.get(key);
     if (!c) {
       if (TOWER_CACHE.size > 120) TOWER_CACHE.clear();
@@ -624,33 +624,44 @@
     }
     ctx.drawImage(c, Math.round(x - 150 * sc), Math.round(y - 270 * sc));
   }
+  // Apparence de la tour selon sa spécialisation (choisie au premier vote)
+  const TOWER_LOOK = {
+    '': { stone: null, banner: '#b5413a', emblem: 'diamond', flag: null },
+    attaque: { stone: ['#b08a7e', '#8f6c62', '#6d4f48', '#4a3430'], banner: '#9b1f1f', emblem: 'swords', flag: '#c0392b' },
+    defense: { stone: ['#a3b0c2', '#8592a8', '#66728a', '#434c60'], banner: '#2f5a9e', emblem: 'shield', flag: '#4e6d95' },
+    soin: { stone: ['#ebe3d2', '#d2c7b0', '#ad9f87', '#7c705c'], banner: '#2e9e57', emblem: 'cross', flag: '#2e9e57' },
+    mage: { stone: ['#a596c2', '#8676a8', '#665684', '#43365e'], banner: '#6a2fa3', emblem: 'star', flag: '#8e44ad' }
+  };
   function drawTowerRaw(ctx, x, y, o) {
-    const S = P.stone;
+    const LK = TOWER_LOOK[o.spec || ''] || TOWER_LOOK[''];
+    const S = LK.stone || P.stone;
     const t = o.t || 0;
     const up = o.up || {};
+    const spec = o.spec || '';
     const hp = o.hp === undefined ? 1 : o.hp;
     ctx.save();
     ctx.translate(x, y);
     shadow(ctx, 0, 30, 92, 26);
-    // remparts (amélioration)
-    if (up.walls > 0) {
-      const n = 14;
-      for (let i = 0; i < n; i++) {
-        const a = (i / n) * TAU;
-        if (Math.sin(a) < -0.2) continue; // seulement l'avant
-        rrect(ctx, Math.cos(a) * 92 - 9, Math.sin(a) * 40 + 18, 18, 16, 3, S[1], 1.8);
-      }
+    // cercle runique (mage) et fontaine (soin), au pied de la tour
+    if (spec === 'mage') {
+      ctx.save(); ctx.globalAlpha = 0.55 + 0.25 * Math.sin(t * 2);
+      ctx.strokeStyle = '#c9a8ff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(0, 26, 98, 30, 0, 0, TAU); ctx.stroke();
+      ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(0, 26, 86, 25, 0, 0, TAU); ctx.stroke();
+      ctx.fillStyle = '#e0ccff'; for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + t * 0.3; ctx.fillRect(Math.cos(a) * 92 - 2, 26 + Math.sin(a) * 27.5 - 2, 4, 4); }
+      ctx.restore();
     }
-    // infirmerie : tente
-    if (up.infirmary > 0) {
-      poly(ctx, [-120, 20, -96, -12, -72, 20], '#f3ead7');
-      ctx.fillStyle = P.ui.danger; ctx.fillRect(-99, 2, 6, 14); ctx.fillRect(-103, 6, 14, 6);
+    if (spec === 'soin') {
+      // fontaine
+      ctx.beginPath(); ctx.ellipse(-92, 18, 22, 9, 0, 0, TAU); fillStroke(ctx, S[1], 2);
+      ctx.beginPath(); ctx.ellipse(-92, 16, 17, 6, 0, 0, TAU); ctx.fillStyle = '#7fc8ff'; ctx.fill();
+      rrect(ctx, -95, -4, 6, 20, 2, S[0], 1.5);
+      for (let i = 0; i < 3; i++) { const k = (t * 1.5 + i / 3) % 1; ctx.fillStyle = `rgba(190,230,255,${1 - k})`; ctx.beginPath(); ctx.arc(-92 + (i - 1) * 6 * k, -6 + 14 * k * k - 6 * k, 2, 0, TAU); ctx.fill(); }
+      // fleurs
+      for (let i = 0; i < 6; i++) circle(ctx, 66 + (i % 3) * 9, 16 + Math.floor(i / 3) * 7, 2.6, ['#ff7ad9', '#ffd34d', '#ffffff'][i % 3], 0.8);
     }
-    // forge
-    if (up.forge > 0) {
-      rrect(ctx, 76, 4, 26, 16, 3, S[2]);
-      rrect(ctx, 80, -2, 18, 8, 2, '#3c3546');
-      ctx.fillStyle = rgba(P.biome.fire.accent[0], 0.6 + Math.sin(t * 8) * 0.3); ctx.fillRect(82, 10, 14, 5);
+    if (spec === 'attaque') {
+      // pieux devant la tour
+      for (let i = -3; i <= 3; i++) { const px = i * 24; poly(ctx, [px - 4, 34, px, 18, px + 4, 34], P.wood[1], 1.4); }
     }
     // corps de la tour
     ctx.beginPath(); ctx.moveTo(-58, 20); ctx.lineTo(-48, -110); ctx.lineTo(48, -110); ctx.lineTo(58, 20);
@@ -710,8 +721,13 @@
       for (const bx of [-34, 34]) {
         const wv = Math.sin(t * 2.5 + bx) * 1.5;
         rrect(ctx, bx - 8, -102, 16, 3, 1, P.wood[2], 1.2);
-        poly(ctx, [bx - 7, -100, bx + 7, -100, bx + 7 + wv * 0.3, -70, bx + wv, -76, bx - 7 + wv * 0.3, -70], up.banner > 0 ? P.ui.gold : '#b5413a', 1.6);
-        poly(ctx, [bx, -94, bx + 4, -88, bx, -82, bx - 4, -88], up.banner > 0 ? '#b5413a' : P.ui.gold, 1.1);
+        poly(ctx, [bx - 7, -100, bx + 7, -100, bx + 7 + wv * 0.3, -70, bx + wv, -76, bx - 7 + wv * 0.3, -70], LK.banner, 1.6);
+        const em = LK.emblem, G = P.ui.gold;
+        if (em === 'swords') { line(ctx, bx - 4, -94, bx + 4, -82, G, 1.8); line(ctx, bx + 4, -94, bx - 4, -82, G, 1.8); }
+        else if (em === 'shield') { poly(ctx, [bx - 4, -94, bx + 4, -94, bx + 4, -88, bx, -82, bx - 4, -88], G, 1); }
+        else if (em === 'cross') { ctx.fillStyle = '#ffffff'; ctx.fillRect(bx - 1.5, -95, 3, 12); ctx.fillRect(bx - 5, -91, 10, 3); }
+        else if (em === 'star') { poly(ctx, [bx, -96, bx + 1.6, -90.5, bx + 5, -90, bx + 2, -87, bx + 3, -82, bx, -85, bx - 3, -82, bx - 2, -87, bx - 5, -90, bx - 1.6, -90.5], G, 0.8); }
+        else poly(ctx, [bx, -94, bx + 4, -88, bx, -82, bx - 4, -88], G, 1.1);
       }
       // torches de part et d'autre de la porte
       for (const tx of [-28, 28]) {
@@ -727,28 +743,29 @@
     rrect(ctx, -60, -126, 120, 20, 3, S[1], 3);
     { ctx.fillStyle = rgba(OL, 0.3); for (let i = -4; i <= 4; i++) ctx.fillRect(i * 13, -124, 1.5, 16); ctx.fillStyle = 'rgba(29,22,38,.35)'; ctx.fillRect(-58, -109, 116, 3); for (let i = -4; i <= 4; i++) { ctx.beginPath(); ctx.moveTo(i * 13 - 4, -106); ctx.lineTo(i * 13, -101); ctx.lineTo(i * 13 + 4, -106); ctx.fill(); } }
     for (let i = -2; i <= 2; i++) rrect(ctx, i * 24 - 8, -140, 16, 16, 2, S[1], 2.5);
-    // baliste
-    if (up.ballista > 0) {
-      rrect(ctx, -20, -152, 40, 10, 3, P.wood[1]);
-      line(ctx, -26, -150, 26, -150, P.wood[0], 3);
-      line(ctx, 0, -158, 0, -142, S[3], 2);
+    if (spec === 'defense') {
+      // boucliers cloutés sur la muraille
+      for (const sx of [-30, 30]) { poly(ctx, [sx - 9, -40, sx + 9, -40, sx + 9, -28, sx, -18, sx - 9, -28], LK.banner, 1.6); circle(ctx, sx, -31, 3, P.ui.gold, 1); }
+      rrect(ctx, -66, -112, 132, 8, 2, S[2], 2);
+    }
+    // grande arbalète sur les créneaux (tour d'attaque)
+    if (spec === 'attaque') {
+      const big = up.at_bolt > 0 ? 1.2 : 1;
+      rrect(ctx, -14 * big, -156, 28 * big, 12, 3, P.wood[1], 1.8);
+      ctx.beginPath(); ctx.arc(0, -150, 26 * big, Math.PI * 1.15, Math.PI * 1.85); ctx.lineWidth = 5; ctx.strokeStyle = OL; ctx.stroke(); ctx.lineWidth = 3; ctx.strokeStyle = '#c9cfd6'; ctx.stroke();
+      line(ctx, 0, -150, 0, -176 * big, P.wood[0], 2.5); poly(ctx, [-4, -176 * big, 0, -186 * big, 4, -176 * big], '#e8eef5', 1);
     }
     // drapeau planté sur les créneaux
     const fb = -140;
     line(ctx, 0, fb, 0, fb - 27, P.wood[2], 2);
     const wave = Math.sin(t * 4) * 3;
-    poly(ctx, [0, fb - 27, 22, fb - 23 + wave, 0, fb - 15], up.banner > 0 ? P.ui.gold : P.capes[0], 1.6);
-    // autel arcanique
-    if (up.shrine > 0) {
-      ctx.save(); ctx.globalAlpha = 0.5 + Math.sin(t * 3) * 0.3;
-      circle(ctx, 0, -175, 8 + Math.sin(t * 3) * 2, P.ui.accent, 0.01); ctx.restore();
-      poly(ctx, [0, -186, 6, -175, 0, -164, -6, -175], '#c9a8ff', 1.5);
-    }
-    // catapulte
-    if (up.catapult > 0) {
-      rrect(ctx, -110, -18, 34, 12, 3, P.wood[1]);
-      line(ctx, -93, -18, -75, -44, P.wood[0], 3); circle(ctx, -74, -46, 5, S[2]);
-      circle(ctx, -104, -5, 5, P.wood[2]); circle(ctx, -82, -5, 5, P.wood[2]);
+    poly(ctx, [0, fb - 27, 22, fb - 23 + wave, 0, fb - 15], LK.flag || P.capes[0], 1.6);
+    // cristal flottant (tour de mage)
+    if (spec === 'mage') {
+      const fy = -190 + Math.sin(t * 2) * 5;
+      ctx.save(); ctx.translate(0, fy); ctx.globalAlpha = 0.5 + 0.2 * Math.sin(t * 3); glow(ctx, '#c9a8ff', 22); ctx.restore();
+      poly(ctx, [0, fy - 18, 10, fy, 0, fy + 18, -10, fy], '#b98cff', 2);
+      poly(ctx, [0, fy - 18, 4, fy, 0, fy + 18], '#e6d4ff', 0.01);
     }
     // dégâts : fissures et feu
     if (hp < 0.66) {
@@ -1148,6 +1165,12 @@
     ctx.save(); ctx.translate(x, y); ctx.rotate(a);
     const F = P.fx;
     switch (kind) {
+      case 'meteor': { // météore (tour de mage) : rocher en feu avec traînée
+        glow(ctx, F.burn, 24);
+        line(ctx, -34, 0, -6, 0, 'rgba(255,140,40,.6)', 9); line(ctx, -26, 0, -6, 0, 'rgba(255,220,120,.8)', 4);
+        circle(ctx, 0, 0, 11, '#5a3a2a', 2.5); circle(ctx, 2, -2, 5, '#ff7a1a', 0.01);
+        break;
+      }
       case 'arrow': case 'ballista': {
         const L = kind === 'ballista' ? 22 : 14;
         line(ctx, -L, 0, 0, 0, P.wood[0], kind === 'ballista' ? 2.5 : 1.6);

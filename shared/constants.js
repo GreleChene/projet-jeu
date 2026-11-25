@@ -281,8 +281,7 @@
     TOWER_BASE_HP: 200,
     ULT_TIME: 60, // secondes pour charger un ultime
     REVIVE_HP: 0.6, // vote « Résurrection » / Infirmerie : part des PV max rendus au héros réanimé
-    INFIRMARY_REVIVE_LEVEL: 3, // à partir de ce niveau, l'Infirmerie réanime un héros mort à chaque fin de manche
-    INFIRMARY_REVIVE2_LEVEL: 6, // à partir de ce niveau, elle en réanime deux
+    INTERMISSION_HEAL: 0.1, // soin de la tour à chaque entracte (part des PV max des héros) ; +13 % par niveau de « Fontaine de vie »
     WAVE_HP_LINEAR: 0.05, // PV des monstres : +5 % par manche — × (1 + LIN×(m-1) + QUAD×(m-1)²)
     WAVE_HP_QUAD: 0,
     WAVE_DMG: 0.02, // dégâts des monstres : +2 % par manche — × (1 + DMG×(m-1))
@@ -311,7 +310,7 @@
     MOB_DMG: 0.4, // multiplicateur des dégâts de tous les monstres (calibré : 5 héros niv. 10 atteignent la manche 10 d'une partie rapide normale ; partie classique ≈ 1 h)
     BOSS_DMG: 0.6, // multiplicateur des dégâts des boss (en plus)
     BOSS_WAVE_EXP: 0.7, // les PV des boss suivent la croissance par manche à la puissance 0,7 (plus douce)
-    TOWER_WALLS_PCT: 0.1, // vote « Remparts » : part des PV max de la tour ajoutée (et soignée) par niveau
+    TOWER_KEEP_PCT: 0.1, // vote « Donjon renforcé » : part des PV max de la tour ajoutée (et soignée) par niveau
     WAVE_XP_BASE: 10, // récompense de fin de manche (par héros)
     WAVE_XP_PER_WAVE: 4,
     WAVE_GRELONS_BASE: 2,
@@ -457,14 +456,14 @@
     const A = ATTRIBUTES;
     const baseDmg = c.dmg * (1 + A.force.per * a.force + idmg + (sb.dmg || 0));
     return {
-      maxHp: Math.round(c.hp * (1 + ihp + (sb.hp || 0) + A.vie.per * a.vie)),
+      maxHp: Math.round(c.hp * (1 + ihp + (sb.hp || 0) + A.vie.per * a.vie) * (1 + 0.08 * (up.so_vigor || 0))),
       baseDmg,
-      dmg: baseDmg * (1 + 0.1 * (up.forge || 0)),
-      armor: Math.min(0.75, (c.armor || 0) + iarmor + (sb.armor || 0) + A.defense.per * a.defense + 0.08 * (up.armory || 0)),
-      cd: c.cd / (1 + A.agilite.per * a.agilite + (sb.atkspd || 0)),
+      dmg: baseDmg * (1 + 0.12 * (up.at_forge || 0)),
+      armor: Math.min(0.75, (c.armor || 0) + iarmor + (sb.armor || 0) + A.defense.per * a.defense + 0.06 * (up.df_armor || 0)),
+      cd: c.cd / (1 + A.agilite.per * a.agilite + (sb.atkspd || 0) + 0.08 * (up.at_cry || 0) + 0.04 * (up.mg_haste || 0)),
       speed: c.speed * (1 + A.vitesse.per * a.vitesse + ispeed + (sb.speed || 0)),
-      crit: Math.min(0.8, (c.crit || 0.05) + A.critique.per * a.critique + (sb.crit || 0)),
-      ultRate: 1 + (sb.ult || 0),
+      crit: Math.min(0.8, (c.crit || 0.05) + A.critique.per * a.critique + (sb.crit || 0) + 0.05 * (up.at_crit || 0)),
+      ultRate: (1 + (sb.ult || 0)) * (1 + 0.08 * (up.mg_focus || 0)),
       range: c.range,
       leash: c.leash || 9999,
       // bonus de spécialisation (rayon d'aura, pièges, poison…)
@@ -656,10 +655,9 @@
   const AI_OPTIONS = {
     stance: { offensive: 'Offensive (chasse partout)', balanced: 'Équilibrée', defensive: 'Défensive (près de la tour)', home: 'Garde de son habitation (reste près d’elle)' },
     target: { nearest: 'Le plus proche', weakest: 'Le plus faible', strongest: 'Le plus fort (élites, boss)', tower: 'Ceux qui attaquent la tour' },
-    retreat: { 0: 'Jamais', 25: 'Sous 25% PV', 50: 'Sous 50% PV' },
     ult: { asap: 'Dès qu’il est prêt', smart: 'Au bon moment (groupe / urgence)', boss: 'Garder pour les boss' }
   };
-  const DEFAULT_AI = { stance: 'balanced', target: 'nearest', retreat: 25, ult: 'smart' };
+  const DEFAULT_AI = { stance: 'balanced', target: 'nearest', ult: 'smart' };
 
   /* ------------------------------------------------------------------ */
   /* Personnalisation du visage (5 choix par trait)                      */
@@ -763,20 +761,70 @@
   /* ------------------------------------------------------------------ */
 
   // Améliorations d'équipe (votées pendant l'entracte avec les écus de la partie)
+  /*
+   * Spécialisation de la tour : choisie au premier vote d'équipe (gratuit). Ensuite, chaque vote propose
+   * 2 des 8 améliorations de cette tour, le Pacte de sang et « Économiser » (+ la Résurrection s'il y a un mort).
+   */
+  const TOWER_SPECS = {
+    attaque: { name: 'Tour d’attaque', icon: '⚔️', color: '#c0392b', desc: 'Tirs puissants sur une cible unique et gros bonus d’attaque pour les héros.' },
+    defense: { name: 'Tour de défense', icon: '🛡️', color: '#4e6d95', desc: 'Remparts autour des habitations (nord, sud, est, ouest) et défense des héros.' },
+    soin: { name: 'Tour de soin', icon: '💚', color: '#2e9e57', desc: 'Soins des héros, murets autour des habitations, réanimation.' },
+    mage: { name: 'Tour de mage', icon: '🔮', color: '#8e44ad', desc: 'Sorts de zone (feu, givre, éclairs, météores), vitesse d’attaque et charge d’ultime des héros.' }
+  };
   const UPGRADES = {
-    // toujours proposée au vote (tant qu'elle n'est pas au maximum)
-    walls: { name: 'Remparts', icon: '🧱', get desc() { return `+${Math.round(BALANCE.TOWER_WALLS_PCT * 1000) / 10} % de PV max pour la tour (et autant de soin)`; }, cost: 45, growth: 1.18, max: 15, unlock: 0 },
-    ballista: { name: 'Baliste', icon: '🏹', desc: 'La tour tire sur les ennemis (+1 niveau de baliste)', cost: 80, growth: 1.6, max: 8, unlock: 0 },
-    forge: { name: 'Forge', icon: '🔨', desc: '+10% dégâts pour tous les héros', cost: 100, growth: 1.55, max: 10, unlock: 0 },
-    infirmary: { name: 'Infirmerie', icon: '⛑️', get desc() { return `Régénération près de la tour ; réanime 1 héros mort par manche dès le niveau ${BALANCE.INFIRMARY_REVIVE_LEVEL}, 2 au niveau ${BALANCE.INFIRMARY_REVIVE2_LEVEL}`; }, cost: 90, growth: 1.6, max: 6, unlock: 0 },
-    armory: { name: 'Armurerie', icon: '🛡️', desc: '+8% de réduction de dégâts pour les héros', cost: 150, growth: 1.6, max: 5, unlock: 250 },
-    // l'effet par niveau suit le niveau max : au maximum, les ultimes se chargent toujours 2 fois plus vite
-    shrine: { name: 'Autel arcanique', icon: '🔮', get desc() { return `Les ultimes se chargent ${Math.round(1000 / this.max) / 10} % plus vite (×2 au niveau ${this.max})`; }, cost: 400, growth: 1.3, max: 10, unlock: 400 },
-    catapult: { name: 'Catapulte', icon: '☄️', desc: 'La tour lance des rochers explosifs', cost: 400, growth: 1.7, max: 5, unlock: 800 },
-    banner: { name: 'Étendard royal', icon: '🚩', desc: '+20% d’XP et de Grêlons gagnés', cost: 350, growth: 1.8, max: 5, unlock: 600 },
+    // premier vote : spécialisation de la tour (gratuite)
+    spec_attaque: { towerSpec: 'attaque', name: 'Tour d’attaque', icon: '⚔️', desc: TOWER_SPECS.attaque.desc, cost: 0, growth: 1, max: 1 },
+    spec_defense: { towerSpec: 'defense', name: 'Tour de défense', icon: '🛡️', desc: TOWER_SPECS.defense.desc, cost: 0, growth: 1, max: 1 },
+    spec_soin: { towerSpec: 'soin', name: 'Tour de soin', icon: '💚', desc: TOWER_SPECS.soin.desc, cost: 0, growth: 1, max: 1 },
+    spec_mage: { towerSpec: 'mage', name: 'Tour de mage', icon: '🔮', desc: TOWER_SPECS.mage.desc, cost: 0, growth: 1, max: 1 },
+    // ---- tour d'attaque
+    at_bolt: { tower: 'attaque', name: 'Grande arbalète', icon: '🏹', desc: 'La tour tire des carreaux sur une cible unique (boss et élites d’abord) ; +50 % de dégâts par niveau', cost: 60, growth: 1.45, max: 6 },
+    at_rate: { tower: 'attaque', needs: 'at_bolt', name: 'Mécanisme rapide', icon: '⚙️', desc: '+20 % de cadence de tir de la tour', cost: 90, growth: 1.5, max: 5 },
+    at_sniper: { tower: 'attaque', needs: 'at_bolt', name: 'Tir de précision', icon: '🎯', desc: '+30 % de dégâts de la tour contre les boss et les élites', cost: 100, growth: 1.5, max: 5 },
+    at_mark: { tower: 'attaque', needs: 'at_bolt', name: 'Marque de la tour', icon: '📍', desc: 'Les cibles de la tour subissent +10 % de dégâts pendant 4 s', cost: 120, growth: 1.6, max: 3 },
+    at_forge: { tower: 'attaque', name: 'Forge de guerre', icon: '🔨', desc: '+12 % de dégâts pour tous les héros', cost: 90, growth: 1.45, max: 8 },
+    at_cry: { tower: 'attaque', name: 'Cri de guerre', icon: '📯', desc: '+8 % de vitesse d’attaque pour tous les héros', cost: 110, growth: 1.5, max: 5 },
+    at_crit: { tower: 'attaque', name: 'Œil du chasseur', icon: '👁️', desc: '+5 % de chances de critique pour tous les héros', cost: 100, growth: 1.5, max: 5 },
+    at_execute: { tower: 'attaque', name: 'Coup de grâce', icon: '🗡️', desc: 'Les héros font +20 % de dégâts aux monstres sous 30 % de PV', cost: 120, growth: 1.55, max: 4 },
+    // ---- tour de défense
+    df_wall_n: { tower: 'defense', wall: 'n', name: 'Rempart nord', icon: '🧱', desc: 'Construit (puis renforce) un rempart au nord des habitations : les monstres doivent le casser', cost: 70, growth: 1.5, max: 3 },
+    df_wall_s: { tower: 'defense', wall: 's', name: 'Rempart sud', icon: '🧱', desc: 'Construit (puis renforce) un rempart au sud des habitations : les monstres doivent le casser', cost: 70, growth: 1.5, max: 3 },
+    df_wall_e: { tower: 'defense', wall: 'e', name: 'Rempart est', icon: '🧱', desc: 'Construit (puis renforce) un rempart à l’est des habitations : les monstres doivent le casser', cost: 70, growth: 1.5, max: 3 },
+    df_wall_w: { tower: 'defense', wall: 'w', name: 'Rempart ouest', icon: '🧱', desc: 'Construit (puis renforce) un rempart à l’ouest des habitations : les monstres doivent le casser', cost: 70, growth: 1.5, max: 3 },
+    df_stone: { tower: 'defense', name: 'Pierre taillée', icon: '🪨', desc: '+30 % de PV pour tous les remparts (et les répare)', cost: 100, growth: 1.5, max: 5 },
+    df_spikes: { tower: 'defense', name: 'Pieux', icon: '🔱', desc: 'Les monstres qui frappent un rempart se blessent', cost: 90, growth: 1.5, max: 4 },
+    df_armor: { tower: 'defense', name: 'Armurerie', icon: '🛡️', desc: '+6 % de réduction de dégâts pour tous les héros', cost: 110, growth: 1.5, max: 5 },
+    df_keep: { tower: 'defense', name: 'Donjon renforcé', icon: '🏰', desc: '+10 % de PV max pour la tour (et autant de soin)', cost: 60, growth: 1.25, max: 10 },
+    // ---- tour de soin
+    so_fountain: { tower: 'soin', name: 'Fontaine de vie', icon: '⛲', desc: 'Soin d’entracte de la tour : +13 % de PV (10 % → 75 % au niveau 5)', cost: 70, growth: 1.45, max: 5 },
+    so_wall: { tower: 'soin', name: 'Murets', icon: '🌿', desc: 'Construit (puis renforce) de petits murets tout autour des habitations', cost: 90, growth: 1.5, max: 3 },
+    so_wallheal: { tower: 'soin', needs: 'so_wall', name: 'Murets bénis', icon: '✨', desc: 'Les murets soignent un peu les héros à côté (0,4 % de PV par seconde par niveau)', cost: 100, growth: 1.6, max: 2 },
+    so_vigor: { tower: 'soin', name: 'Vigueur', icon: '❤️', desc: '+8 % de PV max pour tous les héros', cost: 90, growth: 1.45, max: 5 },
+    so_regen: { tower: 'soin', name: 'Souffle de vie', icon: '💚', desc: 'Les héros régénèrent 0,3 % de leurs PV max par seconde', cost: 110, growth: 1.55, max: 4 },
+    so_leech: { tower: 'soin', name: 'Bénédiction', icon: '🕊️', desc: 'Les héros se soignent de 1 % des dégâts qu’ils infligent', cost: 100, growth: 1.5, max: 3 },
+    so_cleanse: { tower: 'soin', name: 'Purification', icon: '💧', desc: 'Poison et brûlure durent 25 % moins longtemps sur les héros', cost: 80, growth: 1.5, max: 3 },
+    so_sanctuary: { tower: 'soin', name: 'Sanctuaire des âmes', icon: '⛑️', desc: 'Réanime 1 héros mort à la fin de chaque manche (2 au niveau 2)', cost: 180, growth: 1.8, max: 2 },
+    // ---- tour de mage
+    mg_fire: { tower: 'mage', name: 'Boule de feu', icon: '🔥', desc: 'La tour lance des boules de feu sur le plus gros groupe de monstres', cost: 80, growth: 1.5, max: 5 },
+    mg_frost: { tower: 'mage', name: 'Nova de givre', icon: '❄️', desc: 'Onde de givre autour de la tour : ralentit les monstres, et les gèle à partir du niveau 3', cost: 90, growth: 1.5, max: 4 },
+    mg_lightning: { tower: 'mage', name: 'Chaîne d’éclairs', icon: '⚡', desc: 'Un éclair qui rebondit sur 2 monstres de plus par niveau', cost: 100, growth: 1.5, max: 4 },
+    mg_meteor: { tower: 'mage', name: 'Pluie de météores', icon: '☄️', desc: 'Toutes les 15 s, des météores tombent sur les monstres (2 par niveau)', cost: 150, growth: 1.6, max: 3 },
+    mg_amp: { tower: 'mage', name: 'Amplification', icon: '✴️', desc: '+20 % de dégâts des sorts de la tour', cost: 100, growth: 1.5, max: 5 },
+    mg_rate: { tower: 'mage', name: 'Canalisation', icon: '⏳', desc: 'Sorts de la tour 10 % plus fréquents', cost: 100, growth: 1.5, max: 5 },
+    mg_haste: { tower: 'mage', name: 'Hâte', icon: '💨', desc: '+4 % de vitesse d’attaque pour tous les héros', cost: 80, growth: 1.45, max: 5 },
+    mg_focus: { tower: 'mage', name: 'Concentration', icon: '🔮', desc: 'Les ultimes des héros se chargent 8 % plus vite', cost: 90, growth: 1.45, max: 5 },
     // proposée seulement s'il y a au moins un héros mort (les héros ne réapparaissent pas d'eux-mêmes)
-    revive: { name: 'Résurrection', icon: '💖', desc: 'Réanime un héros mort au hasard à 60% de ses PV', cost: 40, growth: 1.3, max: 999, unlock: 0, revive: true },
-    pact: { name: 'Pacte de sang', icon: '💀', desc: 'Manche suivante : ennemis +50% PV et nombre, récompenses ×2', cost: 0, growth: 1, max: 999, unlock: 0, challenge: true }
+    revive: { name: 'Résurrection', icon: '💖', desc: 'Réanime un héros mort au hasard à 60% de ses PV', cost: 40, growth: 1.3, max: 999, revive: true },
+    pact: { name: 'Pacte de sang', icon: '💀', desc: 'Manche suivante : ennemis +50% PV et nombre, récompenses ×2', cost: 0, growth: 1, max: 999, challenge: true }
+  };
+  // Remparts (tour de défense) et murets (tour de soin) : segments autour des habitations
+  const WALLS = {
+    D: 250,             // rayon (repère elliptique des habitations) où se dressent les remparts
+    SPAN: 36,           // chaque côté couvre ±SPAN degrés (les angles restent ouverts : les monstres peuvent contourner)
+    STEP: 12,           // un segment tous les STEP degrés
+    SIDES: { e: 0, s: 90, w: 180, n: 270 },
+    HP: { wall: 260, muret: 120 }, // PV d'un segment au niveau 1 (× 1 + 0,5 par niveau, × la manche)
+    REPAIR: 0.25        // part des PV réparée à chaque fin de manche
   };
 
   /* ------------------------------------------------------------------ */
@@ -821,11 +869,11 @@
 
   /* Codes réseau compacts (instantanés serveur -> écran) */
   const NET = {
-    PROJ_KINDS: ['arrow', 'bolt', 'orb', 'ice', 'fire', 'holy', 'frost', 'poison', 'fireball', 'rock', 'ballista', 'note', 'charm', 'flask'],
+    PROJ_KINDS: ['arrow', 'bolt', 'orb', 'ice', 'fire', 'holy', 'frost', 'poison', 'fireball', 'rock', 'ballista', 'note', 'charm', 'flask', 'meteor'],
     ZONE_KINDS: ['smoke', 'poison', 'telegraph', 'tline', 'fire', 'ice', 'toxic', 'lava', 'trap', 'thorns', 'acid'],
     HF: { DEAD: 1, STEALTH: 2, ZOMBIE: 4, ATTACK: 8, FURY: 16, SHIELD: 32, SLOW: 64, POISON: 128, BURN: 256, ULT: 1024, RETREAT: 2048, DASH: 4096, SONG: 8192, ANTHEM: 16384 },
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

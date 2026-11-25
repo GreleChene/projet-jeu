@@ -23,7 +23,7 @@ Pages : `/` (joueur), `/stream` (OBS, 1920×1080), `/admin` (compte `admin` / `1
 - `shared/constants.js` — **toutes les données et réglages** (partagé serveur + navigateur, `window.GameData`) :
   `WORLD` (carte 1920×1080, `WAVE_ZOOM`, marges d'apparition), `BALANCE` (durées, difficulté, écus, tour), `CLASSES`,
   `SKILL_TREE` / `POST_ULT` / `INITIATION` / `SKILLS` (arbre), `SUMMONS` (invocations), `SKILL_MODS` (bonus spéciaux),
-  `SETS` / `TEMPLATES` / `RARITIES` (objets des glaçons), `UPGRADES` (votes d'équipe), `MOBS`, `BOSS_WAVES`, `NET` (indices réseau).
+  `SETS` / `TEMPLATES` / `RARITIES` (objets des glaçons), `TOWER_SPECS` + `UPGRADES` (votes : spécialisation de la tour puis ses 8 améliorations), `WALLS` (remparts), `MOBS`, `BOSS_WAVES`, `NET` (indices réseau).
 - `server/index.js` — Express + Socket.IO : API joueur/admin, règles de l'arbre (`/api/me/skill`), glaçons, marché.
 - `server/db.js` — base JSON (`data/db.json`) ; **toute évolution du format passe par une migration dans `migrateUser`** (drapeau `xxxV1`).
 - `server/game/engine.js` — boucle (20 Hz), manches, votes, habitations, statistiques des héros (`refreshHero`), instantanés réseau.
@@ -43,6 +43,7 @@ Pages : `/` (joueur), `/stream` (OBS, 1920×1080), `/admin` (compte `admin` / `1
 - **Pas de surplus d'écus** en fin de partie (vérifier avec `npm run sim:economie`).
 - Arbre : centre Paysan (identifiant interne `habitant`), branche de classe (niveau 7), sous-branche (initiation 3/3), 5 compétences, ultime (niveau 30), 2 compétences d'après-ultime ; **2 points requis dans le nœud précédent** ; aucune compétence d'avant l'ultime ne charge l'ultime.
 - Invocations : 1 créature par nœud, 2 au rang 3 ; **6 au plus, 9 avec la compétence d'après-ultime** ; une toutes les 10 s, 5 s après une mort ; statistiques relatives aux statistiques réelles du héros.
+- Votes : 1er vote = spécialisation de la tour (attaque, défense, soin, mage) ; ensuite 4 choix (2 améliorations de la tour + Pacte de sang + Économiser), 5 avec la Résurrection. Remparts/murets = vrais murs à PV (`refreshWalls`, `wallBlocking`). Soin d'entracte 10 % → 75 % ; pas de retraite ni de soin continu près de la tour. L'admin peut donner une amélioration pour tester (action `upgrade`).
 - Chaque classe sauf le Paysan a un passif (champ dans `CLASSES`, texte généré par `passiveLines`, effet dans `heroes.js` / `mobs.js`).
 - Les statistiques d'un héros sont **figées pendant une bataille** (profil verrouillé), les récompenses versées en fin de partie.
 

@@ -159,7 +159,6 @@ app.put('/api/me/ai', auth, (req, res) => {
   const ai = { ...req.user.ai };
   if (b.stance in O.stance) ai.stance = b.stance;
   if (b.target in O.target) ai.target = b.target;
-  if (String(b.retreat) in O.retreat) ai.retreat = Number(b.retreat);
   if (b.ult in O.ult) ai.ult = b.ult;
   req.user.ai = ai;
   afterProfileChange(req.user);
@@ -584,6 +583,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
     case 'next': if (game.phase === 'intermission') game.run.timer = 0; break;
     case 'openJoin': game.openJoin(b.seconds === undefined ? game.settings.joinWindow : b.seconds); break;
     case 'closeJoin': game.closeJoin(); break;
+    case 'upgrade': if (!game.forceUpgrade(String(b.id))) return res.status(400).json({ error: 'Amélioration impossible (inconnue ou au maximum).' }); break;
     case 'treasury': game.addTreasury(Math.max(-game.run.treasury, Number(b.amount) || 0)); break;
     case 'healTower': game.run.tower.hp = game.run.tower.max; break;
     case 'bots': {

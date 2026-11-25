@@ -47,12 +47,10 @@ module.exports = {
         this.damageHero(h, h.maxHp * 0.01 * dt, null, true);
         if (!h.alive) continue;
       }
-      // régénération près de la tour (Infirmerie)
-      if ((h.x - WORLD.CX) ** 2 + (h.y - WORLD.CY) ** 2 < 170 * 170) {
-        h.hp = Math.min(h.maxHp, h.hp + h.maxHp * (0.008 + 0.012 * this.run.upgrades.infirmary) * dt);
-      }
+      // Souffle de vie (tour de soin) : légère régénération pendant les manches
+      if (this.run.upgrades.so_regen) h.hp = Math.min(h.maxHp, h.hp + h.maxHp * 0.003 * this.run.upgrades.so_regen * dt);
       const c = CLASSES[h.cls];
-      if (c.ult && h.ultUnlocked && h.ult < 1) h.ult = Math.min(1, h.ult + (dt / GD.BALANCE.ULT_TIME) * (h.ultRate || 1) * (1 + this.run.upgrades.shrine / Math.max(1, GD.UPGRADES.shrine.max)));
+      if (c.ult && h.ultUnlocked && h.ult < 1) h.ult = Math.min(1, h.ult + (dt / GD.BALANCE.ULT_TIME) * (h.ultRate || 1));
 
       if (h.lastX !== undefined) h.runDist = (h.runDist || 0) + Math.hypot(h.x - h.lastX, h.y - h.lastY);
       h.lastX = h.x; h.lastY = h.y;
@@ -237,7 +235,6 @@ module.exports = {
   // Entre les manches : chaque héros rentre dans le bâtiment de sa classe pour se soigner (s'il est encore debout)
   heroRest(h, dt, speed) {
     const b = this.buildingOfHero(h);
-    h.retreating = false;
     if (!b || b.hp <= 0) { h.resting = false; this.heroIdle(h, dt, 1); return; }
     const a = (h.nid * 2.4) % (Math.PI * 2);
     const tx = b.x + Math.cos(a) * 26, ty = b.y + 26 + Math.sin(a) * 10;
@@ -254,8 +251,6 @@ module.exports = {
     h.resting = false;
     const ai = h.ai;
     const ratio = h.hp / h.maxHp;
-    if (ai.retreat > 0 && ratio * 100 < ai.retreat) h.retreating = true;
-    if (h.retreating && ratio > 0.8) h.retreating = false;
     const speed = h.speed * speedMul * (h.buffs.swift > 0 ? 1.4 : 1);
 
     h.retargetT -= dt;
@@ -268,14 +263,6 @@ module.exports = {
     if (h.ult >= 1 && c.ult && h.ultUnlocked && this.wantsUlt(h, c)) this.useUlt(h, c);
     if (!h.alive || h.dashing || h.chain) return;
 
-    if (h.retreating) {
-      const a = Math.atan2(h.y - WORLD.CY, h.x - WORLD.CX);
-      this.moveToward(h, WORLD.CX + Math.cos(a) * 95, WORLD.CY + Math.sin(a) * 75, speed, dt);
-      if (t && U.dist(h, t) <= h.range + t.size) this.heroAttack(h, c, t, dt);
-      else h.atkT -= dt;
-      this.clampHero(h);
-      return;
-    }
 
 
     if (t) {

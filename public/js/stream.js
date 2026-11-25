@@ -236,6 +236,8 @@
         if (big) shake = Math.max(shake, 10);
         break;
       }
+      case 'zap': add({ k: 'zap', x: e[1], y: e[2], x2: e[3], y2: e[4], dur: 0.25, seed: Math.random() * 100 }); break;
+      case 'nova': add({ k: 'ring', x: e[1], y: e[2], r: e[3], color: '#bfe6ff', dur: 0.6, w: 12 }); burst(e[1], e[2] - 40, '#e8f6ff', 24, e[3], 3); break;
       case 'hawk': add({ k: 'hawk', x: e[1], y: e[2], x2: e[3], y2: e[4], dur: e[5] === 2 ? 0.5 : 0.35, bird: e[5] || 0 }); if (e[5] === 2) burst(e[3], e[4], '#d8c4a0', 10, 140, 3); break;
       case 'snap': add({ k: 'text', x: e[1], y: e[2] - 20, s: 'CLAC !', color: '#d8dde3', dur: 0.8, size: 16 }); burst(e[1], e[2], '#8d8597', 8, 90, 3); break;
       case 'charm': add({ k: 'text', x: e[1], y: e[2], s: '💗', color: '#ff7ad9', dur: 1.1, size: 20 }); break;
@@ -318,12 +320,13 @@
     drawZones(0);
     // entités triées en profondeur
     const list = [];
-    list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, hp: snap.tw[0] / snap.tw[1], scale: TOWER_SCALE }) });
+    list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, spec: snap.ts, hp: snap.tw[0] / snap.tw[1], scale: TOWER_SCALE }) });
     // habitations des héros : [type, x, y, PV %, nid du propriétaire]
     for (const [ti, bx, by, hp, , variant] of snap.bd || []) {
       const def = GD.BUILDINGS[ti], fam = GD.CLASSES[def.family];
       list.push({ y: by + 4, d: () => { ctx.save(); ctx.translate(bx, by); ctx.scale(BUILDING_SCALE, BUILDING_SCALE); A.drawBuilding(ctx, variant || def.family, 0, 0, { hp: hp / 100, t: time + bx, color: fam ? fam.color : P.ui.gold }); ctx.restore(); } });
     }
+    for (const w of snap.wl || []) list.push({ y: w[1], d: () => drawWall(w) });
     for (const [id, h] of heroes) list.push({ y: h.y, d: () => drawHeroEnt(id, h) });
     for (const m of mobs.values()) list.push({ y: m.y, d: () => drawMobEnt(m, false) });
     for (const m of allies.values()) list.push({ y: m.y, d: () => drawMobEnt(m, true) });
@@ -443,6 +446,48 @@
       ctx.strokeText(label, x, y + 22); ctx.fillStyle = hp > 0 ? '#bfe6ff' : P.ui.danger; ctx.fillText(label, x, y + 22);
       if (hp > 0 && hp < 100) bar(x - 20, y + 26, 40, 4, hp / 100, hp < 30 ? P.ui.danger : '#9fd3ff');
     }
+  }
+
+  // Segment de rempart (tour de défense) ou de muret (tour de soin) : [x, y, PV %, muret, angle]
+  function drawWall(w) {
+    const [x, y, hp, muret, aDeg] = w;
+    const a = (aDeg * Math.PI) / 180;
+    // tangente à l'ellipse des habitations (vue 3/4)
+    let tx = -Math.sin(a) * 1.35, ty = Math.cos(a) * 0.85;
+    const L = Math.hypot(tx, ty); tx /= L; ty /= L;
+    const half = 38, H = muret ? 12 : 26;
+    const x1 = x - tx * half, y1 = y - ty * half, x2 = x + tx * half, y2 = y + ty * half;
+    ctx.save();
+    if (!hp) {
+      // ruines
+      for (let i = 0; i < 6; i++) { const k = i / 5; A.rrect(ctx, x1 + (x2 - x1) * k - 5, y1 + (y2 - y1) * k - 4 + (i % 2) * 3, 10, 7, 2, muret ? '#8d93a0' : '#7d828b', 1.4); }
+      ctx.restore();
+      return;
+    }
+    const face = muret ? '#b8b0a0' : '#9aa3ae', top = muret ? '#5cb84a' : '#c4cbd4', dark = muret ? '#7d7466' : '#6b7480';
+    // ombre au sol
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.beginPath(); ctx.moveTo(x1, y1 + 3); ctx.lineTo(x2, y2 + 3); ctx.lineTo(x2 + 6, y2 + 9); ctx.lineTo(x1 + 6, y1 + 9); ctx.closePath(); ctx.fill();
+    // face avant
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x2, y2 - H); ctx.lineTo(x1, y1 - H); ctx.closePath();
+    ctx.fillStyle = face; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = '#120c0a'; ctx.stroke();
+    // pierres
+    ctx.strokeStyle = dark; ctx.lineWidth = 1.2;
+    for (let r = 1; r < (muret ? 2 : 3); r++) { const k = r / (muret ? 2 : 3); ctx.beginPath(); ctx.moveTo(x1, y1 - H * k); ctx.lineTo(x2, y2 - H * k); ctx.stroke(); }
+    for (let c = 1; c < 5; c++) { const k = c / 5, off = c % 2 ? 0 : 0.5; ctx.beginPath(); ctx.moveTo(x1 + (x2 - x1) * k, y1 + (y2 - y1) * k - H * off); ctx.lineTo(x1 + (x2 - x1) * k, y1 + (y2 - y1) * k - H * (off + 0.5)); ctx.stroke(); }
+    // dessus : créneaux (rempart) ou haie fleurie (muret)
+    ctx.fillStyle = top;
+    if (muret) {
+      for (let c = 0; c <= 6; c++) { const k = c / 6; ctx.beginPath(); ctx.arc(x1 + (x2 - x1) * k, y1 + (y2 - y1) * k - H - 1, 5, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#ff9fd0'; for (let c = 1; c < 6; c += 2) { const k = c / 6; ctx.fillRect(x1 + (x2 - x1) * k - 1, y1 + (y2 - y1) * k - H - 4, 3, 3); }
+    } else {
+      for (let c = 0; c < 5; c++) {
+        const k = (c + 0.5) / 5, cx = x1 + (x2 - x1) * k, cy = y1 + (y2 - y1) * k - H;
+        ctx.beginPath(); ctx.rect(cx - 5, cy - 7, 10, 7); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#120c0a'; ctx.stroke();
+      }
+    }
+    if (hp < 100) bar(x - 22, y - H - (muret ? 14 : 18), 44, 4, hp / 100, hp > 40 ? P.ui.ok : P.ui.danger);
+    ctx.restore();
   }
 
   function drawLabels() {
@@ -625,6 +670,15 @@
           ctx.globalAlpha = (1 - k) * 0.8; ctx.strokeStyle = P.fx.shadow; ctx.lineWidth = 10 * (1 - k); ctx.lineCap = 'round';
           ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x2, f.y2); ctx.stroke(); break;
         }
+        case 'zap': { // éclair en zigzag
+          ctx.globalAlpha = 1 - k;
+          for (const [w, col] of [[6, 'rgba(255,240,140,.45)'], [2.5, '#fffbe0']]) {
+            ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(f.x, f.y);
+            for (let i = 1; i < 6; i++) { const q = i / 6; ctx.lineTo(f.x + (f.x2 - f.x) * q + Math.sin(f.seed + i * 7) * 9, f.y + (f.y2 - f.y) * q + Math.cos(f.seed + i * 5) * 9); }
+            ctx.lineTo(f.x2, f.y2); ctx.stroke();
+          }
+          break;
+        }
         case 'hawk': { // faucon qui fond sur sa proie
           const px = f.x + (f.x2 - f.x) * k, py = f.y + (f.y2 - f.y) * k;
           ctx.globalAlpha = 0.5 * (1 - k); ctx.strokeStyle = '#d8c4a0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(px, py); ctx.stroke();
@@ -712,8 +766,9 @@
     text(`🪙 ${s.tr} écus`, 34, 50, 24, P.ui.gold, 'left', 'b');
     text('Trésor de l’équipe', 34, 70, 12, P.ui.muted, 'left', 'b');
     let ux = 34;
-    for (const [id, lvl] of Object.entries(s.up)) {
-      if (!lvl || id === 'pact' || id === 'revive') continue;
+    const ups = Object.entries(s.up).filter(([id, lvl]) => lvl && id !== 'pact' && id !== 'revive' && UPGRADES[id])
+      .sort((a, b) => (UPGRADES[b[0]].towerSpec ? 1 : 0) - (UPGRADES[a[0]].towerSpec ? 1 : 0)).slice(0, 7);
+    for (const [id, lvl] of ups) {
       ctx.font = `18px ${FONT_B}`; ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.fillText(UPGRADES[id].icon, ux, 102);
       text(String(lvl), ux + 22, 104, 12, P.ui.gold, 'left', 'b');
       ux += 36;

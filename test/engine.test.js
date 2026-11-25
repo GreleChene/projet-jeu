@@ -59,7 +59,8 @@ test('le terrain est envahi depuis les bords après chaque boss', () => {
   assert.ok(Terrain.terrainState(90).mix);
 });
 
-test('la tour a 200 PV ; le vote a lieu pendant une manche sur deux et s’applique au début de la manche suivante', () => {
+test('la tour a 200 PV ; premier vote = spécialisation de la tour, puis 4 choix (5 avec la Résurrection)', () => {
+  const GD = require('../shared/constants');
   const g = makeGame();
   g.startRun(1);
   assert.strictEqual(g.run.tower.max, 200);
@@ -67,14 +68,20 @@ test('la tour a 200 PV ; le vote a lieu pendant une manche sur deux et s’appli
   g.setWave(1);
   assert.strictEqual(g.run.vote, null, 'pas de vote pendant la manche 1');
   g.setWave(2);
-  assert.ok(g.run.vote, 'vote ouvert pendant la manche 2');
-  assert.ok(g.castVote('chat:x', 'save', true), 'on peut voter pendant la manche');
+  assert.deepStrictEqual(g.run.vote.options, ['spec_attaque', 'spec_defense', 'spec_soin', 'spec_mage'], 'premier vote : les 4 spécialisations');
+  assert.ok(g.castVote('chat:x', 'spec_defense', true), 'on peut voter pendant la manche');
   g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
   assert.strictEqual(g.phase, 'intermission');
   assert.ok(g.run.vote, 'le vote reste ouvert pendant l’entracte');
-  assert.ok(g.castVote('chat:y', 'save', true), 'on peut voter pendant l’entracte');
   g.startWave(3);
-  assert.strictEqual(g.run.vote, null, 'vote appliqué au début de la manche 3');
+  assert.strictEqual(g.run.towerSpec, 'defense', 'spécialisation appliquée au début de la manche suivante');
+  g.setWave(4);
+  const o = g.run.vote.options;
+  assert.strictEqual(o.length, 4, '2 améliorations + Pacte de sang + Économiser');
+  assert.ok(o.includes('pact') && o.includes('save'));
+  for (const id of o.filter((x) => x !== 'pact' && x !== 'save')) assert.strictEqual(GD.UPGRADES[id].tower, 'defense', 'seulement des améliorations de la tour choisie');
+  const h = [...g.heroes.values()][0];
+  if (h) { g.heroDie(h); g.setWave(6); assert.strictEqual(g.run.vote.options.length, 5, 'Résurrection en 5e choix'); }
 });
 
 test('arbres de compétences : une seule branche, ultime au niveau 30', () => {
@@ -161,32 +168,53 @@ test('pas de réapparition ; vote « Résurrection » proposé s’il y a un mor
   assert.strictEqual(a.hp, Math.round(a.maxHp * 0.6));
 });
 
-test('Infirmerie au niveau requis : un héros mort réanimé par manche', () => {
-  const GD = require('../shared/constants');
-  const g = makeGame();
-  for (let i = 0; i < 3; i++) g.addBot({ cls: 'soldat', level: 10 });
-  g.startRun(1);
-  g.run.upgrades.infirmary = GD.BALANCE.INFIRMARY_REVIVE_LEVEL;
-  g.setWave(3);
-  for (const h of g.heroes.values()) g.heroDie(h);
-  g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
-  assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 1, 'un seul héros réanimé');
-  g.run.upgrades.infirmary = GD.BALANCE.INFIRMARY_REVIVE_LEVEL - 1;
-  for (const h of g.heroes.values()) g.heroDie(h);
-  g.setWave(4); g.closeVote(true); g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
-  assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 0, 'pas de réanimation sous le niveau requis');
-});
-
-test('Infirmerie niveau 6 : deux héros réanimés par manche', () => {
-  const GD = require('../shared/constants');
+test('Sanctuaire des âmes : 1 héros réanimé par manche, 2 au niveau 2', () => {
   const g = makeGame();
   for (let i = 0; i < 4; i++) g.addBot({ cls: 'soldat', level: 10 });
   g.startRun(1);
-  g.run.upgrades.infirmary = GD.BALANCE.INFIRMARY_REVIVE2_LEVEL;
+  g.run.towerSpec = 'soin'; g.run.upgrades.so_sanctuary = 1;
   g.setWave(3);
   for (const h of g.heroes.values()) g.heroDie(h);
   g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
-  assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 2);
+  assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 1, 'un héros réanimé');
+  g.run.upgrades.so_sanctuary = 2;
+  for (const h of g.heroes.values()) g.heroDie(h);
+  g.setWave(4); g.closeVote(true); g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
+  assert.strictEqual([...g.heroes.values()].filter((h) => h.alive).length, 2, 'deux héros réanimés');
+});
+
+test('soin d’entracte : 10 % des PV max, 75 % avec la Fontaine de vie au maximum ; plus de soin près de la tour', () => {
+  const g = makeGame();
+  g.addBot({ cls: 'soldat', level: 10 });
+  g.startRun(1);
+  const h = [...g.heroes.values()][0];
+  g.setWave(3);
+  h.hp = 1; h.x = 960; h.y = 560; // au pied de la tour
+  for (let i = 0; i < 40; i++) g.tick(0.05);
+  assert.ok(h.hp < h.maxHp * 0.02, 'pas de régénération continue près de la tour');
+  h.hp = 1; g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
+  assert.ok(Math.abs(h.hp - (1 + h.maxHp * 0.1)) < 2, 'soin de 10 % à l’entracte');
+  g.run.upgrades.so_fountain = 5;
+  g.setWave(4); g.closeVote(true); h.hp = 1; g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
+  assert.ok(Math.abs(h.hp - (1 + h.maxHp * 0.75)) < 2, 'soin de 75 % avec la tour de soin maxée');
+});
+
+test('remparts : un côté construit par amélioration, les monstres de corps à corps doivent le casser', () => {
+  const GD = require('../shared/constants');
+  const g = makeGame();
+  g.startRun(1);
+  g.run.towerSpec = 'defense'; g.run.treasury = 1000;
+  g.applyUpgrade('df_wall_e');
+  const east = g.run.walls.filter((w) => w.side === 'e');
+  assert.strictEqual(east.length, 2 * GD.WALLS.SPAN / GD.WALLS.STEP + 1, 'segments du rempart est');
+  assert.strictEqual(g.run.walls.filter((w) => w.side !== 'e').length, 0, 'seulement le côté voté');
+  g.setWave(3); g.mobs = []; g.run.queue = []; g.run.bossPending = [];
+  const m = g.spawnMob('gobelin', 1800, 540, {});
+  const seg = east.find((w) => w.a === 0);
+  const hp0 = seg.hp;
+  for (let i = 0; i < 20 * 25; i++) { g.tick(0.05); if (m.hp <= 0) break; }
+  assert.ok(m.x > seg.x - 10, 'le gobelin ne traverse pas le rempart');
+  assert.ok(seg.hp < hp0, 'il le frappe');
 });
 
 test('partie rapide : 35 manches, boss et terrain accélérés, 1 zone max ; difficultés', () => {

@@ -1043,14 +1043,17 @@
         `Une reconversion remet les améliorations d’habitation à zéro et rembourse ${Math.round(GD.HOUSE_RESPEC_REFUND * 100)} % des Grêlons dépensés.`,
         'Onglet « Amélioration de bâtiment » : PV, puissance de soin (moyenne des occupants si partagée) et une amélioration spéciale par classe : ' + Object.entries(GD.HOUSE_SPECIALS).map(([f, sp]) => `${sp.icon} ${sp.name} (${GD.CLASSES[f].name})`).join(', ') + '.'])),
       sec('🗳️ Votes d’équipe', el('p', {}, `Toutes les ${voteEvery} manches, pendant la manche, les héros (et le chat Twitch) votent pour dépenser les écus de l’équipe. Le vote reste ouvert pendant l’entracte ; l’option la plus votée est appliquée au début de la manche suivante :`),
-        ul(Object.values(GD.UPGRADES).map((u) => `${u.icon} ${u.name} : ${u.desc}${u.unlock ? ` (débloqué quand l’équipe a gagné ${u.unlock} écus)` : ''}`).concat(['🪙 Économiser : garder les écus pour plus tard']))),
+        el('p', {}, 'Le premier vote choisit la spécialisation de la tour (gratuit). Ensuite, chaque vote propose 2 de ses 8 améliorations, le Pacte de sang et « Économiser » (+ la Résurrection s’il y a un mort).'),
+        ...Object.entries(GD.TOWER_SPECS).map(([k, T]) => el('div', {}, el('b', { style: `color:${T.color}` }, `${T.icon} ${T.name}`), ` — ${T.desc}`,
+          ul(Object.values(GD.UPGRADES).filter((u) => u.tower === k).map((u) => `${u.icon} ${u.name} : ${u.desc} (${u.max} niv.)`)))),
+        ul([`${GD.UPGRADES.pact.icon} ${GD.UPGRADES.pact.name} : ${GD.UPGRADES.pact.desc}`, '🪙 Économiser : garder les écus pour plus tard', `${GD.UPGRADES.revive.icon} ${GD.UPGRADES.revive.name} : ${GD.UPGRADES.revive.desc}`])),
       // pas de détails sur l'évolution du terrain ni sur les boss : c'est une surprise pour les joueurs
       sec('🌍 Le monde', el('p', {}, 'Le monde autour de la tour ne restera pas longtemps paisible… À vous de découvrir ce qui vous attend.'))
     );
   }
 
   /* ============================== IA ============================== */
-  const AI_TITLES = { stance: '🗺️ Posture', target: '🎯 Cible prioritaire', retreat: '🏳️ Retraite vers la tour', ult: '✨ Utilisation de l’ultime' };
+  const AI_TITLES = { stance: '🗺️ Posture', target: '🎯 Cible prioritaire', ult: '✨ Utilisation de l’ultime' };
   function renderAI() {
     const O = GD.AI_OPTIONS;
     $('#aiForm').replaceChildren(...Object.keys(O).map((key) => el('div', {},
@@ -1061,7 +1064,7 @@
   }
   async function saveAI(key, val) {
     try {
-      setUser((await api('/api/me/ai', { method: 'PUT', body: { [key]: key === 'retreat' ? Number(val) : val } })).user);
+      setUser((await api('/api/me/ai', { method: 'PUT', body: { [key]: val } })).user);
       $('#aiNotice').textContent = 'IA mise à jour ✓';
       setTimeout(() => ($('#aiNotice').textContent = ''), 1500);
     } catch (e) { toast(e.message); }

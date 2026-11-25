@@ -174,6 +174,22 @@ module.exports = {
       let tx, ty, reach;
       if (m.target) { tx = m.target.x; ty = m.target.y; reach = m.range + (m.target.size || 12); }
       else { tx = WORLD.CX; ty = WORLD.CY; reach = m.range + WORLD.TOWER_R; }
+      // un rempart barre la route : le monstre (corps à corps) doit le casser ; les tireurs visent par-dessus
+      const wall = !d.ranged && this.wallBlocking(m, tx, ty);
+      if (wall) {
+        const dw = Math.hypot(wall.x - m.x, wall.y - m.y);
+        if (dw > m.range + 26) this.moveToward(m, wall.x, wall.y, m.speed * speedMul, dt);
+        else m.facing = Math.atan2(wall.y - m.y, wall.x - m.x);
+        m.atkT -= dt;
+        if (dw <= m.range + 30 && m.atkT <= 0) {
+          m.atkT = m.cd; m.attackAnim = 0.25;
+          wall.hp -= m.dmg;
+          // Pieux (tour de défense) : l'attaquant se blesse
+          if (this.run.upgrades.df_spikes) this.damageMob(m, 6 * this.run.upgrades.df_spikes * (1 + 0.08 * (this.run.wave - 1)), null, { dot: true });
+          if (wall.hp <= 0) { wall.hp = 0; this.fx(['bdestroy', Math.round(wall.x), Math.round(wall.y)]); }
+        }
+        continue;
+      }
       const dist = Math.hypot(tx - m.x, ty - m.y);
       // dans la brume (hors de la carte), les monstres avancent plus vite jusqu'à entrer dans la zone de jeu
       const fog = m.x < 0 || m.y < 0 || m.x > WORLD.W || m.y > WORLD.H ? 2.2 : 1;
@@ -367,12 +383,18 @@ module.exports = {
     if (m.hp <= 0) return false;
     // marque du faucon et acide : dégâts reçus augmentés
     if (m.status.mark) amount *= 1 + m.status.mark.v;
+    // Coup de grâce (tour d'attaque) : les héros achèvent plus vite les monstres affaiblis
+    if (owner && owner.cls && this.run.upgrades.at_execute && m.hp < m.maxHp * 0.3) amount *= 1 + 0.2 * this.run.upgrades.at_execute;
+    // Marque de la tour (tour d'attaque)
+    if (opts.extra && opts.extra.markV) m.status.mark = { t: 4, v: Math.max(opts.extra.markV, (m.status.mark && m.status.mark.v) || 0) };
     if (m.status.acid) amount *= 1 + m.status.acid.v;
     m.hp -= amount;
     // Barbare : se soigne d'une part des dégâts infligés
     if (owner && owner.cls && !opts.dot && !opts.byAlly && owner.alive) {
       const rc = CLASSES[owner.cls] && CLASSES[owner.cls].rage;
       if (rc) owner.hp = Math.min(owner.maxHp, owner.hp + amount * (rc.leech + ((owner.mods && owner.mods.leech) || 0)));
+      // Bénédiction (tour de soin) : vol de vie pour tous les héros
+      if (this.run.upgrades.so_leech) owner.hp = Math.min(owner.maxHp, owner.hp + amount * 0.01 * this.run.upgrades.so_leech);
     }
     if (opts.extra && owner) {
       // Orbe instable : explosion autour de la cible

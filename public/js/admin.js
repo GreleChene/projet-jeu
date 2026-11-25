@@ -19,6 +19,9 @@
     $('#botCls').replaceChildren(el('option', { value: '' }, 'Aléatoire'), el('option', { value: 'habitant' }, 'Paysan'),
       ...GD.BASE_CLASSES.map((b) => el('optgroup', { label: GD.CLASSES[b].name },
         el('option', { value: b }, GD.CLASSES[b].name), ...GD.specsOf(b).map((s) => el('option', { value: s }, '↳ ' + GD.CLASSES[s].name)))));
+    // améliorations de tour, par spécialisation (test)
+    $('#upgradeId').replaceChildren(...Object.entries(GD.TOWER_SPECS).map(([k, T]) => el('optgroup', { label: T.name },
+      ...Object.entries(GD.UPGRADES).filter(([, u]) => u.towerSpec === k || u.tower === k).map(([id, u]) => el('option', { value: id }, `${u.icon} ${u.name}`)))));
     $('#userFilter').addEventListener('input', renderUsers);
     refresh();
     loadUsers();
@@ -59,6 +62,7 @@
     }
     if (action === 'stop' && !(await ask('La partie en cours sera arrêtée.', { title: 'Arrêter la partie ?', ok: 'Arrêter', danger: true }))) return;
     if (action === 'wave') body.wave = Number($('#gotoWave').value) || 1;
+    if (action === 'upgrade') body.id = $('#upgradeId').value;
     if (action === 'treasury') body.amount = Number($('#treasuryAmt').value) || 0;
     if (action === 'openJoin') body.seconds = Number($('#joinSeconds').value) || 0;
     if (action === 'bots') { body.count = Number($('#botCount').value) || 1; body.cls = $('#botCls').value || null; body.level = Number($('#botLevel').value) || null; }

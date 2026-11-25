@@ -27,6 +27,13 @@ function botVotes(g, strategy) {
   g.closeVote = (silent) => {
     const v = g.run.vote;
     if (v && !silent) {
+      // premier vote : une spécialisation de tour au hasard (ou celle de --tour=…)
+      if (v.options[0].startsWith('spec_')) {
+        const want = process.argv.find((a) => a.startsWith('--tour='));
+        const pick = want ? 'spec_' + want.slice(7) : v.options[Math.floor(Math.random() * 4)];
+        for (const h of g.heroes.values()) v.votes.set(h.id, v.options.includes('revive') ? 'revive' : pick);
+        return close(silent);
+      }
       const ok = v.options.filter((o) => o !== 'pact' && o !== 'save' && o !== 'revive' && g.upgradeCost(o) <= g.run.treasury);
       if (strategy === 'expensive') ok.sort((a, b) => g.upgradeCost(b) - g.upgradeCost(a));
       for (const h of g.heroes.values()) v.votes.set(h.id, v.options.includes('revive') ? 'revive' : ok[0] || 'save');
