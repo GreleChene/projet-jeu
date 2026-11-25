@@ -73,12 +73,21 @@ module.exports = {
       if ((h.x - tx) ** 2 + (h.y - ty) ** 2 > 64) this.moveToward(h, tx, ty, h.speed * 0.7 * speedMul, dt);
       return;
     }
-    let r = st === 'defensive' ? 115 : st === 'offensive' ? 290 : 195;
-    r = Math.min(r, h.leash - 20);
-    h.idleAngle += dt * 0.03;
-    const tx = WORLD.CX + Math.cos(h.idleAngle) * r * 1.3;
-    const ty = WORLD.CY + Math.sin(h.idleAngle) * r * 0.85;
-    if ((h.x - tx) ** 2 + (h.y - ty) ** 2 > 64) this.moveToward(h, tx, ty, h.speed * 0.7 * speedMul, dt);
+    // promenade libre sur la carte : un point au hasard, une courte pause, puis un autre
+    // (plus loin de la tour pour une posture offensive, plus près pour une posture défensive)
+    const W = h.wander;
+    if (!W || W.done) {
+      const R = st === 'defensive' ? 300 : st === 'offensive' ? 900 : 560;
+      const a = Math.random() * Math.PI * 2, r = R * (0.25 + 0.75 * Math.sqrt(Math.random()));
+      h.wander = {
+        x: U.clamp(WORLD.CX + Math.cos(a) * r * 1.35, 60, WORLD.W - 60),
+        y: U.clamp(WORLD.CY + Math.sin(a) * r * 0.85, 80, WORLD.H - 50),
+        wait: U.rand(0.6, 2.5), done: false
+      };
+      return;
+    }
+    if ((h.x - W.x) ** 2 + (h.y - W.y) ** 2 > 100) this.moveToward(h, W.x, W.y, h.speed * 0.6 * speedMul, dt);
+    else { W.wait -= dt; if (W.wait <= 0) W.done = true; }
   },
 
   moveToward(u, tx, ty, speed, dt) {
@@ -290,8 +299,9 @@ module.exports = {
   chooseTarget(h) {
     const st = h.ai.stance, pr = h.ai.target;
     const leash = h.leash + h.range;
-    const hunt = st === 'offensive' ? 5000 : st === 'balanced' ? 520 : 0;
-    const defR = st === 'defensive' ? 360 : 420;
+    // portée de chasse : les héros vont chercher les monstres plus loin sur la carte
+    const hunt = st === 'offensive' ? 5000 : st === 'balanced' ? 800 : 0;
+    const defR = st === 'defensive' ? 460 : 520;
     // garde de son habitation : seulement les ennemis proches d'elle
     const home = st === 'home' ? this.buildingOfHero(h) || { x: WORLD.CX, y: WORLD.CY } : null;
     const homeR = 230 + h.range;

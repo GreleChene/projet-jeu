@@ -317,8 +317,9 @@
   // Emplacements possibles : anneaux autour de la tour, y compris au nord (la tour peut alors les cacher en partie,
   // mais jamais entièrement : le corps de la tour reste dégagé)
   const BUILDING_SPOTS = [];
-  // (espacement prévu pour les grandes habitations)
-  for (let d = 105; d <= 380; d += 55) {
+  // (espacement prévu pour les grandes habitations ; le plus éloigné reste dans le cercle où se tiennent les héros)
+  const BUILDING_RINGS = [100, 152, 204];
+  for (const d of BUILDING_RINGS) {
     const step = Math.max(6, (82 / (d * 1.1)) * (180 / Math.PI));
     for (let a = 0; a < 360; a += step) {
       const p = ellipsePos(a, d);
@@ -334,13 +335,18 @@
   function placeBuilding(family, taken, rnd) {
     const r = rnd || Math.random;
     const free = BUILDING_SPOTS.filter((s) => !taken.some((t) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2 < 78 * 78)); // léger chevauchement toléré
-    if (!free.length) return ellipsePos(r() * 360, 420);
+    // plus de place libre : l'emplacement le moins encombré (chevauchement plutôt qu'un bâtiment hors du cercle)
+    if (!free.length) {
+      let best = BUILDING_SPOTS[0], bd = -1;
+      for (const s of BUILDING_SPOTS) { const d = Math.min(...taken.map((t) => (t.x - s.x) ** 2 + (t.y - s.y) ** 2)); if (d > bd) { bd = d; best = s; } }
+      return { x: best.x, y: best.y };
+    }
     let pool;
     if (SUPPORT_FAMILIES.includes(family)) {
       const dmin = Math.min(...free.map((s) => s.d));
       pool = free.filter((s) => s.d === dmin);
     } else {
-      pool = free.filter((s) => s.d > 105);
+      pool = free.filter((s) => s.d > BUILDING_RINGS[0]);
       if (!pool.length) pool = free;
     }
     const s = pool[Math.floor(r() * pool.length)];
