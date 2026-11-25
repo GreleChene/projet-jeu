@@ -374,6 +374,19 @@ module.exports = {
       const rc = CLASSES[owner.cls] && CLASSES[owner.cls].rage;
       if (rc) owner.hp = Math.min(owner.maxHp, owner.hp + amount * (rc.leech + ((owner.mods && owner.mods.leech) || 0)));
     }
+    if (opts.extra && owner) {
+      // Orbe instable : explosion autour de la cible
+      if (opts.extra.burst) {
+        const B = opts.extra.burst;
+        this.fx(['boom', Math.round(m.x), Math.round(m.y), B.r, 0]);
+        for (const o of this.mobsInRadius(m.x, m.y, B.r)) if (o !== m) this.damageMob(o, amount * B.mult, owner, { splash: true });
+      }
+      // Carreau lourd : recul (pas les boss)
+      if (opts.extra.knock && !m.boss && m.hp > 0) {
+        const a = Math.atan2(m.y - owner.y, m.x - owner.x);
+        m.x += Math.cos(a) * opts.extra.knock; m.y += Math.sin(a) * opts.extra.knock;
+      }
+    }
     if (opts.extra && owner && m.hp > 0) {
       if (opts.extra.venom) this.addVenom(m, owner, 1);
       const ch = opts.extra.charm;

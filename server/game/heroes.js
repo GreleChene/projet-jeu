@@ -54,6 +54,8 @@ module.exports = {
       const c = CLASSES[h.cls];
       if (c.ult && h.ultUnlocked && h.ult < 1) h.ult = Math.min(1, h.ult + (dt / GD.BALANCE.ULT_TIME) * (h.ultRate || 1) * (1 + this.run.upgrades.shrine / Math.max(1, GD.UPGRADES.shrine.max)));
 
+      if (h.lastX !== undefined) h.runDist = (h.runDist || 0) + Math.hypot(h.x - h.lastX, h.y - h.lastY);
+      h.lastX = h.x; h.lastY = h.y;
       if (h.dashing) { this.updateDash(h, dt); continue; }
       if (h.chain) { this.updateChain(h, dt); continue; }
 
@@ -336,10 +338,22 @@ module.exports = {
     h.attackAnim = 0.22;
     h.facing = Math.atan2(t.y - h.y, t.x - h.x);
     const crit = Math.random() < h.crit;
-    const dmg = h.dmg * this.dmgMul(h) * (crit ? 2 : 1);
+    let dmg = h.dmg * this.dmgMul(h) * (crit ? 2 : 1);
     let onHit = null;
+    // Tir de loin (arc long) : plus la cible est loin, plus ça fait mal
+    if (c.farshot) dmg *= 1 + Math.min(c.farshot.max, Math.floor(U.dist(h, t) / c.farshot.per) * 0.01);
+    // Coup dans le dos (assassin) : le monstre attaque quelqu'un d'autre (héros, tour, bâtiment)
+    if (c.backstab && t.target !== h) dmg *= 1 + c.backstab;
+    // Élan (chevalier) : premier coup après une longue course
+    let charged = false;
+    if (c.momentum && (h.runDist || 0) >= c.momentum.dist) { dmg *= c.momentum.mult; charged = true; this.fx(['text', Math.round(t.x), Math.round(t.y - t.size - 20), 'Élan !', c.color]); }
+    h.runDist = 0;
     if (c.onHit) onHit = { slow: c.onHit.slow ? Math.min(0.8, c.onHit.slow * (1 + md(h, 'frostMul'))) : 0, burn: c.onHit.burn ? h.dmg * c.onHit.burn * (1 + md(h, 'burnMul')) : 0, dur: c.onHit.dur };
-    const extra = c.venom ? { venom: true } : c.charm ? { charm: { chance: c.charm.chance + md(h, 'charmChance'), dur: c.charm.dur + md(h, 'charmDur') } } : null;
+    let extra = c.venom ? { venom: true } : c.charm ? { charm: { chance: c.charm.chance + md(h, 'charmChance'), dur: c.charm.dur + md(h, 'charmDur') } } : null;
+    // Orbe instable (mage) : une attaque sur 5 explose ; Carreau lourd (arbalétrier) : recul
+    if (c.unstable) { h.orbCount = (h.orbCount || 0) + 1; if (h.orbCount % c.unstable.every === 0) extra = { ...(extra || {}), burst: { r: c.unstable.r, mult: c.unstable.mult } }; }
+    if (c.knock) extra = { ...(extra || {}), knock: c.knock };
+    if (charged) onHit = { ...(onHit || {}), ...(t.boss ? { slow: 0.5, dur: 1 } : { freeze: c.momentum.stun }) };
     if (c.projectile) {
       const slow = c.projectile === 'orb' || c.projectile === 'holy' || c.projectile === 'note' || c.projectile === 'charm' || c.projectile === 'flask';
       // les notes du ménestrel traversent les monstres alignés
@@ -360,7 +374,21 @@ module.exports = {
   /* --------------------------- Dégâts / soins --------------------------- */
   damageHero(h, n, onHit, raw) {
     if (!h.alive) return;
-    if (!raw) n *= (1 - h.armor) * (h.buffs.shield > 0 ? 0.5 : 1);
+    if (!raw) {
+      n *= (1 - h.armor) * (h.buffs.shield > 0 ? 0.5 : 1);
+      const c = CLASSES[h.cls];
+      // Parade sacrée (paladin) : attaque annulée, petit soin
+      if (c.parry && Math.random() < c.parry.chance) {
+        h.hp = Math.min(h.maxHp, h.hp + h.maxHp * c.parry.heal);
+        this.fx(['text', Math.round(h.x), Math.round(h.y - 50), 'Parade !', '#f2c14e']);
+        return;
+      }
+      // Garde (soldat) : un soldat proche réduit les dégâts reçus
+      for (const g of this.heroes.values()) {
+        const gc = CLASSES[g.cls];
+        if (g.alive && gc.guard && (g.x - h.x) ** 2 + (g.y - h.y) ** 2 < gc.guard.r * gc.guard.r) { n *= 1 - gc.guard.red; break; }
+      }
+    }
     h.hp -= n;
     if (onHit) this.applyStatus(h, onHit);
     if (h.hp <= 0 && h.buffs.frenzy > 0) h.hp = 1; // frénésie : ne tombe pas

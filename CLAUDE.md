@@ -11,6 +11,7 @@ npm run sim:duree                 # durée des parties gagnées (option --normal
 npm run sim:economie              # écus gagnés / dépensés / surplus (option --manche=20)
 npm run sim:classes [spec…]       # équilibrage : manche atteinte par 5 bots d'une même spécialisation
 npm run sim:invocations           # nombre de créatures, cadence, ultimes utilisés
+npm run sim:passifs               # déclenchements des passifs de classe
 npm run captures -- stream        # captures/stream-calme.png et stream-vague.png
 npm run captures -- joueur --onglet=hero [--mobile]   # captures/joueur-<onglet>.png
 ```
@@ -42,6 +43,7 @@ Pages : `/` (joueur), `/stream` (OBS, 1920×1080), `/admin` (compte `admin` / `1
 - **Pas de surplus d'écus** en fin de partie (vérifier avec `npm run sim:economie`).
 - Arbre : centre Paysan (identifiant interne `habitant`), branche de classe (niveau 7), sous-branche (initiation 3/3), 5 compétences, ultime (niveau 30), 2 compétences d'après-ultime ; **2 points requis dans le nœud précédent** ; aucune compétence d'avant l'ultime ne charge l'ultime.
 - Invocations : 1 créature par nœud, 2 au rang 3 ; **6 au plus, 9 avec la compétence d'après-ultime** ; une toutes les 10 s, 5 s après une mort ; statistiques relatives aux statistiques réelles du héros.
+- Chaque classe sauf le Paysan a un passif (champ dans `CLASSES`, texte généré par `passiveLines`, effet dans `heroes.js` / `mobs.js`).
 - Les statistiques d'un héros sont **figées pendant une bataille** (profil verrouillé), les récompenses versées en fin de partie.
 
 ## Façon de travailler
