@@ -56,7 +56,7 @@
       x.restore();
     }
     // brume : plus sombre en s'éloignant de la carte
-    x.fillStyle = 'rgba(120,126,140,0.35)';
+    x.fillStyle = 'rgba(120,126,140,0.12)';
     x.beginPath(); x.rect(0, 0, c.width, c.height); x.rect(OUT_M, OUT_M, W, H); x.fill('evenodd');
     outskirts = c; outskirtsFor = src;
     return c;
@@ -80,23 +80,36 @@
     CLOUD_SPRITES[i] = c;
     return c;
   }
+  // une rangée de nuages sur le cadre extérieur de la vue dézoomée
+  const CLOUD_K = 0.62;
   const CLOUDS = (() => {
-    const W = WORLD.W, H = WORLD.H, out = [];
-    const edge = (len, f) => { for (let s = -60; s < len + 60; s += 62) for (let row = 0; row < 2; row++) out.push(f(s + row * 31, row)); };
-    // row 0 : à cheval sur le bord ; row 1 : un peu à l'extérieur
-    edge(W, (s, row) => ({ x: s, y: -10 - row * 70, i: out.length % 6, ph: out.length * 0.7 }));
-    edge(W, (s, row) => ({ x: s, y: H + 10 + row * 70, i: out.length % 6, ph: out.length * 0.7 }));
-    edge(H, (s, row) => ({ x: -20 - row * 80, y: s, i: out.length % 6, ph: out.length * 0.7 }));
-    edge(H, (s, row) => ({ x: W + 20 + row * 80, y: s, i: out.length % 6, ph: out.length * 0.7 }));
+    const W = WORLD.W, H = WORLD.H, MX = GD.WORLD.SPAWN_MX, MY = GD.WORLD.SPAWN_MY, out = [];
+    let n = 0;
+    const add = (x, y) => out.push({ x, y, i: n % 6, ph: (n++) * 0.7 });
+    for (let x = -MX - 40; x <= W + MX + 40; x += 46) { add(x, -MY + 6); add(x, H + MY - 6); }
+    for (let y = -MY + 40; y <= H + MY - 40; y += 46) { add(-MX + 8, y); add(W + MX - 8, y); }
     return out;
   })();
   function drawEdgeClouds(alpha) {
     if (alpha <= 0.01) return;
+    const W = WORLD.W, H = WORLD.H, MX = GD.WORLD.SPAWN_MX, MY = GD.WORLD.SPAWN_MY, F = 170;
     ctx.save(); ctx.globalAlpha = alpha;
+    // voile gris qui s'estompe vers le centre de la carte
+    const veil = (x0, y0, x1, y1, rx, ry, rw, rh) => {
+      const g = ctx.createLinearGradient(x0, y0, x1, y1);
+      g.addColorStop(0, 'rgba(176,182,194,0.55)'); g.addColorStop(1, 'rgba(176,182,194,0)');
+      ctx.fillStyle = g; ctx.fillRect(rx, ry, rw, rh);
+    };
+    veil(0, -MY, 0, -MY + F, -MX, -MY, W + 2 * MX, F);
+    veil(0, H + MY, 0, H + MY - F, -MX, H + MY - F, W + 2 * MX, F);
+    veil(-MX, 0, -MX + F, 0, -MX, -MY, F, H + 2 * MY);
+    veil(W + MX, 0, W + MX - F, 0, W + MX - F, -MY, F, H + 2 * MY);
+    // petits nuages, collés au bord extérieur
     for (const c of CLOUDS) {
       const sp = cloudSprite(c.i);
-      const dx = Math.sin(time * 0.25 + c.ph) * 10, dy = Math.cos(time * 0.2 + c.ph) * 4;
-      ctx.drawImage(sp, c.x - sp.width / 2 + dx, c.y - sp.height / 2 + dy);
+      const dx = Math.sin(time * 0.25 + c.ph) * 6, dy = Math.cos(time * 0.2 + c.ph) * 3;
+      const w = sp.width * CLOUD_K, h = sp.height * CLOUD_K;
+      ctx.drawImage(sp, c.x - w / 2 + dx, c.y - h / 2 + dy, w, h);
     }
     ctx.restore();
   }
