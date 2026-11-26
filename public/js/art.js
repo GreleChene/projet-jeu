@@ -1576,13 +1576,18 @@
   /* ------------------------------ terrain ------------------------------ */
   const BIOME_ORDER = ['prairie', 'frost', 'poison', 'fire'];
 
-  function buildTerrain(seed, st) {
-    const W = GD.WORLD.W, H = GD.WORLD.H, TS = GD.WORLD.TILE;
+  // margin : bande de terrain réel générée autour de la carte (visible pendant le dézoom des vagues)
+  function buildTerrain(seed, st, margin) {
+    const TS = GD.WORLD.TILE, MT = Math.ceil((margin || 0) / TS), M = MT * TS;
+    const W = GD.WORLD.W, H = GD.WORLD.H;
     const cv = document.createElement('canvas');
-    cv.width = W; cv.height = H;
+    cv.width = W + 2 * M; cv.height = H + 2 * M;
     const ctx = cv.getContext('2d');
-    const grid = [];
-    for (let ty = 0; ty < T.ROWS; ty++) { grid[ty] = []; for (let tx = 0; tx < T.COLS; tx++) grid[ty][tx] = T.tileBiome(tx, ty, st, seed); }
+    ctx.translate(M, M); // repère du monde : (0, 0) = coin de la carte
+    const TX0 = -MT, TX1 = T.COLS + MT, TY0 = -MT, TY1 = T.ROWS + MT;
+    const gridRows = {};
+    for (let ty = TY0; ty < TY1; ty++) { gridRows[ty] = {}; for (let tx = TX0; tx < TX1; tx++) gridRows[ty][tx] = T.tileBiome(tx, ty, st, seed); }
+    const grid = gridRows;
 
     // 1. sol : une couleur par tuile, agrandie avec lissage (dégradés doux, plus de damier)
     const tileCol = (tx, ty) => {
@@ -1591,14 +1596,14 @@
       return mix(G[Math.floor(f)], G[Math.min(G.length - 1, Math.ceil(f))], f - Math.floor(f));
     };
     const small = document.createElement('canvas');
-    small.width = T.COLS; small.height = T.ROWS;
+    small.width = TX1 - TX0; small.height = TY1 - TY0;
     const sctx = small.getContext('2d');
-    for (let ty = 0; ty < T.ROWS; ty++) for (let tx = 0; tx < T.COLS; tx++) { sctx.fillStyle = tileCol(tx, ty); sctx.fillRect(tx, ty, 1, 1); }
+    for (let ty = TY0; ty < TY1; ty++) for (let tx = TX0; tx < TX1; tx++) { sctx.fillStyle = tileCol(tx, ty); sctx.fillRect(tx - TX0, ty - TY0, 1, 1); }
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(small, 0, 0, T.COLS * TS, T.ROWS * TS);
+    ctx.drawImage(small, TX0 * TS, TY0 * TS, small.width * TS, small.height * TS);
     // bords organiques (« blobs ») des couches de biome qui envahissent les autres
     for (const b of BIOME_ORDER) {
-      for (let ty = 0; ty < T.ROWS; ty++) for (let tx = 0; tx < T.COLS; tx++) {
+      for (let ty = TY0; ty < TY1; ty++) for (let tx = TX0; tx < TX1; tx++) {
         if (grid[ty][tx] !== b) continue;
         const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => {
           const n = grid[ty + dy] && grid[ty + dy][tx + dx];
@@ -1613,7 +1618,7 @@
       }
     }
     // 2. texture (petits points)
-    for (let ty = 0; ty < T.ROWS; ty++) for (let tx = 0; tx < T.COLS; tx++) {
+    for (let ty = TY0; ty < TY1; ty++) for (let tx = TX0; tx < TX1; tx++) {
       const b = grid[ty][tx];
       for (let k = 0; k < 5; k++) {
         const hx = T.hash2(tx * 7 + k, ty, seed + 50), hy = T.hash2(tx, ty * 7 + k, seed + 60);
@@ -1632,10 +1637,10 @@
     // lumière chaude autour de la tour + ombre douce venant du haut
     const lg = ctx.createRadialGradient(GD.WORLD.CX, GD.WORLD.CY, 40, GD.WORLD.CX, GD.WORLD.CY, 620);
     lg.addColorStop(0, 'rgba(255,236,190,0.16)'); lg.addColorStop(1, 'rgba(255,236,190,0)');
-    ctx.fillStyle = lg; ctx.fillRect(0, 0, W, H);
-    const sg = ctx.createLinearGradient(0, 0, 0, H);
+    ctx.fillStyle = lg; ctx.fillRect(-M, -M, W + 2 * M, H + 2 * M);
+    const sg = ctx.createLinearGradient(0, -M, 0, H);
     sg.addColorStop(0, 'rgba(20,12,30,0.10)'); sg.addColorStop(0.4, 'rgba(20,12,30,0)');
-    ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = sg; ctx.fillRect(-M, -M, W + 2 * M, H + 2 * M);
 
     // 3. rivières de lave
     const lava = [];
@@ -1654,7 +1659,7 @@
 
     // 5. décor (trié par y pour le chevauchement)
     const decor = [];
-    for (let ty = 0; ty < T.ROWS; ty++) for (let tx = 0; tx < T.COLS; tx++) {
+    for (let ty = TY0; ty < TY1; ty++) for (let tx = TX0; tx < TX1; tx++) {
       const d = T.tileDecor(tx, ty, seed);
       if (d) decor.push({ ...d, b: grid[ty][tx], x: (tx + 0.5) * TS + d.ox, y: (ty + 0.5) * TS + d.oy });
     }
@@ -1666,7 +1671,7 @@
       drawDecor(ctx, { ...d, x: 0, y: 0 }, st);
       ctx.restore();
     }
-    return { canvas: cv, lava };
+    return { canvas: cv, lava, margin: M };
   }
 
 

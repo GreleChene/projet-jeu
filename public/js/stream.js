@@ -38,29 +38,8 @@
   // Caméra : vue normale hors des vagues ; pendant une vague, dézoom au-delà des bords pour voir arriver les monstres
   const ZOOM_CALM = 1, ZOOM_WAVE = GD.WORLD.WAVE_ZOOM; // réglé dans shared/constants.js (les monstres apparaissent à ce bord)
   let camZoom = ZOOM_CALM;
-  // Abords de la carte (visibles seulement pendant le dézoom) : le sol prolongé en miroir, assombri comme une brume
+  // Abords de la carte (visibles seulement pendant le dézoom) : vrai terrain généré autour de la carte
   const OUT_M = Math.max(GD.WORLD.SPAWN_MX, GD.WORLD.SPAWN_MY) + 40;
-  let outskirts = null, outskirtsFor = null;
-  function getOutskirts() {
-    if (!terrain) return null;
-    if (outskirtsFor === terrain.canvas) return outskirts;
-    const W = WORLD.W, H = WORLD.H, src = terrain.canvas;
-    const c = document.createElement('canvas'); c.width = W + OUT_M * 2; c.height = H + OUT_M * 2;
-    const x = c.getContext('2d');
-    for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) {
-      if (!dx && !dy) continue;
-      x.save();
-      x.translate(OUT_M + (dx === 1 ? 2 * W : 0), OUT_M + (dy === 1 ? 2 * H : 0));
-      x.scale(dx ? -1 : 1, dy ? -1 : 1);
-      x.drawImage(src, dx === 0 ? 0 : 0, 0);
-      x.restore();
-    }
-    // brume : plus sombre en s'éloignant de la carte
-    x.fillStyle = 'rgba(120,126,140,0.12)';
-    x.beginPath(); x.rect(0, 0, c.width, c.height); x.rect(OUT_M, OUT_M, W, H); x.fill('evenodd');
-    outskirts = c; outskirtsFor = src;
-    return c;
-  }
   // Bande de petits nuages gris le long des bords de la carte (les monstres en sortent pendant les vagues)
   const CLOUD_SPRITES = [];
   function cloudSprite(i) {
@@ -157,7 +136,7 @@
     for (const m of mobs.values()) if (m.row[5] & MF.ATTACK && m.attackT <= 0) m.attackT = 1;
     for (const m of allies.values()) if (m.row[5] & 4 && m.attackT <= 0) m.attackT = 1;
     const key = s.seed + ':' + s.tv;
-    if (key !== terrainKey) { terrainKey = key; terrain = A.buildTerrain(s.seed, s.ter); terrain.grid = gridOf(s.seed, s.ter); }
+    if (key !== terrainKey) { terrainKey = key; terrain = A.buildTerrain(s.seed, s.ter, OUT_M); terrain.grid = gridOf(s.seed, s.ter); }
     for (const e of s.e) onEvent(e);
   }
 
@@ -341,10 +320,13 @@
     // dézoom centré sur la tour pendant les vagues
     if (Math.abs(camZoom - 1) > 0.001) {
       ctx.translate(WORLD.CX, WORLD.CY); ctx.scale(camZoom, camZoom); ctx.translate(-WORLD.CX, -WORLD.CY);
-      const o = getOutskirts();
-      if (o) ctx.drawImage(o, -OUT_M, -OUT_M);
     }
-    if (terrain) ctx.drawImage(terrain.canvas, 0, 0);
+    if (terrain) {
+      const m = terrain.margin || 0;
+      ctx.drawImage(terrain.canvas, -m, -m);
+      // abords légèrement voilés (brume), la carte reste nette
+      if (m && Math.abs(camZoom - 1) > 0.001) { ctx.fillStyle = 'rgba(120,126,140,0.12)'; ctx.beginPath(); ctx.rect(-m, -m, WORLD.W + 2 * m, WORLD.H + 2 * m); ctx.rect(0, 0, WORLD.W, WORLD.H); ctx.fill('evenodd'); }
+    }
     else { ctx.fillStyle = P.biome.prairie.ground[0]; ctx.fillRect(0, 0, WORLD.W, WORLD.H); }
     if (terrain) A.drawLavaGlow(ctx, terrain.lava, time);
     if (!snap) { ctx.restore(); drawWaiting(); return; }
