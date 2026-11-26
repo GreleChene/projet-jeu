@@ -608,21 +608,130 @@
   }
 
   /* ------------------------------ tour ------------------------------ */
+  /* ------------------------------ dégradation des bâtiments ------------------------------
+   * Effets superposés (non mis en cache, animés) selon les PV restants :
+   *  < 85 % : fissures légères · < 60 % : grosses fissures, suie, gravats, filet de fumée
+   *  < 35 % : incendie, fumée noire, braises · < 15 % : brasier généralisé
+   * b = [x0, y0, x1, y1] : zone pleine du bâtiment (repère local), seed : variation par bâtiment */
+  function flame(ctx, x, y, s, t, ph) {
+    const f1 = Math.sin(t * 13 + ph) * 0.18, f2 = Math.sin(t * 19 + ph * 2) * 0.14;
+    ctx.save(); ctx.translate(x, y - s * 0.6); glow(ctx, '#ff8a2a', s * 1.1); ctx.restore();
+    const layer = (k, col, lw) => {
+      const w = s * 0.55 * k, h = s * (1.5 + f1) * k;
+      ctx.beginPath(); ctx.moveTo(x - w, y);
+      ctx.bezierCurveTo(x - w * 1.1, y - h * 0.45, x - w * 0.2 + f2 * s, y - h * 0.55, x + f1 * s * 0.6, y - h);
+      ctx.bezierCurveTo(x + w * 0.35 + f2 * s, y - h * 0.5, x + w * 1.15, y - h * 0.4, x + w, y);
+      ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+      if (lw) { ctx.lineWidth = lw; ctx.strokeStyle = OL; ctx.stroke(); }
+    };
+    layer(1, '#e8401c', 1.6); layer(0.72, '#ff8a1a', 0); layer(0.42, '#ffe066', 0);
+  }
+  function smokeColumn(ctx, x, y, s, t, ph, dark, n) {
+    for (let i = 0; i < n; i++) {
+      const q = (t * 0.32 + i / n + ph) % 1;
+      const px = x + Math.sin(q * 5 + ph * 7) * 6 * s * q + q * 26 * s, py = y - q * 95 * s;
+      const r = (4 + q * 15) * s;
+      ctx.fillStyle = dark ? `rgba(52,44,56,${(1 - q) * 0.55})` : `rgba(150,144,158,${(1 - q) * 0.35})`;
+      ctx.beginPath(); ctx.arc(px, py, r, 0, TAU); ctx.fill();
+    }
+  }
+  function drawDamage(ctx, hp, t, b, seed, opt) {
+    if (hp >= 0.85 || hp <= 0) return;
+    damageSurface(ctx, hp, b, seed, opt);
+    damageFx(ctx, hp, t, b, seed, opt);
+  }
+  // paliers de dégradation (pour le cache des surfaces abîmées)
+  const dmgStage = (hp) => (hp >= 0.85 || hp <= 0 ? -1 : hp < 0.35 ? 2 : hp < 0.6 ? 1 : 0);
+  const STAGE_HP = [0.7, 0.5, 0.25];
+  function damageSurface(ctx, hp, b, seed, opt) {
+    opt = opt || {};
+    const [x0, y0, x1, y1] = b, w = x1 - x0, h = y1 - y0, s = opt.s || Math.max(0.6, Math.min(1.6, w / 70));
+    const R = (k) => T.hash2(seed | 0, k, 23);
+    const nCracks = hp < 0.35 ? 6 : hp < 0.6 ? 4 : 2;
+    ctx.save();
+    // suie (sous les fissures)
+    if (hp < 0.6) {
+      for (let i = 0; i < (hp < 0.35 ? 4 : 2); i++) {
+        const sx = x0 + w * (0.15 + 0.7 * R(50 + i)), sy = y0 + h * (0.15 + 0.6 * R(60 + i)), r = (10 + 10 * R(70 + i)) * s * (hp < 0.35 ? 1.4 : 1);
+        const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+        g.addColorStop(0, 'rgba(30,22,24,.45)'); g.addColorStop(1, 'rgba(30,22,24,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(sx, sy, r, r * 0.8, 0, 0, TAU); ctx.fill();
+      }
+    }
+    // fissures en zigzag (arête claire + sillon sombre), avec ramification
+    for (let i = 0; i < nCracks; i++) {
+      let cx = x0 + w * (0.12 + 0.76 * R(i * 3)), cy = y0 + h * (0.12 + 0.55 * R(i * 3 + 1));
+      const len = h * (0.08 + 0.05 * R(i * 3 + 2)) * (hp < 0.35 ? 1.4 : 1), pts = [[cx, cy]];
+      for (let k = 0; k < 4; k++) { cx += (R(i * 11 + k) - 0.5) * len * 1.2; cy += len * (0.5 + 0.5 * R(i * 13 + k)); pts.push([cx, cy]); }
+      for (const [dx, col, lw] of [[1, 'rgba(255,255,255,.3)', 1.3], [0, OL, hp < 0.35 ? 2.6 : 2]]) {
+        ctx.beginPath(); ctx.moveTo(pts[0][0] + dx, pts[0][1] + dx);
+        for (const p of pts.slice(1)) ctx.lineTo(p[0] + dx, p[1] + dx);
+        if (hp < 0.6) { ctx.moveTo(pts[2][0] + dx, pts[2][1] + dx); ctx.lineTo(pts[2][0] + (R(i + 90) > 0.5 ? 1 : -1) * len * 0.8 + dx, pts[2][1] + len * 0.4 + dx); }
+        ctx.lineWidth = lw; ctx.strokeStyle = col; ctx.lineJoin = 'round'; ctx.stroke();
+      }
+    }
+    // trous dans la façade (pierres arrachées)
+    if (hp < 0.35) {
+      for (let i = 0; i < 2; i++) {
+        const hx = x0 + w * (0.2 + 0.6 * R(120 + i)), hy = y0 + h * (0.25 + 0.45 * R(130 + i)), r = 5 * s;
+        poly(ctx, [hx - r, hy - r * 0.3, hx - r * 0.3, hy - r, hx + r * 0.8, hy - r * 0.6, hx + r, hy + r * 0.4, hx + r * 0.2, hy + r, hx - r * 0.7, hy + r * 0.6], '#2a1f22', 1.8);
+      }
+    }
+    ctx.restore();
+  }
+  function damageFx(ctx, hp, t, b, seed, opt) {
+    if (hp >= 0.85 || hp <= 0) return;
+    opt = opt || {};
+    const [x0, y0, x1, y1] = b, w = x1 - x0, h = y1 - y0, s = opt.s || Math.max(0.6, Math.min(1.6, w / 70));
+    const R = (k) => T.hash2(seed | 0, k, 23);
+    ctx.save();
+    // gravats au pied
+    if (hp < 0.6) {
+      const n = hp < 0.35 ? 8 : 5;
+      for (let i = 0; i < n; i++) {
+        const gx = x0 + w * R(200 + i), gy = y1 - 2 + 4 * R(210 + i), gs = (3 + 4 * R(220 + i)) * s;
+        if (R(230 + i) > 0.7 && !opt.stone) rrect(ctx, gx - gs, gy - 2, gs * 2.4, 3, 1, P.wood[1], 1.2);
+        else rrect(ctx, gx - gs / 2, gy - gs * 0.7, gs, gs * 0.7, 1.5, shade(P.stone[1], (R(240 + i) - 0.5) * 0.2), 1.3);
+      }
+    }
+    // feu et braises
+    const fires = opt.noFire ? 0 : hp < 0.15 ? 3 : hp < 0.35 ? 2 : 0;
+    const top = y0 + h * 0.18;
+    for (let i = 0; i < fires; i++) {
+      const fx = x0 + w * (0.2 + 0.6 * ((R(300 + i) + i / 3) % 1)), fy = top + h * 0.25 * R(310 + i);
+      flame(ctx, fx, fy, (9 + 5 * R(320 + i)) * s * (hp < 0.15 ? 1.25 : 1), t, i * 2.3 + seed);
+    }
+    if (fires) {
+      for (let i = 0; i < 6; i++) {
+        const q = (t * 0.7 + i / 6) % 1, ex = x0 + w * (0.2 + 0.6 * R(400 + i)) + Math.sin(q * 8 + i) * 6, ey = top - q * 70 * s;
+        ctx.fillStyle = `rgba(255,${150 + 80 * (1 - q) | 0},60,${1 - q})`; ctx.fillRect(ex, ey, 2.5, 2.5);
+      }
+    }
+    // fumée : filet clair, puis colonnes noires
+    if (hp < 0.6) {
+      const cols = hp < 0.35 ? 2 : 1;
+      for (let i = 0; i < cols; i++) smokeColumn(ctx, x0 + w * (0.3 + 0.4 * R(500 + i)), top - 4, s, t, R(510 + i), hp < 0.35, hp < 0.35 ? 7 : 5);
+    }
+    ctx.restore();
+  }
+
+  const DMG_CACHE = new Map();
+  function damagedCanvas(src, key, stage, draw) {
+    const k = key + '|d' + stage;
+    let d = DMG_CACHE.get(k);
+    if (!d) {
+      if (DMG_CACHE.size > 300) DMG_CACHE.clear();
+      d = document.createElement('canvas'); d.width = src.width; d.height = src.height;
+      const x = d.getContext('2d'); x.drawImage(src, 0, 0);
+      x.globalCompositeOperation = 'source-atop'; draw(x, STAGE_HP[stage]);
+      DMG_CACHE.set(k, d);
+    }
+    return d;
+  }
+
   /* ---- skins des tours spécialisées (premier vote) ----
    * corps : dessiné dans le cache (animations lentes, cycle de TAU/2 s)
    * parties vivantes : redessinées à chaque image (drawTowerLive) */
-  function towerCracks(ctx, hp, t, top) {
-    if (hp < 0.66) {
-      ctx.strokeStyle = OL; ctx.lineWidth = 2.5; ctx.beginPath();
-      ctx.moveTo(-34, -40); ctx.lineTo(-26, -24); ctx.lineTo(-32, -8); ctx.moveTo(28, -10); ctx.lineTo(20, 4); ctx.lineTo(28, 14); ctx.stroke();
-    }
-    if (hp < 0.33) {
-      for (let i = 0; i < 3; i++) {
-        const fx = -28 + i * 28, fh = 14 + Math.sin(t * 12 + i) * 5;
-        poly(ctx, [fx - 7, top, fx, top - fh, fx + 7, top], P.biome.fire.accent[i % 2], 1.5);
-      }
-    }
-  }
   function torch(ctx, tx, ty, t) {
     rrect(ctx, tx - 2, ty, 4, 12, 1, P.wood[2], 1.3);
     rrect(ctx, tx - 4, ty - 3, 8, 4, 1, '#3c3546', 1.2);
@@ -900,10 +1009,10 @@
     });
   }
   const TOWER_SKINS = {
-    attaque: { body: fortBody, live: fortLive, top: -108 },
-    defense: { body: citadelBody, live: citadelLive, top: -150 },
-    soin: { body: millBody, live: millLive, top: -110 },
-    mage: { body: wizardBody, live: wizardLive, top: -130 }
+    attaque: { body: fortBody, live: fortLive, dmg: [-74, -70, 74, 26] },
+    defense: { body: citadelBody, live: citadelLive, dmg: [-74, -140, 74, 26] },
+    soin: { body: millBody, live: millLive, dmg: [-40, -104, 40, 26] },
+    mage: { body: wizardBody, live: wizardLive, dmg: [-46, -120, 46, 28] }
   };
 
   const TOWER_CACHE = new Map();
@@ -911,7 +1020,7 @@
     const t = o.t || 0, hp = o.hp === undefined ? 1 : o.hp;
     const TP = TAU / 2, TN = 16, f = Math.floor(((t % TP) + TP) % TP / TP * TN);
     const sc = o.scale || 1;
-    const key = (o.spec || '') + '|' + JSON.stringify(o.up || {}) + '|' + (hp < 0.33 ? 2 : hp < 0.66 ? 1 : 0) + '|' + f + '|' + sc;
+    const key = (o.spec || '') + '|' + JSON.stringify(o.up || {}) + '|' + f + '|' + sc;
     let c = TOWER_CACHE.get(key);
     if (!c) {
       if (TOWER_CACHE.size > 160) TOWER_CACHE.clear();
@@ -920,10 +1029,17 @@
       drawTowerRaw(x2, 150, 270, { ...o, t: (f + 0.5) / TN * TP });
       TOWER_CACHE.set(key, c);
     }
+    // secousse quand la tour est frappée
+    const sh = o.shake || 0; x += Math.sin(t * 70) * 3 * sh; y += Math.cos(t * 53) * 1.5 * sh;
+    const skin = TOWER_SKINS[o.spec], box = skin ? skin.dmg : [-56, -108, 56, 24], stage = dmgStage(hp);
+    ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc); shadow(ctx, 0, 30, 92, 26); ctx.restore();
+    if (stage >= 0) c = damagedCanvas(c, key, stage, (x2, h) => { x2.scale(sc, sc); x2.translate(150, 270); damageSurface(x2, h, box, 7, { s: 1.2 }); });
     ctx.drawImage(c, Math.round(x - 150 * sc), Math.round(y - 270 * sc));
-    // parties animées de la tour spécialisée, redessinées à chaque image
-    const skin = TOWER_SKINS[o.spec];
-    if (skin && skin.live) { ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc); skin.live(ctx, o); ctx.restore(); }
+    // parties animées (tour spécialisée), feu et fumée, redessinés à chaque image
+    ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+    if (skin && skin.live) skin.live(ctx, o);
+    damageFx(ctx, hp, t, box, 7, { s: 1.2 });
+    ctx.restore();
   }
   // Tour sans spécialisation (avant le premier vote)
   const TOWER_LOOK = { banner: '#b5413a', flag: null };
@@ -934,9 +1050,8 @@
     const hp = o.hp === undefined ? 1 : o.hp;
     ctx.save();
     ctx.translate(x, y);
-    shadow(ctx, 0, 30, 92, 26);
     const skin = TOWER_SKINS[o.spec];
-    if (skin) { skin.body(ctx, t, o.up || {}); towerCracks(ctx, hp, t, skin.top); ctx.restore(); return; }
+    if (skin) { skin.body(ctx, t, o.up || {}); ctx.restore(); return; }
     // corps de la tour
     ctx.beginPath(); ctx.moveTo(-58, 20); ctx.lineTo(-48, -110); ctx.lineTo(48, -110); ctx.lineTo(58, 20);
     ctx.quadraticCurveTo(0, 40, -58, 20); ctx.closePath(); fillStroke(ctx, S[0], 3);
@@ -1017,17 +1132,6 @@
     line(ctx, 0, fb, 0, fb - 27, P.wood[2], 2);
     const wave = Math.sin(t * 4) * 3;
     poly(ctx, [0, fb - 27, 22, fb - 23 + wave, 0, fb - 15], LK.flag || P.capes[0], 1.6);
-    // dégâts : fissures et feu
-    if (hp < 0.66) {
-      ctx.strokeStyle = OL; ctx.lineWidth = 2.5; ctx.beginPath();
-      ctx.moveTo(-40, -90); ctx.lineTo(-30, -70); ctx.lineTo(-36, -50); ctx.moveTo(30, -20); ctx.lineTo(22, -2); ctx.lineTo(30, 10); ctx.stroke();
-    }
-    if (hp < 0.33) {
-      for (let i = 0; i < 3; i++) {
-        const fx = -30 + i * 30, fh = 14 + Math.sin(t * 12 + i) * 5;
-        poly(ctx, [fx - 7, -110, fx, -110 - fh, fx + 7, -110], P.biome.fire.accent[i % 2], 1.5);
-      }
-    }
     ctx.restore();
   }
 
@@ -1390,9 +1494,10 @@
       drawBuildingRich(x, family, (f + 0.5) / BN * BP, o);
       BLD_CACHE.set(key, c);
     }
-    ctx.drawImage(c, -70, -186);
-    if (hp < 0.5) { ctx.strokeStyle = OL; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-20, -24); ctx.lineTo(-12, -14); ctx.lineTo(-16, -4); ctx.moveTo(18, -26); ctx.lineTo(12, -16); ctx.stroke(); }
-    if (hp < 0.3) for (let i = 0; i < 2; i++) poly(ctx, [-12 + i * 22, -28, -6 + i * 22, -40 - Math.sin(t * 12 + i) * 5, 0 + i * 22, -28], P.biome.fire.accent[i], 1.3);
+    const sh = o.shake || 0, stage = dmgStage(hp), seed = o.seed || family.length * 13, box = [-34, -70, 34, 6];
+    if (stage >= 0) c = damagedCanvas(c, key + '|' + seed, stage, (x2, h) => { x2.translate(70, 186); damageSurface(x2, h, box, seed, { s: 0.75 }); });
+    ctx.drawImage(c, -70 + Math.round(Math.sin(t * 70) * 2.5 * sh), -186);
+    damageFx(ctx, hp, t, [-28, -40, 28, 6], seed, { s: 0.75 });
     ctx.restore();
   }
 
@@ -1407,6 +1512,12 @@
       ctx.save(); ctx.globalAlpha = 0.28 - i * 0.07;
       circle(ctx, -4 + Math.sin(t * 0.8 + i) * 6, -24 - i * 14 - ((t * 10) % 14), 7 + i * 3, '#6b6478', 0.01);
       ctx.restore();
+    }
+    // braises qui couvent dans les décombres
+    for (const [ex, ey, ph] of [[-10, -4, 0], [14, -2, 2], [2, -10, 4]]) {
+      const a = 0.45 + 0.35 * Math.sin(t * 3 + ph);
+      ctx.save(); ctx.globalAlpha = a; ctx.translate(ex, ey); glow(ctx, '#ff6a1a', 5); ctx.restore();
+      ctx.fillStyle = `rgba(255,170,60,${a})`; ctx.fillRect(ex - 1.5, ey - 1.5, 3, 3);
     }
   }
 
@@ -1632,5 +1743,5 @@
     ctx.restore();
   }
 
-  window.Art = { mobTop, heroPortrait, heroTop: (s, mounted) => 29 * Math.max(1, Math.round(s * 1.45)) + (mounted ? MOUNT_LIFT * Math.max(1, Math.round(Math.max(1, Math.round(s * 1.45)) * 0.8)) : 0), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
+  window.Art = { mobTop, heroPortrait, heroTop: (s, mounted) => 29 * Math.max(1, Math.round(s * 1.45)) + (mounted ? MOUNT_LIFT * Math.max(1, Math.round(Math.max(1, Math.round(s * 1.45)) * 0.8)) : 0), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawDamage, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
 })();

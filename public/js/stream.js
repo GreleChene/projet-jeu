@@ -252,7 +252,7 @@
   let last = performance.now(), time = 0;
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
-    last = now; time += dt; stepTowerAnim(dt);
+    last = now; time += dt; stepTowerAnim(dt); stepHits(dt);
     update(dt);
     draw(dt);
     requestAnimationFrame(frame);
@@ -320,6 +320,20 @@
     millSpin += dt * (millBoost > 0 ? 4 : 0.7);
   }
 
+  // Coups encaissés : secousse brève + poussière quand un bâtiment, la tour ou un rempart perd des PV
+  const lastHp = new Map(), hitT = new Map();
+  function trackHit(key, hp, x, y, col) {
+    const prev = lastHp.get(key);
+    lastHp.set(key, hp);
+    if (prev !== undefined && hp < prev && hp > 0) {
+      if (!(hitT.get(key) > 0.15)) burst(x, y, col || '#cfc6b8', 5, 70, 3);
+      hitT.set(key, 0.3);
+    }
+    const h = hitT.get(key) || 0;
+    return h > 0 ? h / 0.3 : 0;
+  }
+  function stepHits(dt) { for (const [k, v] of hitT) { if (v - dt <= 0) hitT.delete(k); else hitT.set(k, v - dt); } }
+
   function draw() {
     ctx.save();
     const sx = shake > 0 ? (Math.random() - 0.5) * shake : 0, sy = shake > 0 ? (Math.random() - 0.5) * shake : 0;
@@ -338,13 +352,14 @@
     drawZones(0);
     // entités triées en profondeur
     const list = [];
-    list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, spec: snap.ts, hp: snap.tw[0] / snap.tw[1], scale: TOWER_SCALE, aim: towerAim(), spin: millSpin }) });
+    list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, spec: snap.ts, hp: snap.tw[0] / snap.tw[1], scale: TOWER_SCALE, aim: towerAim(), spin: millSpin, shake: trackHit('tour', snap.tw[0], WORLD.CX, WORLD.CY - 60) }) });
     // habitations des héros : [type, x, y, PV %, nid du propriétaire]
     for (const [ti, bx, by, hp, , variant] of snap.bd || []) {
       const def = GD.BUILDINGS[ti], fam = GD.CLASSES[def.family];
-      list.push({ y: by + 4, d: () => { ctx.save(); ctx.translate(bx, by); ctx.scale(BUILDING_SCALE, BUILDING_SCALE); A.drawBuilding(ctx, variant || def.family, 0, 0, { hp: hp / 100, t: time + bx, color: fam ? fam.color : P.ui.gold }); ctx.restore(); } });
+      const shake = trackHit('b' + bx + ',' + by, hp, bx, by - 30);
+      list.push({ y: by + 4, d: () => { ctx.save(); ctx.translate(bx, by); ctx.scale(BUILDING_SCALE, BUILDING_SCALE); A.drawBuilding(ctx, variant || def.family, 0, 0, { hp: hp / 100, t: time + bx, color: fam ? fam.color : P.ui.gold, seed: bx + by, shake }); ctx.restore(); } });
     }
-    for (const w of snap.wl || []) list.push({ y: w[1], d: () => drawWall(w) });
+    for (const w of snap.wl || []) { trackHit('w' + w[0] + ',' + w[1], w[2], w[0], w[1] - 14, '#b8b0a6'); list.push({ y: w[1], d: () => drawWall(w) }); }
     for (const [id, h] of heroes) list.push({ y: h.y, d: () => drawHeroEnt(id, h) });
     for (const m of mobs.values()) list.push({ y: m.y, d: () => drawMobEnt(m, false) });
     for (const m of allies.values()) list.push({ y: m.y, d: () => drawMobEnt(m, true) });
@@ -505,6 +520,7 @@
         ctx.beginPath(); ctx.rect(cx - 5, cy - 7, 10, 7); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#120c0a'; ctx.stroke();
       }
     }
+    A.drawDamage(ctx, hp / 100, time, [Math.min(x1, x2) + 4, Math.min(y1, y2) - H + 2, Math.max(x1, x2) - 4, Math.max(y1, y2)], x + y, { s: 0.6, noFire: true, stone: true });
     if (hp < 100) bar(x - 22, y - H - (muret ? 14 : 18), 44, 4, hp / 100, hp > 40 ? P.ui.ok : P.ui.danger);
     ctx.restore();
   }
@@ -538,6 +554,7 @@
     const fl = Math.sin(time * 4 + x) * 2;
     ctx.beginPath(); ctx.moveTo(x + 1, y - H - 30); ctx.lineTo(x + 16, y - H - 25 + fl); ctx.lineTo(x + 1, y - H - 20); ctx.closePath();
     ctx.fillStyle = '#3d7bd9'; ctx.fill(); ctx.lineWidth = 1.5; ctx.stroke();
+    A.drawDamage(ctx, hp / 100, time, [x - 16, y - H, x + 16, y + 4], x + y, { s: 0.7, noFire: true, stone: true });
     if (hp < 100) bar(x - 22, y - H - 40, 44, 4, hp / 100, hp > 40 ? P.ui.ok : P.ui.danger);
     ctx.restore();
   }
