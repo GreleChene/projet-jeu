@@ -309,7 +309,7 @@
       box.append(
         B('⚔️ Attaquer', () => act('attack'), { cls: 'primary' }),
         B(r.aoe ? `✨ Explosion arcanique${r.skillCd ? ` (${r.skillCd})` : ''}` : `✨ Coup puissant${r.skillCd ? ` (${r.skillCd})` : ''}`, () => act('skill'), { disabled: r.skillCd > 0, title: r.aoe ? '120 % des dégâts à tous les ennemis' : '220 % des dégâts à la cible' }),
-        B('🛡️ Se protéger', () => act('defend'), { title: 'Dégâts reçus divisés par 2 ce tour, +5 % de PV' }),
+        B('🛡️ Se protéger', () => act('defend'), { title: 'Dégâts reçus divisés par 2 ce tour' }),
         B(`🧪 Potion (${r.potions})`, () => act('potion'), { disabled: r.potions <= 0, title: `Soigne ${Math.round(M.POTION_HEAL * 100)} % des PV` }));
       if (r.mobs.filter((m) => m.hp > 0).length > 1) box.append(el('span', { class: 'small muted' }, 'Clique sur un monstre pour le cibler.'));
     } else if (r.state === 'loot') box.append(B(`🧺 Récolter ${r.loot.amount} ${resIcon(r.mode)}${r.loot.jackpot ? ` (coup de chance ×${String(r.loot.jackpot).replace('.', ',')} !)` : ''}`, startHarvest, { cls: 'primary', disabled: !!(harvestFx && !harvestFx.sent) }));

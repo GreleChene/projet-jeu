@@ -178,8 +178,7 @@ function act(u, body, opts = {}) {
       run.skillCd = MINI.SKILL_CD + 1;
     } else if (a === 'defend') {
       run.defend = true;
-      run.hp = Math.min(run.max, run.hp + Math.round(run.max * 0.05));
-      log(run, 'Tu te protèges (dégâts réduits de moitié, +5 % de PV)');
+      log(run, 'Tu te protèges (dégâts réduits de moitié ce tour)');
     } else if (a === 'potion') {
       if (run.potions <= 0) fail('Plus de potions');
       run.potions--;

@@ -79,3 +79,11 @@ test('mini-jeux : remonter garde tout ; améliorations payées avec les ressourc
   assert.strictEqual(GD.miniJackpotMul({ fortune_mine: 3 }, 'mine'), 3);
   assert.throws(() => mini.buyUpgrade(u, 'potion_x'), /inconnue/);
 });
+
+test('mini-jeux : se protéger ne soigne pas', () => {
+  const u = user();
+  const run = mini.start(u, 'mine', {}, { rnd: fixed(0.99) });
+  run.hp = 10; run.mobs.forEach((m) => { m.dmg = 0; });
+  mini.act(u, { action: 'defend' }, { rnd: fixed(0.99) });
+  assert.ok(run.hp <= 10, 'pas de PV rendus');
+});
