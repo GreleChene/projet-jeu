@@ -632,7 +632,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
 
 app.get('/api/admin/users', admin, (req, res) => {
   res.json({
-    users: db.allUsers().map((u) => ({ id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', banned: !!u.banned, cls: u.cls, level: u.level, gold: u.gold, glacons: u.glacons, twitch: u.twitchName || null, stats: u.stats, createdAt: u.createdAt, online: isOnline(u.id) }))
+    users: db.allUsers().map((u) => ({ id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', banned: !!u.banned, cls: u.cls, level: u.level, gold: u.gold, glacons: u.glacons, energy: mini.ensure(u).energy, twitch: u.twitchName || null, stats: u.stats, createdAt: u.createdAt, online: isOnline(u.id) }))
   });
 });
 
@@ -648,6 +648,12 @@ app.post('/api/admin/users/:id', admin, async (req, res) => {
   if (b.gold !== undefined) u.gold = Math.max(0, Math.floor(Number(b.gold) || 0));
   if (b.addGold !== undefined) u.gold = Math.max(0, u.gold + Math.floor(Number(b.addGold) || 0));
   if (b.addGlacons !== undefined) u.glacons = Math.max(0, u.glacons + Math.min(1000, Math.floor(Number(b.addGlacons) || 0)));
+  // énergie des mini-jeux (peut dépasser le maximum, pour les tests)
+  if (b.addEnergy !== undefined) {
+    const m = mini.ensure(u);
+    m.energy = Math.max(0, Math.min(99, m.energy + Math.floor(Number(b.addEnergy) || 0)));
+    if (m.energy >= GD.MINI.ENERGY_MAX) m.energyAt = Date.now();
+  }
   if (b.addXp !== undefined) {
     const n = Math.floor(Number(b.addXp) || 0);
     if (n <= 0 || n > 10_000_000) return res.status(400).json({ error: 'Quantité d’XP invalide.' });

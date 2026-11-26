@@ -141,16 +141,17 @@
     const q = $('#userFilter').value.trim().toLowerCase();
     const list = users.filter((u) => !q || u.pseudo.toLowerCase().includes(q)).sort((a, b) => b.level - a.level);
     $('#users').replaceChildren(
-      el('tr', {}, el('th', {}, 'Pseudo'), el('th', {}, 'Rôle'), el('th', {}, 'Classe'), el('th', {}, 'Niv.'), el('th', {}, 'Grêlons'), el('th', {}, 'Glaçons'), el('th', {}, 'Record'), el('th', {}, 'Actions')),
+      el('tr', {}, el('th', {}, 'Pseudo'), el('th', {}, 'Rôle'), el('th', {}, 'Classe'), el('th', {}, 'Niv.'), el('th', {}, 'Grêlons'), el('th', {}, 'Glaçons'), el('th', {}, 'Énergie'), el('th', {}, 'Record'), el('th', {}, 'Actions')),
       ...list.map((u) => el('tr', {},
         el('td', {}, u.pseudo, u.online ? ' 🟢' : '', u.banned ? ' 🚫' : '', u.twitch ? el('div', { class: 'small muted' }, '🟣 ' + u.twitch) : ''),
         el('td', {}, u.role === 'admin' ? '⭐ admin' : 'joueur'),
         el('td', { style: `color:${GD.CLASSES[u.cls].color}` }, GD.CLASSES[u.cls].name),
-        el('td', {}, u.level), el('td', {}, u.gold), el('td', {}, u.glacons || 0), el('td', {}, u.stats.bestWave),
+        el('td', {}, u.level), el('td', {}, u.gold), el('td', {}, u.glacons || 0), el('td', {}, '⚡ ' + (u.energy ?? 0)), el('td', {}, u.stats.bestWave),
         el('td', { class: 'row', style: 'gap:4px' },
           el('button', { class: 'small', onclick: () => giveXp(u) }, '+ XP'),
           el('button', { class: 'small', onclick: () => giveGold(u) }, '+ Grêlons'),
           el('button', { class: 'small', onclick: () => giveIce(u) }, '+ Glaçons'),
+          el('button', { class: 'small', onclick: () => giveEnergy(u) }, '+ Énergie ⚡'),
           el('button', { class: 'small', onclick: async () => { const g = await askText(`Fixer les Grêlons de ${u.pseudo} à :`, u.gold, { title: 'Grêlons', type: 'number' }); if (g !== null) editUser(u, { gold: Number(g) }); } }, 'Fixer Grêlons'),
           el('button', { class: 'small', onclick: async () => { const l = await askText(`Niveau de ${u.pseudo} :`, u.level, { title: 'Niveau', type: 'number' }); if (l !== null) editUser(u, { level: Number(l) }); } }, 'Niveau'),
           el('button', { class: 'small', onclick: async () => { if (await ask(`Remettre la classe de ${u.pseudo} à « Paysan » ?`, { title: 'Reset de classe', ok: 'Remettre', danger: true })) editUser(u, { resetClass: true }); } }, 'Reset classe'),
@@ -162,6 +163,10 @@
   async function giveXp(u) {
     const n = await askText(`Combien d’XP donner à ${u.pseudo} ?`, '500', { title: '+ XP', type: 'number' });
     if (n !== null && Number(n) > 0) editUser(u, { addXp: Number(n) });
+  }
+  async function giveEnergy(u) {
+    const n = await askText(`Combien d’énergie ⚡ (mini-jeux) donner à ${u.pseudo} ? (négatif pour retirer ; ${GD.MINI.ENERGY_MAX} max en temps normal, 99 pour les tests)`, '3', { title: '+ Énergie', type: 'number' });
+    if (n !== null && Number(n)) editUser(u, { addEnergy: Number(n) });
   }
   async function giveIce(u) {
     const n = await askText(`Combien de glaçons 🧊 donner à ${u.pseudo} ? (négatif pour retirer)`, '5', { title: '+ Glaçons', type: 'number' });

@@ -59,7 +59,8 @@ function makeMob(mode, room, elite, rnd) {
 function enterRoom(m, run, rnd) {
   run.room++;
   Object.assign(run, GD.miniDecor(run.room, run.seed));
-  run.mobs = []; run.loot = null; run.rewards = null; run.defend = false;
+  run.mobs = []; run.loot = null; run.rewards = null;
+  run.shield = 0; run.shieldTurns = 0; // le bouclier disparaît à chaque nouvelle salle
   const mode = MINI.MODES[run.mode];
   if (run.room % MINI.ELITE_EVERY === 0) {
     run.mobs = [makeMob(run.mode, run.room, true, rnd)];
@@ -124,6 +125,8 @@ function mobsTurn(run, rnd) {
     log(run, `${run.dot.kind === 'burn' ? 'Brûlure' : 'Poison'} : −${run.dot.dmg - abs} PV`);
     if (run.dot.turns <= 0) run.dot = null;
   }
+  // le bouclier ne tient que SHIELD_TURNS tours de monstres (jamais invulnérable entre deux boucliers)
+  if (run.shield > 0 && --run.shieldTurns <= 0) { run.shield = 0; log(run, 'Ton bouclier se dissipe.'); }
   run.turn = (run.turn || 0) + 1;
 }
 
@@ -190,6 +193,7 @@ function act(u, body, opts = {}) {
       if (run.shieldCd > 0) fail('Bouclier pas encore prêt');
       run.shield = run.shieldMax || MINI.BASE.shield;
       run.shieldCd = MINI.SHIELD_CD + 1;
+      run.shieldTurns = MINI.SHIELD_TURNS;
       log(run, `Tu lèves ton bouclier : ${run.shield} points de protection`);
     } else if (a === 'potion') {
       if (run.potions <= 0) fail('Plus de potions');

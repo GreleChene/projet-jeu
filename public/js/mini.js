@@ -305,7 +305,7 @@
     const info = el('div', { class: 'mini-info' },
       el('div', {}, el('b', {}, `${mode.icon} Salle ${r.room}`), el('span', { class: 'small muted' }, ` · ${dec.name} — ${dec.subs[r.sub]}`)),
       el('div', { class: 'mini-hp' }, el('span', { class: 'small' }, `❤️ ${r.hp} / ${r.max}`), el('div', { class: 'bar' }, el('span', { style: `width:${hpPct}%;background:${hpPct > 40 ? '#5cb84a' : '#e2504c'}` })),
-        el('span', { class: 'small' }, `🔰 Bouclier ${r.shield || 0} / ${r.shieldMax || M.BASE.shield}`), el('div', { class: 'bar mini-shield' }, el('span', { style: `width:${Math.min(100, (100 * (r.shield || 0)) / (r.shieldMax || M.BASE.shield))}%` }))),
+        el('span', { class: 'small' }, `🔰 Bouclier ${r.shield || 0} / ${r.shieldMax || M.BASE.shield}${r.shield > 0 ? ` · encore ${r.shieldTurns} tour${r.shieldTurns > 1 ? 's' : ''}` : ''}`), el('div', { class: 'bar mini-shield' }, el('span', { style: `width:${Math.min(100, (100 * (r.shield || 0)) / (r.shieldMax || M.BASE.shield))}%` }))),
       el('div', { class: 'small' }, `${resIcon(r.mode)} ${r.got} · ✨ ${r.xp} XP · 🧪 ${r.potions}${r.grelons ? ` · 🌨️ ${r.grelons}` : ''}${buffs ? ' · ' + buffs : ''}${r.dot ? ` · ${r.dot.kind === 'burn' ? '🔥 brûlure' : '☠️ poison'}` : ''}`));
     return el('div', { class: 'panel' }, info, el('div', { class: 'mini-scene-wrap' }, sceneCv), actions(r),
       el('ul', { class: 'mini-log small' }, ...r.log.slice().reverse().map((l, i) => el('li', { style: i ? 'opacity:.7' : 'font-weight:700' }, l))));
@@ -318,7 +318,7 @@
       box.append(
         B('⚔️ Attaquer', () => act('attack'), { cls: 'primary' }),
         B(r.aoe ? `✨ Explosion arcanique${r.skillCd ? ` (${r.skillCd})` : ''}` : `✨ Coup puissant${r.skillCd ? ` (${r.skillCd})` : ''}`, () => act('skill'), { disabled: r.skillCd > 0, title: r.aoe ? '120 % des dégâts à tous les ennemis' : '220 % des dégâts à la cible' }),
-        B(`🔰 Se protéger${r.shieldCd ? ` (${r.shieldCd})` : ''}`, () => act('defend'), { disabled: r.shieldCd > 0, title: `Bouclier de ${r.shieldMax || M.BASE.shield} points qui absorbe les dégâts (recharge : ${M.SHIELD_CD} tours)` }),
+        B(`🔰 Se protéger${r.shieldCd ? ` (${r.shieldCd})` : ''}`, () => act('defend'), { disabled: r.shieldCd > 0, title: `Bouclier de ${r.shieldMax || M.BASE.shield} points qui absorbe les dégâts pendant ${M.SHIELD_TURNS} tours (recharge : ${M.SHIELD_CD} tours ; disparaît à la salle suivante)` }),
         B(`🧪 Potion (${r.potions})`, () => act('potion'), { disabled: r.potions <= 0, title: `Soigne ${Math.round(M.POTION_HEAL * 100)} % des PV` }));
       const alive = r.mobs.map((m, i) => [m, i]).filter(([m]) => m.hp > 0);
       if (alive.length > 1) {

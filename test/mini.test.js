@@ -104,3 +104,22 @@ test('mini-jeux : statistiques propres (améliorables), bouclier qui absorbe ave
   mini.buyUpgrade(Object.assign(u, { mini: { ...u.mini, res: { pierre: 999, bois: 999, baies: 999 } } }), 'vie');
   assert.strictEqual(u.mini.up.vie, 3);
 });
+
+test('mini-jeux : le bouclier dure 2 tours et disparaît à la salle suivante', () => {
+  const u = user();
+  const run = mini.start(u, 'mine', {}, { rnd: fixed(0.99) });
+  run.mobs.forEach((m) => { m.hp = 9999; m.dmg = 1; });
+  mini.act(u, { action: 'defend' }, { rnd: fixed(0.99) });
+  assert.ok(run.shield > 0);
+  mini.act(u, { action: 'attack' }, { rnd: fixed(0.99) });
+  assert.strictEqual(run.shield, 0, 'dissipé après 2 tours de monstres');
+  mini.act(u, { action: 'attack' }, { rnd: fixed(0.99) });
+  assert.throws(() => mini.act(u, { action: 'defend' }), /pas encore prêt/, 'recharge de 3 tours');
+  mini.act(u, { action: 'attack' }, { rnd: fixed(0.99) });
+  mini.act(u, { action: 'defend' }, { rnd: fixed(0.99) });
+  assert.ok(run.shield > 0, 'de nouveau disponible après la recharge');
+  run.mobs.forEach((m) => { m.hp = 1; });
+  mini.act(u, { action: 'attack' }, { rnd: fixed(0.99) });
+  mini.act(u, { action: 'next' }, { rnd: fixed(0.99) });
+  assert.strictEqual(run.shield, 0, 'remis à zéro dans la nouvelle salle');
+});

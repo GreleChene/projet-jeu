@@ -868,6 +868,7 @@
     POTION_HEAL: 0.35,
     SKILL_CD: 3,            // la compétence revient tous les 3 tours
     SHIELD_CD: 3,           // « Se protéger » : bouclier qui absorbe les dégâts, utilisable tous les 3 tours
+    SHIELD_TURNS: 2,        // … il ne dure que 2 tours de monstres (et disparaît à chaque nouvelle salle)
     // Statistiques d'expédition (propres aux mini-jeux, améliorées avec les ressources du compte)
     BASE: { hp: 100, dmg: 10, armor: 0, crit: 0.05, shield: 20 },
     DECOR_ROOMS: 10,        // un nouveau décor toutes les 10 salles (3 décors, puis le dernier se répète)
