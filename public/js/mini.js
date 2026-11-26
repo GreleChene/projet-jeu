@@ -333,8 +333,9 @@
       box.append(el('div', { class: 'small' }, `Point de remontée : rentre avec ${r.got} ${resIcon(r.mode)} et ${r.xp} XP, ou continue (si ton héros tombe, ${Math.round(M.DEATH_LOSS * 100)} % des ressources sont perdues).`),
         B('⬆️ Remonter avec le butin', () => act('leave'), { cls: 'primary' }), B('⬇️ Continuer à descendre', () => act('continue'), { cls: 'danger' }));
     } else if (r.state === 'reward') {
-      box.append(el('div', { class: 'small' }, 'Élite vaincue ! Choisis une récompense :'),
-        ...r.rewards.map((k) => { const R = M.ELITE_REWARDS[k]; return el('button', { class: 'mini-reward', disabled: busy, onclick: () => act('reward', { id: k }) }, el('b', {}, `${R.icon} ${R.name}`), el('span', { class: 'small' }, R.desc)); }));
+      // les 3 récompenses côte à côte, à la même hauteur (une colonne chacune)
+      box.append(el('div', { class: 'small mini-reward-title' }, 'Élite vaincue ! Choisis une récompense :'),
+        el('div', { class: 'mini-rewards' }, ...r.rewards.map((k) => { const R = M.ELITE_REWARDS[k]; return el('button', { class: 'mini-reward', disabled: busy, onclick: () => act('reward', { id: k }) }, el('b', {}, `${R.icon} ${R.name}`), el('span', { class: 'small' }, R.desc)); })));
     } else if (r.state === 'over') {
       const o = r.over;
       box.append(el('div', {}, el('b', {}, o.dead ? '💀 Ton héros est tombé' : '🏁 Expédition terminée'),
