@@ -216,8 +216,9 @@ class Game {
     const results = [];
     for (const h of this.heroes.values()) {
       const pay = this.payout(h) || { xp: h.runXp, gold: h.runGold, glacons: h.runGlacons || 0, levels: 0 };
-      results.push({ id: h.id, name: h.name, cls: h.cls, bot: !!h.isBot, kills: h.runKills || 0, ...pay });
-      if (!h.isBot && this.onRunEnd) this.onRunEnd(h.userId, { won, wave: this.run.wave, kills: h.runKills || 0, ...pay });
+      const harvest = Object.fromEntries(GD.RES_IDS.map((k) => [k, Math.floor((h.runHarvestBy || {})[k] || 0)]));
+      results.push({ id: h.id, name: h.name, cls: h.cls, bot: !!h.isBot, kills: h.runKills || 0, harvest, ...pay });
+      if (!h.isBot && this.onRunEnd) this.onRunEnd(h.userId, { won, wave: this.run.wave, kills: h.runKills || 0, harvest, ...pay });
     }
     results.sort((a, b) => b.kills - a.kills);
     this.run.results = results;
@@ -337,7 +338,7 @@ class Game {
 
   resetHeroForRun(h) {
     h.alive = true; h.zombie = false; h.buffs = {}; h.status = {}; h.ult = 0; h.dashing = null; h.chain = null;
-    h.runKills = 0; h.runGold = 0; h.runXp = 0; h.runGlacons = 0; h.paid = false;
+    h.runKills = 0; h.runGold = 0; h.runXp = 0; h.runGlacons = 0; h.paid = false; h.runHarvest = 0; h.runHarvestBy = {};
     const a = Math.random() * Math.PI * 2;
     h.x = WORLD.CX + Math.cos(a) * 110; h.y = WORLD.CY + Math.sin(a) * 80;
     this.refreshHero(h);
@@ -607,6 +608,7 @@ class Game {
       best.amt -= take;
       this.addRes(best.res, take);
       h.runHarvest = (h.runHarvest || 0) + take;
+      (h.runHarvestBy ||= {})[best.res] = (h.runHarvestBy[best.res] || 0) + take;
       h.hvFrac = (h.hvFrac || 0) + take;
       if (h.hvFrac >= 3) { h.hvFrac -= 3; this.fx(['hv', Math.round(h.x), Math.round(h.y) - 50, GD.RES_IDS.indexOf(best.res)]); }
       if (best.amt <= 0) { best.amt = 0; this.fx(['puff', best.x, best.y]); }
@@ -788,7 +790,6 @@ class Game {
         this.updateAllies(dt);
         this.updateProjectiles(dt);
         this.updateZones(dt);
-        this.updateHarvest(dt);
         if (r.timer <= 0) {
           if (this.settings.autoNext || r.wave === 0) this.startWave(r.wave + 1);
           else r.timer = 0;
@@ -1368,7 +1369,7 @@ class Game {
       bd: r.buildings.map((b) => [BUILDING_INDEX[b.family], Math.round(b.x), Math.round(b.y), Math.ceil((100 * b.hp) / b.max), b.owners.map((id) => (this.heroes.get(id) || {}).nid), b.variant || 0]),
       jn: this.canJoin() ? (Number.isFinite(r.joinUntil) ? Math.ceil((r.joinUntil - Date.now()) / 1000) : -1) : 0,
       bosses, h: heroes,
-      res: (this.phase === 'gameover' || this.phase === 'victory') && r.results ? r.results.slice(0, 12).map((x) => [x.name, x.cls, x.kills, x.xp, x.gold, x.glacons, x.levels]) : undefined, m: mobs, a: allies, p: proj, z: zones, e: ev
+      res: (this.phase === 'gameover' || this.phase === 'victory') && r.results ? r.results.slice(0, 12).map((x) => [x.name, x.cls, x.kills, x.xp, x.gold, x.glacons, x.levels, GD.RES_IDS.map((k) => (x.harvest || {})[k] || 0)]) : undefined, m: mobs, a: allies, p: proj, z: zones, e: ev
     };
   }
 

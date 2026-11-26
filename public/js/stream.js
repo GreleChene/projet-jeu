@@ -874,9 +874,9 @@
       text(`Manche atteinte : ${s.w}`, WORLD.CX, top + 50, 26, P.ui.text, 'center', 'b');
       // récapitulatif des récompenses de chaque héros
       if (res.length) {
-        const W = 980, RH = 32, x0 = WORLD.CX - W / 2, y0 = top + 80;
+        const W = 1180, RH = 32, x0 = WORLD.CX - W / 2, y0 = top + 80;
         panel(x0, y0, W, 50 + res.length * RH + 10);
-        const cols = [[x0 + 24, 'Héros', 'left'], [x0 + 470, '⚔️ Éliminations', 'right'], [x0 + 620, '✨ XP', 'right'], [x0 + 760, '❄️ Grêlons', 'right'], [x0 + 880, '🧊 Glaçons', 'right'], [x0 + W - 20, '⬆️ Niv.', 'right']];
+        const cols = [[x0 + 24, 'Héros', 'left'], [x0 + 470, '⚔️ Éliminations', 'right'], [x0 + 690, '🧺 Récolte', 'right'], [x0 + 820, '✨ XP', 'right'], [x0 + 960, '❄️ Grêlons', 'right'], [x0 + 1080, '🧊 Glaçons', 'right'], [x0 + W - 20, '⬆️ Niv.', 'right']];
         for (const [x, label, al] of cols) text(label, x, y0 + 32, 15, P.ui.muted, al, 'b');
         res.forEach((r, i) => {
           const y = y0 + 64 + i * RH;
@@ -884,10 +884,12 @@
           text(r[0], cols[0][0], y, 18, '#ffffff', 'left', 'b');
           if (cls) text(cls.name, cols[0][0] + 150, y, 14, cls.color || P.ui.muted, 'left', 'b');
           text(String(r[2]), cols[1][0], y, 18, P.ui.text, 'right', 'b');
-          text('+' + r[3], cols[2][0], y, 18, P.ui.text, 'right', 'b');
-          text('+' + r[4], cols[3][0], y, 18, P.ui.gold, 'right', 'b');
-          text('+' + r[5], cols[4][0], y, 18, '#bfe6ff', 'right', 'b');
-          text(r[6] ? '+' + r[6] : '—', cols[5][0], y, 18, r[6] ? P.ui.ok : P.ui.muted, 'right', 'b');
+          const hv = r[7] || [];
+          text(hv.some((n) => n > 0) ? GD.RES_IDS.map((k, j) => `${GD.RESOURCES[k].icon}${hv[j] || 0}`).join(' ') : '—', cols[2][0], y, 16, hv.some((n) => n > 0) ? P.ui.text : P.ui.muted, 'right', 'b');
+          text('+' + r[3], cols[3][0], y, 18, P.ui.text, 'right', 'b');
+          text('+' + r[4], cols[4][0], y, 18, P.ui.gold, 'right', 'b');
+          text('+' + r[5], cols[5][0], y, 18, '#bfe6ff', 'right', 'b');
+          text(r[6] ? '+' + r[6] : '—', cols[6][0], y, 18, r[6] ? P.ui.ok : P.ui.muted, 'right', 'b');
         });
       }
     }

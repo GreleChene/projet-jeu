@@ -276,35 +276,13 @@ module.exports = {
   heroAI(h, c, dt, speedMul) {
     const ai = h.ai;
     const ratio = h.hp / h.maxHp;
-    // entracte : repos dans l'habitation (les récolteurs en bonne santé continuent de récolter)
+    // entracte : repos dans l'habitation (pas de récolte)
     if (this.phase === 'intermission' && !this.mobs.length) {
-      if (ai.stance === 'harvest' && ratio >= 0.4) { h.resting = false; this.heroIdle(h, dt, speedMul); }
-      else this.heroRest(h, dt, h.speed * speedMul);
+      this.heroRest(h, dt, h.speed * speedMul);
       this.clampHero(h); return;
     }
     h.resting = false;
     const speed = h.speed * speedMul * (h.buffs.swift > 0 ? 1.4 : 1);
-    // récolteur blessé (moins de 50 % de PV) : fuit les monstres proches, dans la direction opposée
-    if (ai.stance === 'harvest' && ratio < 0.5) {
-      let fx = 0, fy = 0, n = 0;
-      for (const m of this.mobs) {
-        if (m.hp <= 0) continue;
-        const dx = h.x - m.x, dy = h.y - m.y, d2 = dx * dx + dy * dy;
-        if (d2 > 320 * 320) continue;
-        const d = Math.sqrt(d2) || 1;
-        fx += dx / d / d; fy += dy / d / d; n++;
-      }
-      if (n) {
-        const L = Math.hypot(fx, fy) || 1;
-        let tx = h.x + (fx / L) * 120, ty = h.y + (fy / L) * 120;
-        // coincé contre un bord : glisse le long
-        tx = U.clamp(tx, 40, WORLD.W - 40); ty = U.clamp(ty, 60, WORLD.H - 30);
-        h.atkT -= dt; h.target = null; h.fleeing = true;
-        this.moveToward(h, tx, ty, speed * 1.1, dt);
-        this.clampHero(h); return;
-      }
-    }
-    h.fleeing = false;
 
     h.retargetT -= dt;
     if (h.retargetT <= 0 || !h.target || h.target.hp <= 0) {

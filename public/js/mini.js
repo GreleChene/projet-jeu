@@ -9,6 +9,100 @@
   let state = null, prev = null, target = 0, busy = false;
   const floaters = []; // nombres et textes flottants
   let heroAnim = 0, mobAnim = 0, shake = 0;
+  let heroX = HERO_X;      // position du héros (il va jusqu'au butin pour le récolter)
+  let harvestFx = null;    // animation de récolte en cours { t, kind, amount, jackpot, sent }
+  const parts = [];        // éclats (pierre, copeaux, baies) et étincelles
+  const flyers = [];       // icônes de ressources qui s'envolent vers le compteur
+  const LOOT_X = 560;
+
+  /* ============================== Sons (synthétisés, sans fichier) ============================== */
+  const Sound = (() => {
+    let ac = null;
+    let muted = false;
+    try { muted = localStorage.getItem('miniMute') === '1'; } catch (e) { /* stockage indisponible */ }
+    function audio() {
+      if (!ac) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; ac = new C(); }
+      if (ac.state === 'suspended') ac.resume();
+      return ac;
+    }
+    // note : fréquence, durée, forme, volume, décalage, glissement de fréquence
+    function tone(c, f, dur, type, vol, when, slide) {
+      const o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + (when || 0);
+      o.type = type || 'sine'; o.frequency.setValueAtTime(f, t0);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g).connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+    }
+    // bruit filtré (choc, craquement, froissement)
+    function noise(c, dur, vol, when, freq, ftype) {
+      const n = Math.floor(c.sampleRate * dur), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+      const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(), t0 = c.currentTime + (when || 0);
+      s.buffer = buf; f.type = ftype || 'bandpass'; f.frequency.value = freq || 1000; g.gain.value = vol;
+      s.connect(f).connect(g).connect(c.destination); s.start(t0);
+    }
+    const SFX = {
+      // pioche sur la pierre : « tink » métallique + éclats
+      pierre: (c) => { const p = 0.9 + Math.random() * 0.2; tone(c, 1900 * p, 0.14, 'triangle', 0.2); tone(c, 2900 * p, 0.07, 'square', 0.04, 0.005); noise(c, 0.07, 0.35, 0, 3500, 'highpass'); },
+      // hache dans le bois : coup sourd + craquement
+      bois: (c) => { const p = 0.9 + Math.random() * 0.2; tone(c, 170 * p, 0.14, 'sine', 0.45, 0, -90); noise(c, 0.1, 0.45, 0, 800 * p, 'bandpass'); noise(c, 0.05, 0.2, 0.03, 2200, 'bandpass'); },
+      // cueillette : « pop » + froissement de feuilles
+      baies: (c) => { const p = 0.9 + Math.random() * 0.25; tone(c, 520 * p, 0.08, 'sine', 0.3, 0, 600); noise(c, 0.12, 0.12, 0, 3000, 'bandpass'); },
+      // ressources ramassées : petit carillon
+      gain: (c) => { [784, 988, 1319].forEach((f, i) => tone(c, f, 0.22, 'triangle', 0.13, i * 0.07)); },
+      // coup de chance : arpège doré
+      jackpot: (c) => { [659, 784, 988, 1319, 1568].forEach((f, i) => tone(c, f, 0.3, 'triangle', 0.12, i * 0.06)); tone(c, 2093, 0.5, 'sine', 0.06, 0.32); }
+    };
+    return {
+      play(k) { if (muted) return; const c = audio(); if (c && SFX[k]) SFX[k](c); },
+      toggle() { muted = !muted; try { localStorage.setItem('miniMute', muted ? '1' : '0'); } catch (e) { /* */ } return muted; },
+      muted: () => muted
+    };
+  })();
+
+  // Couleurs des éclats selon la ressource
+  const CHIPS = { pierre: ['#9aa3ae', '#c4cbd4', '#6b7480', '#e8eef5'], bois: ['#d9b07a', '#a8703f', '#e6c08a', '#83532c'], baies: ['#5a4fd6', '#c0306a', '#7a6ae6', '#4f9e3a'] };
+  function burstAt(x, y, res, n, power) {
+    const cols = CHIPS[res];
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, v = (120 + Math.random() * 200) * (power || 1);
+      parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.7 + Math.random() * 0.5, t: 0, c: cols[i % cols.length], s: 3 + Math.random() * 4, round: res === 'baies' && i % 2 === 0 });
+    }
+  }
+
+  // Récolte animée : le héros va au butin, frappe 3 fois (sons + éclats), le butin éclate et les icônes s'envolent
+  function startHarvest() {
+    const r = state.run;
+    if (!r || !r.loot || harvestFx || busy) return;
+    const res = M.MODES[r.mode].res;
+    harvestFx = { t: 0, res, kind: GD.RES_IDS.indexOf(res), amount: r.loot.amount, jackpot: r.loot.jackpot, hits: 0, sent: false };
+    render();
+  }
+  function stepHarvest(dt) {
+    const f = harvestFx;
+    if (!f) { heroX += (HERO_X - heroX) * Math.min(1, dt * 6); return; }
+    f.t += dt;
+    const reach = LOOT_X - 95;
+    if (f.t < 0.35) heroX = HERO_X + (reach - HERO_X) * (f.t / 0.35);
+    else heroX = reach;
+    const strikes = [0.5, 0.85, 1.2];
+    while (f.hits < strikes.length && f.t >= strikes[f.hits]) {
+      f.hits++;
+      heroAnim = 0.25; f.shake = 0.25;
+      Sound.play(f.res);
+      burstAt(LOOT_X - 10, G - 30, f.res, 10 + f.hits * 3, 1);
+    }
+    if (f.t >= 1.45 && !f.sent) {
+      f.sent = true;
+      burstAt(LOOT_X, G - 30, f.res, 34, 1.5);
+      shake = 4;
+      const n = Math.min(14, Math.max(4, f.amount));
+      for (let i = 0; i < n; i++) flyers.push({ x0: LOOT_X + (Math.random() - 0.5) * 60, y0: G - 40 - Math.random() * 30, t: -i * 0.05, icon: GD.RESOURCES[f.res].icon, last: i === n - 1 });
+      if (f.jackpot) { Sound.play('jackpot'); for (let i = 0; i < 24; i++) parts.push({ x: LOOT_X, y: G - 60, vx: (Math.random() - 0.5) * 420, vy: -Math.random() * 380, life: 1.2, t: 0, c: i % 2 ? '#ffd23a' : '#fff6b0', s: 4, star: true }); }
+      act('take');
+    }
+    if (f.t >= 1.9) harvestFx = null;
+  }
 
   /* ============================== Données ============================== */
   async function load() {
@@ -105,7 +199,7 @@
     const hpPct = Math.max(0, (100 * r.hp) / r.max);
     const buffs = [r.buff.dmg ? `⚔️ +${Math.round(r.buff.dmg * 100)} %` : '', r.buff.hp ? `❤️ +${Math.round(r.buff.hp * 100)} %` : '', r.buff.crit ? `🎯 +${Math.round(r.buff.crit * 100)} %` : ''].filter(Boolean).join(' · ');
     const info = el('div', { class: 'mini-info' },
-      el('div', {}, el('b', {}, `${mode.icon} Salle ${r.room}`), el('span', { class: 'small muted' }, ` · ${dec.name} — ${dec.subs[r.sub]}`)),
+      el('div', {}, el('button', { class: 'mini-mute', title: 'Activer / couper les sons', onclick: (e) => { e.currentTarget.textContent = Sound.toggle() ? '🔇' : '🔊'; } }, Sound.muted() ? '🔇' : '🔊'), ' ', el('b', {}, `${mode.icon} Salle ${r.room}`), el('span', { class: 'small muted' }, ` · ${dec.name} — ${dec.subs[r.sub]}`)),
       el('div', { class: 'mini-hp' }, el('span', { class: 'small' }, `❤️ ${r.hp} / ${r.max}`), el('div', { class: 'bar' }, el('span', { style: `width:${hpPct}%;background:${hpPct > 40 ? '#5cb84a' : '#e2504c'}` }))),
       el('div', { class: 'small' }, `${resIcon(r.mode)} ${r.got} · ✨ ${r.xp} XP · 🧪 ${r.potions}${r.grelons ? ` · 🌨️ ${r.grelons}` : ''}${buffs ? ' · ' + buffs : ''}${r.dot ? ` · ${r.dot.kind === 'burn' ? '🔥 brûlure' : '☠️ poison'}` : ''}`));
     return el('div', { class: 'panel' }, info, el('div', { class: 'mini-scene-wrap' }, sceneCv), actions(r),
@@ -122,7 +216,7 @@
         B('🛡️ Se protéger', () => act('defend'), { title: 'Dégâts reçus divisés par 2 ce tour, +5 % de PV' }),
         B(`🧪 Potion (${r.potions})`, () => act('potion'), { disabled: r.potions <= 0, title: `Soigne ${Math.round(M.POTION_HEAL * 100)} % des PV` }));
       if (r.mobs.filter((m) => m.hp > 0).length > 1) box.append(el('span', { class: 'small muted' }, 'Clique sur un monstre pour le cibler.'));
-    } else if (r.state === 'loot') box.append(B(`🧺 Récolter ${r.loot.amount} ${resIcon(r.mode)}`, () => act('take'), { cls: 'primary' }));
+    } else if (r.state === 'loot') box.append(B(`🧺 Récolter ${r.loot.amount} ${resIcon(r.mode)}${r.loot.jackpot ? ` (coup de chance ×${String(r.loot.jackpot).replace('.', ',')} !)` : ''}`, startHarvest, { cls: 'primary', disabled: !!harvestFx }));
     else if (r.state === 'cleared') box.append(B('➡️ Salle suivante', () => act('next'), { cls: 'primary' }));
     else if (r.state === 'choice') {
       box.append(el('div', { class: 'small' }, `Point de remontée : rentre avec ${r.got} ${resIcon(r.mode)} et ${r.xp} XP, ou continue (si ton héros tombe, ${Math.round(M.DEATH_LOSS * 100)} % des ressources sont perdues).`),
@@ -146,18 +240,26 @@
     if (!view || view.classList.contains('hidden') || !sceneCv || !state || !state.run || !sceneCv.isConnected) return;
     const ctx = sceneCv.getContext('2d'), r = state.run, t = performance.now() / 1000;
     heroAnim = Math.max(0, heroAnim - 1 / 60); mobAnim = Math.max(0, mobAnim - 1 / 60); shake = Math.max(0, shake - 0.4);
+    stepHarvest(1 / 60);
     ctx.save();
     ctx.translate((Math.random() - 0.5) * shake, 0);
     drawScene(ctx, r.mode, r.decor, r.sub, t, r.room);
     const me = window.PlayerApp && window.PlayerApp.me();
     // héros
     if (r.state === 'over' && r.over.dead) A.drawGrave(ctx, HERO_X, G + 6);
-    else if (me) A.drawHero(ctx, HERO_X + (heroAnim > 0 ? 18 * Math.sin((heroAnim / 0.3) * Math.PI) : 0), G + 6, { cls: me.cls, look: me.look, gear: window.PlayerApp.myGear(), t, scale: 2.2, facing: 0, moving: false, attack: heroAnim });
+    else if (me) A.drawHero(ctx, heroX + (heroAnim > 0 ? 18 * Math.sin((heroAnim / 0.3) * Math.PI) : 0), G + 6, { cls: me.cls, look: me.look, gear: window.PlayerApp.myGear(), t, scale: 2.2, facing: 0, moving: Math.abs(heroX - HERO_X) > 2 && Math.abs(heroX - (LOOT_X - 95)) > 2, attack: heroAnim });
     // butin
-    if (r.loot) {
+    const hf = harvestFx;
+    if (r.loot || (hf && !hf.sent)) {
       const kind = GD.RES_IDS.indexOf(M.MODES[r.mode].res);
-      ctx.save(); ctx.translate(560, G + 8); ctx.scale(1.8, 1.8); A.drawResNode(ctx, kind, 0, 0, 100, t, r.room); ctx.restore();
-      if (r.loot.jackpot) { ctx.save(); ctx.translate(560, G - 40); A.glow(ctx, '#ffd23a', 40); ctx.restore(); }
+      // le butin tremble à chaque coup et rétrécit au fil de la récolte
+      const pct = hf ? Math.max(25, 100 - hf.hits * 25) : 100;
+      const sk = hf && hf.shake > 0 ? (hf.shake -= 1 / 60, Math.sin(t * 90) * 5) : 0;
+      if ((r.loot && r.loot.jackpot) || (hf && hf.jackpot)) { ctx.save(); ctx.translate(LOOT_X, G - 40); A.glow(ctx, '#ffd23a', 46 + Math.sin(t * 4) * 6); ctx.restore(); }
+      ctx.save(); ctx.translate(LOOT_X + sk, G + 8); ctx.scale(1.8, 1.8); A.drawResNode(ctx, kind, 0, 0, pct, t, r.room); ctx.restore();
+    } else if (hf && hf.sent) {
+      const kind = GD.RES_IDS.indexOf(M.MODES[r.mode].res);
+      ctx.save(); ctx.translate(LOOT_X, G + 8); ctx.scale(1.8, 1.8); ctx.globalAlpha = Math.max(0, 1 - (hf.t - 1.45) * 2); A.drawResNode(ctx, kind, 0, 0, 0, t, r.room); ctx.restore();
     }
     // monstres
     (r.mobs || []).forEach((m, i) => {
@@ -172,6 +274,28 @@
       ctx.strokeText(m.name, x, top - 5); ctx.fillText(m.name, x, top - 5);
       if (i === target && r.mobs.filter((q) => q.hp > 0).length > 1) { ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.moveTo(x - 7, top - 30); ctx.lineTo(x + 7, top - 30); ctx.lineTo(x, top - 21); ctx.closePath(); ctx.fill(); ctx.stroke(); }
     });
+    // éclats de récolte (gravité) et étoiles du coup de chance
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i]; p.t += 1 / 60;
+      if (p.t > p.life) { parts.splice(i, 1); continue; }
+      p.vy += 700 / 60; p.x += p.vx / 60; p.y += p.vy / 60;
+      if (p.y > G + 14 && !p.star) { p.y = G + 14; p.vy *= -0.35; p.vx *= 0.6; }
+      ctx.globalAlpha = Math.min(1, (p.life - p.t) * 3);
+      ctx.fillStyle = p.c;
+      if (p.round || p.star) { ctx.beginPath(); ctx.arc(p.x, p.y, p.s / 2 + 0.5, 0, Math.PI * 2); ctx.fill(); if (p.round) { ctx.strokeStyle = '#120c0a'; ctx.lineWidth = 1; ctx.stroke(); } }
+      else { ctx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s); ctx.strokeStyle = '#120c0a'; ctx.lineWidth = 1; ctx.strokeRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s); }
+      ctx.globalAlpha = 1;
+    }
+    // icônes de ressources qui s'envolent vers le compteur (en haut à gauche) ; carillon à l'arrivée
+    for (let i = flyers.length - 1; i >= 0; i--) {
+      const f = flyers[i]; f.t += 1 / 60;
+      if (f.t < 0) continue;
+      const k = Math.min(1, f.t / 0.7), e = k * k * (3 - 2 * k);
+      const x = f.x0 + (40 - f.x0) * e, y = f.y0 + (24 - f.y0) * e - Math.sin(k * Math.PI) * 90;
+      ctx.font = `${Math.round(22 - 8 * k)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
+      ctx.fillText(f.icon, x, y); ctx.textBaseline = 'alphabetic';
+      if (k >= 1) { flyers.splice(i, 1); if (f.last) Sound.play('gain'); }
+    }
     // nombres flottants
     for (let i = floaters.length - 1; i >= 0; i--) {
       const f = floaters[i]; f.t += 1 / 60;

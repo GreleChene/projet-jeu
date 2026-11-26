@@ -101,6 +101,7 @@
         el('p', {}, r.won ? 'Victoire ! Les trois fléaux sont vaincus.' : `La tour est tombée à la manche ${r.wave}.`),
         el('div', { class: 'reward-list' },
           line('⚔️', 'Monstres éliminés', String(r.kills)),
+          r.harvest ? line('🧺', 'Récolte', GD.RES_IDS.map((k) => `${GD.RESOURCES[k].icon} ${r.harvest[k] || 0}`).join('  ')) : '',
           line('✨', 'Expérience', '+' + r.xp + ' XP'),
           line(hail(), ' Grêlons', '+' + r.gold),
           line('🧊', 'Glaçons', '+' + r.glacons),
