@@ -370,7 +370,8 @@ class Game {
     // apparence et comportement (IA) restent modifiables ; classe, niveau, stats, équipement et habitation sont figés
     h.cls = p.cls; h.level = p.level; h.look = live.look; h.ai = live.ai;
     // récolte en défense de tour : améliorée par « Récolteur aguerri » (mini-jeux)
-    h.harvestMul = 1 + 0.1 * ((live.mini && live.mini.up && live.mini.up.harvest) || 0);
+    const mu = (live.mini && live.mini.up) || {};
+    h.harvestMul = Object.fromEntries(GD.RES_IDS.map((k) => [k, 1 + 0.1 * (mu['harvest_' + k] || 0)]));
     h.gear = GD.gearFor(p.cls, h.isBot ? p.gear : h.lock ? h.lock.gear : this.db.gearOf(p));
     h.attrs = p.attrs;
     const c = CLASSES[h.cls] || CLASSES.habitant;
@@ -602,7 +603,7 @@ class Game {
       }
       h.harvesting = best ? best.id : -1;
       if (!best) continue;
-      const take = Math.min(best.amt, H.RATE * (h.harvestMul || 1) * dt);
+      const take = Math.min(best.amt, H.RATE * ((h.harvestMul && h.harvestMul[best.res]) || 1) * dt);
       best.amt -= take;
       this.addRes(best.res, take);
       h.runHarvest = (h.runHarvest || 0) + take;
@@ -642,11 +643,10 @@ class Game {
       const affordable = U.shuffle(avail.filter((id) => this.canAfford(id)));
       const others = U.shuffle(avail.filter((id) => !this.canAfford(id)));
       opts = [...affordable, ...others].slice(0, 2);
-      opts.push('pact');
-      if (this.natureNeeded() && Math.random() < GD.HARVEST.NATURE_CHANCE) opts.push('nature');
+      // 3e choix : Résurrection s'il y a un mort, sinon parfois Vitalité de la nature, sinon Pacte de sang
+      const dead = [...this.heroes.values()].some((h) => !h.alive);
+      opts.push(dead ? 'revive' : this.natureNeeded() && Math.random() < GD.HARVEST.NATURE_CHANCE ? 'nature' : 'pact');
     }
-    // un héros est mort : l'équipe peut voter sa résurrection
-    if ([...this.heroes.values()].some((h) => !h.alive)) opts.push('revive');
     r.vote = { options: opts, votes: new Map(), endsAt: null }; // se termine avec la manche
   }
 
@@ -681,10 +681,11 @@ class Game {
     }
     const counts = {};
     for (const o of v.votes.values()) counts[o] = (counts[o] || 0) + 1;
-    // sans aucun vote : spécialisation au hasard au premier vote, sinon rien
-    let best = v.options[0].startsWith('spec_') ? U.pick(v.options.filter((o) => o.startsWith('spec_'))) : null, bestN = 0;
+    // sans aucun vote : un choix au hasard (parmi ceux que l'équipe peut payer)
+    const payable = v.options.filter((o) => this.canAfford(o));
+    let best = payable.length ? U.pick(payable) : null, bestN = 0;
     for (const o of v.options) if ((counts[o] || 0) > bestN) { best = o; bestN = counts[o]; }
-    if (!best) { this.pushFeed('Aucun vote : rien n’est acheté.'); return ''; }
+    if (!best) return '';
     this.applyUpgrade(best);
     const u = UPGRADES[best];
     return `Vote : ${u ? u.icon + ' ' + u.name : best}`;
@@ -787,6 +788,7 @@ class Game {
         this.updateAllies(dt);
         this.updateProjectiles(dt);
         this.updateZones(dt);
+        this.updateHarvest(dt);
         if (r.timer <= 0) {
           if (this.settings.autoNext || r.wave === 0) this.startWave(r.wave + 1);
           else r.timer = 0;

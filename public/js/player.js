@@ -1029,7 +1029,7 @@
         `1 ⚡ par expédition ; 1 énergie toutes les ${GD.MINI.ENERGY_HOURS} h (${GD.MINI.ENERGY_MAX} au plus).`,
         'Chaque salle : du butin, ou des monstres qui rapportent 1 ressource et de l’XP chacun. Plus tu descends, plus c’est rentable… et dangereux.',
         `Toutes les ${GD.MINI.ELITE_EVERY} salles : une élite, puis une récompense au choix. Toutes les ${GD.MINI.ESCAPE_EVERY} salles : remonter ou continuer (mort : ${Math.round(GD.MINI.DEATH_LOSS * 100)} % des ressources perdues).`,
-        'Les ressources du compte améliorent les mini-jeux et ta récolte en défense de tour (« Récolteur aguerri »).'])),
+        'Les ressources du compte améliorent les mini-jeux et ta récolte en défense de tour (une amélioration « Récolteur » par ressource).'])),
       sec('🧊 Glaçons', ul([
         `Tu gagnes ${G.PER_WAVE} glaçon pour chaque manche passée avec ton héros en jeu.`,
         ['Un glaçon s’achète ', hail(), `${G.PRICE} Grêlons.`],

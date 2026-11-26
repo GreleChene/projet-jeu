@@ -70,9 +70,10 @@ function enterRoom(m, run, rnd) {
   const luck = m.up['luck_' + run.mode] || 0;
   if (rnd() < MINI.LOOT_CHANCE + 0.05 * luck) {
     const bounty = m.up['bounty_' + run.mode] || 0, jack = rnd() < 0.04 * (m.up['jackpot_' + run.mode] || 0);
-    run.loot = { amount: Math.round((4 + 0.8 * run.room) * (1 + 0.15 * bounty) * (jack ? 3 : 1)), jackpot: jack };
+    const mul = jack ? GD.miniJackpotMul(m.up, run.mode) : 1;
+    run.loot = { amount: Math.round((4 + 0.8 * run.room) * (1 + 0.15 * bounty) * mul), jackpot: jack ? mul : 0 };
     run.state = 'loot';
-    log(run, `Salle ${run.room} : ${mode.loot}${jack ? ' énorme' : ''} !`);
+    log(run, `Salle ${run.room} : ${mode.loot}${jack ? ` énorme (×${String(mul).replace('.', ',')}) ` : ''} !`);
     return;
   }
   const n = 1 + Math.floor(rnd() * Math.min(3, 1 + Math.floor(run.room / 6)));
@@ -153,7 +154,7 @@ function start(u, mode, gear, opts = {}) {
   return m.run;
 }
 
-// Action du joueur : attack, skill, defend, potion, flee (combat) · take (butin) · next · continue / leave · reward · close
+// Action du joueur : attack, skill, defend, potion (combat) · take (butin) · next · continue / leave · reward · close
 function act(u, body, opts = {}) {
   const rnd = opts.rnd || Math.random;
   const m = ensure(u, opts.now);
@@ -184,15 +185,6 @@ function act(u, body, opts = {}) {
       run.potions--;
       run.hp = Math.min(run.max, run.hp + Math.round(run.max * MINI.POTION_HEAL));
       log(run, 'Tu bois une potion de soin');
-    } else if (a === 'flee') {
-      if (run.mobs.some((x) => x.elite)) fail('Impossible de fuir une élite');
-      if (rnd() < MINI.FLEE_CHANCE) {
-        log(run, 'Tu prends la fuite !');
-        run.mobs = [];
-        roomCleared(run, rnd);
-        return run;
-      }
-      log(run, 'Fuite ratée !');
     } else fail('Action inconnue');
     if (run.skillCd > 0) run.skillCd--;
     // monstres vaincus : 1 ressource et de l'XP chacun

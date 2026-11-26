@@ -78,11 +78,24 @@ test('la tour a 200 PV ; premier vote = spécialisation de la tour, puis 4 choix
   g.setWave(4);
   const o = g.run.vote.options;
   assert.ok(!o.includes('save'), 'plus de choix « Économiser »');
-  assert.strictEqual(o.filter((x) => x !== 'nature').length, 3, '2 améliorations + Pacte de sang (+ Vitalité de la nature au hasard)');
-  assert.ok(o.includes('pact'));
-  for (const id of o.filter((x) => x !== 'pact' && x !== 'nature')) assert.strictEqual(GD.UPGRADES[id].tower, 'defense', 'seulement des améliorations de la tour choisie');
+  assert.strictEqual(o.length, 3, '3 choix');
+  assert.ok(o[2] === 'pact' || o[2] === 'nature', '3e choix : Pacte de sang ou Vitalité de la nature');
+  for (const id of o.slice(0, 2)) assert.strictEqual(GD.UPGRADES[id].tower, 'defense', 'seulement des améliorations de la tour choisie');
   const h = [...g.heroes.values()][0];
-  if (h) { g.heroDie(h); g.setWave(6); assert.ok(g.run.vote.options.includes('revive'), 'Résurrection proposée'); }
+  if (h) {
+    g.heroDie(h);
+    assert.deepStrictEqual(g.run.vote.options.length, 3, 'la Résurrection prend la place du 3e choix');
+    assert.strictEqual(g.run.vote.options[2], 'revive');
+    g.setWave(6);
+    assert.strictEqual(g.run.vote.options[2], 'revive');
+    assert.ok(!g.run.vote.options.includes('pact'));
+  }
+  // personne ne vote : un choix au hasard est appliqué
+  g.run.res = { pierre: 9999, bois: 9999, baies: 9999 };
+  g.run.vote.options = ['df_wall_n', 'df_wall_s', 'pact'];
+  const before = g.run.upgrades.df_wall_n + g.run.upgrades.df_wall_s + (g.run.pactNext ? 1 : 0);
+  g.closeVote();
+  assert.strictEqual(g.run.upgrades.df_wall_n + g.run.upgrades.df_wall_s + (g.run.pactNext ? 1 : 0), before + 1, 'choix aléatoire sans vote');
 });
 
 test('arbres de compétences : une seule branche, ultime au niveau 30', () => {

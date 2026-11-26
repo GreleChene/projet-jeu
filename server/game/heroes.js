@@ -278,21 +278,33 @@ module.exports = {
     const ratio = h.hp / h.maxHp;
     // entracte : repos dans l'habitation (les récolteurs en bonne santé continuent de récolter)
     if (this.phase === 'intermission' && !this.mobs.length) {
-      if (ai.stance === 'harvest' && ratio >= 0.7) { h.resting = false; this.heroIdle(h, dt, speedMul); }
+      if (ai.stance === 'harvest' && ratio >= 0.4) { h.resting = false; this.heroIdle(h, dt, speedMul); }
       else this.heroRest(h, dt, h.speed * speedMul);
       this.clampHero(h); return;
     }
     h.resting = false;
     const speed = h.speed * speedMul * (h.buffs.swift > 0 ? 1.4 : 1);
-    // récolteur blessé : s'éloigne des monstres proches (vers la tour)
-    if (ai.stance === 'harvest' && ratio < 0.35) {
-      const near = this.nearestMob(h.x, h.y, 260);
-      if (near) {
-        h.atkT -= dt;
-        this.moveToward(h, WORLD.CX + (h.x - near.x) * 0.3, WORLD.CY + 60, speed, dt);
+    // récolteur blessé (moins de 50 % de PV) : fuit les monstres proches, dans la direction opposée
+    if (ai.stance === 'harvest' && ratio < 0.5) {
+      let fx = 0, fy = 0, n = 0;
+      for (const m of this.mobs) {
+        if (m.hp <= 0) continue;
+        const dx = h.x - m.x, dy = h.y - m.y, d2 = dx * dx + dy * dy;
+        if (d2 > 320 * 320) continue;
+        const d = Math.sqrt(d2) || 1;
+        fx += dx / d / d; fy += dy / d / d; n++;
+      }
+      if (n) {
+        const L = Math.hypot(fx, fy) || 1;
+        let tx = h.x + (fx / L) * 120, ty = h.y + (fy / L) * 120;
+        // coincé contre un bord : glisse le long
+        tx = U.clamp(tx, 40, WORLD.W - 40); ty = U.clamp(ty, 60, WORLD.H - 30);
+        h.atkT -= dt; h.target = null; h.fleeing = true;
+        this.moveToward(h, tx, ty, speed * 1.1, dt);
         this.clampHero(h); return;
       }
     }
+    h.fleeing = false;
 
     h.retargetT -= dt;
     if (h.retargetT <= 0 || !h.target || h.target.hp <= 0) {
@@ -427,7 +439,15 @@ module.exports = {
   heroDie(h) {
     h.alive = false; h.hp = 0;
     const v = this.run && this.run.vote;
-    if (v && !v.options.includes('revive')) v.options.splice(Math.max(0, v.options.indexOf('pact')), 0, 'revive');
+    // la Résurrection prend la place du Pacte de sang (ou de la Vitalité de la nature) dans le vote en cours
+    if (v && !v.options.includes('revive')) {
+      const i = v.options.findIndex((o) => o === 'pact' || o === 'nature');
+      if (i >= 0) {
+        const old = v.options[i];
+        v.options[i] = 'revive';
+        for (const [k, o] of v.votes) if (o === old) v.votes.delete(k);
+      } else v.options.push('revive');
+    }
     h.deathX = h.x; h.deathY = h.y;
     h.deadAt = this.time;
     h.zombie = false; h.dashing = null; h.chain = null; h.target = null; h.status = {};

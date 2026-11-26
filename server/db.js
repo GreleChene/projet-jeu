@@ -129,6 +129,13 @@ function migrateUser(u) {
     u.mini = { res: { pierre: 0, bois: 0, baies: 0 }, up: {}, best: {}, energy: 3, energyAt: Date.now(), run: null, ...(u.mini || {}) };
     u.miniV1 = true;
   }
+  // v2 : « Récolteur aguerri » (payé avec les trois ressources) devient trois améliorations, une par ressource
+  if (!u.miniV2) {
+    const lvl = (u.mini.up && u.mini.up.harvest) || 0;
+    if (lvl) { for (const k of ['pierre', 'bois', 'baies']) u.mini.up['harvest_' + k] = Math.max(u.mini.up['harvest_' + k] || 0, lvl); delete u.mini.up.harvest; }
+    if (u.mini.run && u.mini.run.state !== 'over') u.mini.run.mobs = u.mini.run.mobs || [];
+    u.miniV2 = true;
+  }
   return u;
 }
 

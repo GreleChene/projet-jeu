@@ -64,7 +64,7 @@
     const cost = GD.miniUpgradeCost(id, lvl), max = lvl >= U.max;
     const ok = !max && GD.canPay(state.res, cost);
     return el('div', { class: 'mini-up' },
-      el('span', {}, `${U.icon} ${U.name} `, el('span', { class: 'small muted' }, `niv. ${lvl}/${U.max} — ${U.desc}`)),
+      el('span', {}, `${U.icon} ${U.perRes ? `${U.name} (${GD.RESOURCES[id.split('_')[1]].icon} ${GD.RESOURCES[id.split('_')[1]].name.toLowerCase()})` : U.name} `, el('span', { class: 'small muted' }, `niv. ${lvl}/${U.max} — ${U.desc}`)),
       el('button', { disabled: !ok, onclick: () => send('/api/mini/upgrade', { id }) }, max ? 'Max' : GD.costText(cost)));
   }
 
@@ -75,18 +75,18 @@
       el('p', { class: 'small' }, m.desc),
       el('p', { class: 'small muted' }, `Rapporte : ${GD.RESOURCES[m.res].icon} ${GD.RESOURCES[m.res].name} · record : salle ${state.best[k] || 0}`),
       el('button', { class: 'primary', disabled: state.energy < 1, onclick: () => send('/api/mini/start', { mode: k }) }, `${m.verb} (1 ⚡)`),
-      el('div', { class: 'mini-ups' }, ...['luck', 'bounty', 'jackpot'].map((u) => upgradeRow(`${u}_${k}`)))));
+      el('div', { class: 'mini-ups' }, ...['luck', 'bounty', 'jackpot', 'fortune'].map((u) => upgradeRow(`${u}_${k}`)))));
     const wrap = el('div', {},
       el('div', { class: 'grid three' }, ...cards),
       el('div', { class: 'panel' }, el('h2', {}, 'Améliorations générales'),
-        upgradeRow('potion'), upgradeRow('harvest')),
+        upgradeRow('potion'), ...GD.RES_IDS.map((k) => upgradeRow('harvest_' + k))),
       el('div', { class: 'panel small' }, el('h2', {}, 'Comment ça marche'),
         el('ul', {},
           el('li', {}, `Une expédition coûte 1 ⚡ (1 énergie toutes les ${M.ENERGY_HOURS} h, ${M.ENERGY_MAX} au plus). Combat au tour par tour avec les statistiques réelles de ton héros.`),
           el('li', {}, 'Chaque salle contient du butin ou des monstres ; chaque monstre tué rapporte 1 ressource et de l’XP. Plus tu descends, plus le butin est gros… et les monstres coriaces.'),
           el('li', {}, `Toutes les ${M.ELITE_EVERY} salles, un monstre d’élite garde la salle : choisis ensuite une récompense (force, PV, Grêlons, ressources…).`),
           el('li', {}, `Toutes les ${M.ESCAPE_EVERY} salles : remonte avec ton butin ou continue. Si ton héros tombe, tu perds ${Math.round(M.DEATH_LOSS * 100)} % des ressources de l’expédition (l’XP est gardée).`),
-          el('li', {}, 'Les ressources améliorent les mini-jeux et ta récolte en défense de tour.'))));
+          el('li', {}, 'Les ressources améliorent les mini-jeux et ta récolte de chaque ressource en défense de tour.'))));
     requestAnimationFrame(() => wrap.querySelectorAll('canvas.mini-thumb').forEach((c) => {
       const x = c.getContext('2d'); x.save(); x.scale(c.width / W, c.width / W); x.translate(0, -40);
       drawScene(x, c.dataset.mode, 0, 0, 1, 1); x.restore();
@@ -116,13 +116,11 @@
     const B = (label, fn, opts = {}) => el('button', { class: opts.cls || '', disabled: !!opts.disabled || busy, title: opts.title || '', onclick: fn }, label);
     const box = el('div', { class: 'mini-actions' });
     if (r.state === 'fight') {
-      const elite = r.mobs.some((m) => m.elite);
       box.append(
         B('⚔️ Attaquer', () => act('attack'), { cls: 'primary' }),
         B(r.aoe ? `✨ Explosion arcanique${r.skillCd ? ` (${r.skillCd})` : ''}` : `✨ Coup puissant${r.skillCd ? ` (${r.skillCd})` : ''}`, () => act('skill'), { disabled: r.skillCd > 0, title: r.aoe ? '120 % des dégâts à tous les ennemis' : '220 % des dégâts à la cible' }),
         B('🛡️ Se protéger', () => act('defend'), { title: 'Dégâts reçus divisés par 2 ce tour, +5 % de PV' }),
-        B(`🧪 Potion (${r.potions})`, () => act('potion'), { disabled: r.potions <= 0, title: `Soigne ${Math.round(M.POTION_HEAL * 100)} % des PV` }),
-        B('🏃 Fuir', () => act('flee'), { disabled: elite, title: elite ? 'Impossible face à une élite' : `${Math.round(M.FLEE_CHANCE * 100)} % de chances : salle suivante, sans récompense` }));
+        B(`🧪 Potion (${r.potions})`, () => act('potion'), { disabled: r.potions <= 0, title: `Soigne ${Math.round(M.POTION_HEAL * 100)} % des PV` }));
       if (r.mobs.filter((m) => m.hp > 0).length > 1) box.append(el('span', { class: 'small muted' }, 'Clique sur un monstre pour le cibler.'));
     } else if (r.state === 'loot') box.append(B(`🧺 Récolter ${r.loot.amount} ${resIcon(r.mode)}`, () => act('take'), { cls: 'primary' }));
     else if (r.state === 'cleared') box.append(B('➡️ Salle suivante', () => act('next'), { cls: 'primary' }));

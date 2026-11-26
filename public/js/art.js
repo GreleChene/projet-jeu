@@ -611,9 +611,33 @@
   /* ------------------------------ points de récolte (défense de tour) ------------------------------
    * kind : 0 = rocher (pierre), 1 = arbre (bois), 2 = buisson (baies) ; pct : ressources restantes (0-100)
    * Le point rétrécit en s'épuisant ; épuisé : cailloux, souche, buisson nu. */
+  const NODE_COL = ['#c9d2dc', '#e8a04a', '#a678ff'];
+  const NODE_ICON = ['🪨', '🪵', '🫐'];
+  const NODE_TOP = [36, 92, 40];
   function drawResNode(ctx, kind, x, y, pct, t, seed) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(1.3, 1.3);
+    drawResNodeRaw(ctx, kind, pct, t, seed);
+    // repère bien visible : anneau coloré au sol, pastille avec l'icône de la ressource et jauge restante
+    if (pct > 0) {
+      const sc = 0.6 + 0.4 * pct / 100, top = -NODE_TOP[kind] * sc - 16, bob = Math.sin(t * 2.5 + seed) * 2;
+      ctx.save(); ctx.globalAlpha = 0.9;
+      circle(ctx, 0, top + bob, 9, '#fff8e8', 1.8);
+      ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000'; ctx.fillText(NODE_ICON[kind], 0, top + bob + 0.5);
+      ctx.restore();
+      if (pct < 100) { rrect(ctx, -14, 9, 28, 4, 2, '#2a1f22', 1); ctx.fillStyle = NODE_COL[kind]; ctx.fillRect(-13, 10, 26 * pct / 100, 2); }
+    }
+    ctx.restore();
+  }
+  function drawResNodeRaw(ctx, kind, pct, t, seed) {
     const k = pct / 100, sc = 0.6 + 0.4 * k;
-    ctx.save(); ctx.translate(x, y);
+    ctx.save();
+    if (pct > 0) {
+      // halo coloré qui pulse au pied du point de récolte
+      const a = 0.45 + 0.2 * Math.sin(t * 3 + seed);
+      ctx.save(); ctx.globalAlpha = a; ctx.lineWidth = 3; ctx.strokeStyle = NODE_COL[kind];
+      ctx.beginPath(); ctx.ellipse(0, 2, 30 * sc + 6, 10 * sc + 3, 0, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = a * 0.35; ctx.fillStyle = NODE_COL[kind]; ctx.fill(); ctx.restore();
+    }
     if (kind === 0) {
       if (pct <= 0) { for (const [dx, dy, r] of [[-10, 0, 4], [3, 2, 5], [12, -1, 3]]) ellipse(ctx, dx, dy, r, r * 0.7, P.stone[2], 1.4); ctx.restore(); return; }
       shadow(ctx, 0, 2, 30 * sc, 8 * sc);
@@ -642,7 +666,7 @@
       // entaille de hache
       poly(ctx, [7, -18, -1, -14, 7, -10], '#e6c08a', 1.4);
       const sway = Math.sin(t * 1.5 + seed) * 1.5;
-      const g = '#3f9a3e';
+      const g = '#e8902e'; // feuillage d'automne : se distingue des arbres verts du décor
       circle(ctx, -16 + sway, -48, 16, shade(g, -0.1)); circle(ctx, 16 + sway, -48, 16, shade(g, -0.1));
       circle(ctx, 0 + sway, -66, 19, g); circle(ctx, -6 + sway, -52, 14, shade(g, 0.08), 0.01);
     } else {

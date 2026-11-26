@@ -68,10 +68,14 @@ test('mini-jeux : remonter garde tout ; améliorations payées avec les ressourc
   mini.act(u, { action: 'leave' });
   assert.strictEqual(u.mini.res.baies, got, 'tout est gardé en remontant');
   u.mini.res = { pierre: 100, bois: 100, baies: 100 };
-  mini.buyUpgrade(u, 'harvest');
-  assert.strictEqual(u.mini.up.harvest, 1);
-  assert.deepStrictEqual(u.mini.res, { pierre: 75, bois: 75, baies: 75 });
+  mini.buyUpgrade(u, 'harvest_bois');
+  assert.strictEqual(u.mini.up.harvest_bois, 1);
+  assert.deepStrictEqual(u.mini.res, { pierre: 100, bois: 70, baies: 100 }, 'récolte du bois : payée en bois');
   mini.buyUpgrade(u, 'luck_mine');
-  assert.strictEqual(u.mini.res.pierre, 60);
+  assert.strictEqual(u.mini.res.pierre, 85);
+  assert.throws(() => mini.buyUpgrade(u, 'harvest'), /inconnue/);
+  assert.throws(() => mini.act(u, { action: 'flee' }), /inconnue|Aucune|impossible/i);
+  assert.strictEqual(GD.miniJackpotMul({}, 'mine'), 1.5);
+  assert.strictEqual(GD.miniJackpotMul({ fortune_mine: 3 }, 'mine'), 3);
   assert.throws(() => mini.buyUpgrade(u, 'potion_x'), /inconnue/);
 });
