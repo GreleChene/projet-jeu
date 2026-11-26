@@ -1029,6 +1029,7 @@
         `Trois expéditions solo au tour par tour : ${Object.values(GD.MINI.MODES).map((m) => `${m.icon} ${m.name} (${GD.RESOURCES[m.res].icon} ${GD.RESOURCES[m.res].name.toLowerCase()})`).join(', ')}.`,
         `1 ⚡ par expédition ; 1 énergie toutes les ${GD.MINI.ENERGY_HOURS} h (${GD.MINI.ENERGY_MAX} au plus).`,
         'Chaque salle : du butin, ou des monstres qui rapportent 1 ressource et de l’XP chacun. Plus tu descends, plus c’est rentable… et dangereux.',
+        'Statistiques propres aux mini-jeux (PV, dégâts, armure, critique, bouclier), améliorées avec les ressources. « Se protéger » lève un bouclier qui absorbe les dégâts (recharge de 3 tours). Avec plusieurs monstres, choisis ta cible.',
         `Toutes les ${GD.MINI.ELITE_EVERY} salles : une élite, puis une récompense au choix. Toutes les ${GD.MINI.ESCAPE_EVERY} salles : remonter ou continuer (mort : ${Math.round(GD.MINI.DEATH_LOSS * 100)} % des ressources perdues).`,
         'Les ressources du compte améliorent les mini-jeux et ta récolte en défense de tour (une amélioration « Récolteur » par ressource).'])),
       sec('🧊 Glaçons', ul([

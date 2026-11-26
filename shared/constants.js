@@ -867,6 +867,9 @@
     POTIONS: 2,             // potions de soin par expédition (soignent 35 % des PV)
     POTION_HEAL: 0.35,
     SKILL_CD: 3,            // la compétence revient tous les 3 tours
+    SHIELD_CD: 3,           // « Se protéger » : bouclier qui absorbe les dégâts, utilisable tous les 3 tours
+    // Statistiques d'expédition (propres aux mini-jeux, améliorées avec les ressources du compte)
+    BASE: { hp: 100, dmg: 10, armor: 0, crit: 0.05, shield: 20 },
     DECOR_ROOMS: 10,        // un nouveau décor toutes les 10 salles (3 décors, puis le dernier se répète)
     MODES: {
       mine: {
@@ -916,6 +919,12 @@
     // Améliorations achetées avec les ressources du compte
     // mode : amélioration d'un mini-jeu (payée avec sa ressource) ; all : payée avec les trois ressources
     UPGRADES: {
+      // statistiques d'expédition (stat : statistique améliorée, per : gain par niveau)
+      vie: { stat: 'hp', per: 15, name: 'Vitalité', icon: '❤️', desc: '+15 PV max en expédition', res: 'baies', cost: 12, growth: 1.17, max: 20 },
+      force: { stat: 'dmg', per: 2, name: 'Force', icon: '⚔️', desc: '+2 dégâts en expédition', res: 'bois', cost: 12, growth: 1.17, max: 20 },
+      armure: { stat: 'armor', per: 0.03, name: 'Armure', icon: '🛡️', desc: '+3 % de réduction des dégâts en expédition', res: 'pierre', cost: 15, growth: 1.2, max: 15 },
+      precision: { stat: 'crit', per: 0.02, name: 'Précision', icon: '🎯', desc: '+2 % de chances de critique en expédition', res: 'bois', cost: 15, growth: 1.22, max: 10 },
+      bouclier: { stat: 'shield', per: 10, name: 'Bouclier', icon: '🔰', desc: '+10 points de bouclier quand tu te protèges', res: 'pierre', cost: 15, growth: 1.22, max: 10 },
       luck: { perMode: true, name: 'Flair', icon: '🔎', desc: '+5 % de chances qu’une salle contienne du butin', cost: 15, growth: 1.6, max: 6 },
       bounty: { perMode: true, name: 'Gros butin', icon: '💎', desc: '+15 % de ressources dans le butin', cost: 20, growth: 1.6, max: 6 },
       jackpot: { perMode: true, name: 'Coup de chance', icon: '🍀', desc: '+4 % de chances qu’un butin soit multiplié (×1,5, plus avec « Fortune »)', cost: 25, growth: 1.65, max: 5 },
@@ -934,6 +943,13 @@
     return { [u.perMode ? MINI.MODES[suf].res : u.perRes ? suf : u.res]: v };
   }
   const miniUpgradeIds = () => Object.entries(MINI.UPGRADES).flatMap(([k, u]) => (u.perMode ? Object.keys(MINI.MODES).map((m) => `${k}_${m}`) : u.perRes ? RES_IDS.map((r) => `${k}_${r}`) : [k]));
+  // Statistiques d'expédition d'un joueur (base + améliorations « Vitalité », « Force »…)
+  function miniStats(up) {
+    const s = { ...MINI.BASE };
+    for (const u of Object.values(MINI.UPGRADES)) if (u.stat) s[u.stat] += u.per * ((up || {})[Object.keys(MINI.UPGRADES).find((k) => MINI.UPGRADES[k] === u)] || 0);
+    s.armor = Math.min(0.6, s.armor);
+    return s;
+  }
   // multiplicateur du coup de chance : ×1,5, +0,5 par niveau de « Fortune » (×3 au maximum)
   const miniJackpotMul = (up, mode) => 1.5 + 0.5 * ((up || {})['fortune_' + mode] || 0);
   // Décor d'une salle : 0-2 selon la profondeur, sous-décor 0-5 tiré de la salle et de la graine de l'expédition
@@ -1002,5 +1018,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { MINI, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { MINI, miniStats, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

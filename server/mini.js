@@ -102,20 +102,28 @@ function heroHit(run, mob, mult, rnd) {
   return { dmg, crit };
 }
 
+// Le bouclier absorbe les dégâts avant les PV ; renvoie la part absorbée
+function absorb(run, dmg) {
+  const a = Math.min(run.shield || 0, dmg);
+  run.shield = (run.shield || 0) - a;
+  return a;
+}
+
 function mobsTurn(run, rnd) {
   for (const mob of run.mobs) {
     if (mob.hp <= 0) continue;
-    const dmg = Math.max(1, Math.round(mob.dmg * (1 - run.armor) * (run.defend ? 0.5 : 1) * (0.85 + rnd() * 0.3)));
-    run.hp -= dmg;
-    log(run, `${mob.name} frappe : −${dmg} PV${run.defend ? ' (paré)' : ''}`);
+    const dmg = Math.max(1, Math.round(mob.dmg * (1 - run.armor) * (0.85 + rnd() * 0.3)));
+    const abs = absorb(run, dmg);
+    run.hp -= dmg - abs;
+    log(run, `${mob.name} frappe : −${dmg - abs} PV${abs ? ` (${abs} absorbés par le bouclier)` : ''}`);
     if (mob.dot && rnd() < 0.5) { run.dot = { turns: 2, dmg: Math.max(1, Math.round(mob.dmg * 0.3)), kind: mob.dot }; }
   }
   if (run.dot && run.dot.turns > 0 && run.hp > 0) {
-    run.hp -= run.dot.dmg; run.dot.turns--;
-    log(run, `${run.dot.kind === 'burn' ? 'Brûlure' : 'Poison'} : −${run.dot.dmg} PV`);
+    const abs = absorb(run, run.dot.dmg);
+    run.hp -= run.dot.dmg - abs; run.dot.turns--;
+    log(run, `${run.dot.kind === 'burn' ? 'Brûlure' : 'Poison'} : −${run.dot.dmg - abs} PV`);
     if (run.dot.turns <= 0) run.dot = null;
   }
-  run.defend = false;
   run.turn = (run.turn || 0) + 1;
 }
 
@@ -140,11 +148,13 @@ function start(u, mode, gear, opts = {}) {
   if (m.energy < 1) fail('Plus d’énergie : reviens plus tard');
   if (m.energy >= MINI.ENERGY_MAX) m.energyAt = now;
   m.energy--;
-  const st = GD.computeStats({ cls: u.cls, level: u.level, gear, skills: u.skills, attrs: u.attrs });
+  // statistiques propres aux mini-jeux (améliorées dans « Améliorations générales »)
+  const st = GD.miniStats(m.up);
   const fam = GD.familyOf(u.cls);
   m.run = {
     mode, seed: Math.floor(rnd() * 1e9), room: 0, state: 'fight',
-    hp: st.maxHp, max: st.maxHp, baseMax: st.maxHp, dmg: st.dmg, crit: st.crit, armor: st.armor,
+    hp: st.hp, max: st.hp, baseMax: st.hp, dmg: st.dmg, crit: st.crit, armor: st.armor,
+    shield: 0, shieldMax: st.shield, shieldCd: 0,
     aoe: fam === 'mage' || fam === 'menestrel',
     buff: { dmg: 0, hp: 0, crit: 0 }, potions: MINI.POTIONS + (m.up.potion || 0), skillCd: 0,
     got: 0, xp: 0, grelons: 0, kills: 0, log: [], mobs: [], loot: null, rewards: null, dot: null
@@ -177,8 +187,10 @@ function act(u, body, opts = {}) {
       else { const r = heroHit(run, target, 2.2, rnd); log(run, `Coup puissant sur ${target.name} : −${r.dmg}${r.crit ? ' (critique !)' : ''}`); }
       run.skillCd = MINI.SKILL_CD + 1;
     } else if (a === 'defend') {
-      run.defend = true;
-      log(run, 'Tu te protèges (dégâts réduits de moitié ce tour)');
+      if (run.shieldCd > 0) fail('Bouclier pas encore prêt');
+      run.shield = run.shieldMax || MINI.BASE.shield;
+      run.shieldCd = MINI.SHIELD_CD + 1;
+      log(run, `Tu lèves ton bouclier : ${run.shield} points de protection`);
     } else if (a === 'potion') {
       if (run.potions <= 0) fail('Plus de potions');
       run.potions--;
@@ -186,6 +198,7 @@ function act(u, body, opts = {}) {
       log(run, 'Tu bois une potion de soin');
     } else fail('Action inconnue');
     if (run.skillCd > 0) run.skillCd--;
+    if (run.shieldCd > 0) run.shieldCd--;
     // monstres vaincus : 1 ressource et de l'XP chacun
     for (const x of run.mobs) if (x.hp <= 0 && !x.dead) {
       x.dead = true; run.kills++; run.got += 1; run.xp += x.xp;

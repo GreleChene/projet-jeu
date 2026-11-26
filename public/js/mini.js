@@ -223,6 +223,7 @@
         if (m.hp <= 0) Sound.play('kill', 0.16);
       }
     });
+    if ((b.shield || 0) < (a.shield || 0)) { floaters.push({ x: HERO_X + 40, y: G - 120, s: `−${a.shield - b.shield} 🔰`, c: '#7fd0ff', t: 0 }); Sound.play('shield', 0.3); }
     if (b.hp < a.hp) { floaters.push({ x: HERO_X, y: G - 90, s: '−' + (a.hp - b.hp), c: '#ff6a5a', t: 0 }); mobAnim = 0.3; shake = 6; Sound.play('hurt', 0.3); }
     if (b.hp > a.hp) floaters.push({ x: HERO_X, y: G - 90, s: '+' + (b.hp - a.hp), c: '#7fe07a', t: 0 });
     if (b.got > a.got) floaters.push({ x: W / 2, y: G - 120, s: `+${b.got - a.got} ${resIcon(b.mode)}`, c: '#ffffff', t: 0 });
@@ -249,12 +250,15 @@
       soundControls());
   }
 
+  const statText = (k, v) => (k === 'armor' || k === 'crit' ? `${Math.round(v * 100)} %` : String(Math.round(v)));
   function upgradeRow(id) {
     const key = id.split('_')[0], U = M.UPGRADES[key], lvl = state.up[id] || 0;
     const cost = GD.miniUpgradeCost(id, lvl), max = lvl >= U.max;
     const ok = !max && GD.canPay(state.res, cost);
     return el('div', { class: 'mini-up' },
-      el('span', {}, `${U.icon} ${U.perRes ? `${U.name} (${GD.RESOURCES[id.split('_')[1]].icon} ${GD.RESOURCES[id.split('_')[1]].name.toLowerCase()})` : U.name} `, el('span', { class: 'small muted' }, `niv. ${lvl}/${U.max} — ${U.desc}`)),
+      el('span', {}, `${U.icon} ${U.perRes ? `${U.name} (${GD.RESOURCES[id.split('_')[1]].icon} ${GD.RESOURCES[id.split('_')[1]].name.toLowerCase()})` : U.name} `,
+        U.stat ? el('b', {}, statText(U.stat, GD.miniStats(state.up)[U.stat]) + (max ? '' : ` → ${statText(U.stat, GD.miniStats({ ...state.up, [id]: lvl + 1 })[U.stat])}`) + ' ') : '',
+        el('span', { class: 'small muted' }, `niv. ${lvl}/${U.max} — ${U.desc}`)),
       el('button', { disabled: !ok, onclick: () => send('/api/mini/upgrade', { id }) }, max ? 'Max' : GD.costText(cost)));
   }
 
@@ -269,6 +273,10 @@
     const wrap = el('div', {},
       el('div', { class: 'grid three' }, ...cards),
       el('div', { class: 'panel' }, el('h2', {}, 'Améliorations générales'),
+        el('h3', { class: 'mini-sub' }, 'Statistiques d’expédition'),
+        el('p', { class: 'small muted' }, 'Dans les mini-jeux, ton héros n’utilise pas ses statistiques de bataille : il a ses propres statistiques d’expédition, améliorées ici avec tes ressources.'),
+        ...Object.keys(M.UPGRADES).filter((k) => M.UPGRADES[k].stat).map((k) => upgradeRow(k)),
+        el('h3', { class: 'mini-sub' }, 'Équipement et récolte'),
         upgradeRow('potion'), ...GD.RES_IDS.map((k) => upgradeRow('harvest_' + k))),
       el('div', { class: 'panel small' }, el('h2', {}, 'Comment ça marche'),
         el('ul', {},
@@ -290,13 +298,14 @@
     sceneCv = el('canvas', { class: 'mini-scene', width: W, height: H });
     sceneCv.addEventListener('click', (e) => {
       const b = sceneCv.getBoundingClientRect(), x = ((e.clientX - b.left) / b.width) * W;
-      (r.mobs || []).forEach((m, i) => { if (m.hp > 0 && Math.abs(x - mobX(i, r.mobs.length)) < 50) target = i; });
+      (r.mobs || []).forEach((m, i) => { if (m.hp > 0 && Math.abs(x - mobX(i, r.mobs.length)) < 60 && target !== i) { target = i; render(); } });
     });
     const hpPct = Math.max(0, (100 * r.hp) / r.max);
     const buffs = [r.buff.dmg ? `⚔️ +${Math.round(r.buff.dmg * 100)} %` : '', r.buff.hp ? `❤️ +${Math.round(r.buff.hp * 100)} %` : '', r.buff.crit ? `🎯 +${Math.round(r.buff.crit * 100)} %` : ''].filter(Boolean).join(' · ');
     const info = el('div', { class: 'mini-info' },
       el('div', {}, el('b', {}, `${mode.icon} Salle ${r.room}`), el('span', { class: 'small muted' }, ` · ${dec.name} — ${dec.subs[r.sub]}`)),
-      el('div', { class: 'mini-hp' }, el('span', { class: 'small' }, `❤️ ${r.hp} / ${r.max}`), el('div', { class: 'bar' }, el('span', { style: `width:${hpPct}%;background:${hpPct > 40 ? '#5cb84a' : '#e2504c'}` }))),
+      el('div', { class: 'mini-hp' }, el('span', { class: 'small' }, `❤️ ${r.hp} / ${r.max}`), el('div', { class: 'bar' }, el('span', { style: `width:${hpPct}%;background:${hpPct > 40 ? '#5cb84a' : '#e2504c'}` })),
+        el('span', { class: 'small' }, `🔰 Bouclier ${r.shield || 0} / ${r.shieldMax || M.BASE.shield}`), el('div', { class: 'bar mini-shield' }, el('span', { style: `width:${Math.min(100, (100 * (r.shield || 0)) / (r.shieldMax || M.BASE.shield))}%` }))),
       el('div', { class: 'small' }, `${resIcon(r.mode)} ${r.got} · ✨ ${r.xp} XP · 🧪 ${r.potions}${r.grelons ? ` · 🌨️ ${r.grelons}` : ''}${buffs ? ' · ' + buffs : ''}${r.dot ? ` · ${r.dot.kind === 'burn' ? '🔥 brûlure' : '☠️ poison'}` : ''}`));
     return el('div', { class: 'panel' }, info, el('div', { class: 'mini-scene-wrap' }, sceneCv), actions(r),
       el('ul', { class: 'mini-log small' }, ...r.log.slice().reverse().map((l, i) => el('li', { style: i ? 'opacity:.7' : 'font-weight:700' }, l))));
@@ -309,9 +318,15 @@
       box.append(
         B('⚔️ Attaquer', () => act('attack'), { cls: 'primary' }),
         B(r.aoe ? `✨ Explosion arcanique${r.skillCd ? ` (${r.skillCd})` : ''}` : `✨ Coup puissant${r.skillCd ? ` (${r.skillCd})` : ''}`, () => act('skill'), { disabled: r.skillCd > 0, title: r.aoe ? '120 % des dégâts à tous les ennemis' : '220 % des dégâts à la cible' }),
-        B('🛡️ Se protéger', () => act('defend'), { title: 'Dégâts reçus divisés par 2 ce tour' }),
+        B(`🔰 Se protéger${r.shieldCd ? ` (${r.shieldCd})` : ''}`, () => act('defend'), { disabled: r.shieldCd > 0, title: `Bouclier de ${r.shieldMax || M.BASE.shield} points qui absorbe les dégâts (recharge : ${M.SHIELD_CD} tours)` }),
         B(`🧪 Potion (${r.potions})`, () => act('potion'), { disabled: r.potions <= 0, title: `Soigne ${Math.round(M.POTION_HEAL * 100)} % des PV` }));
-      if (r.mobs.filter((m) => m.hp > 0).length > 1) box.append(el('span', { class: 'small muted' }, 'Clique sur un monstre pour le cibler.'));
+      const alive = r.mobs.map((m, i) => [m, i]).filter(([m]) => m.hp > 0);
+      if (alive.length > 1) {
+        if (!r.mobs[target] || r.mobs[target].hp <= 0) target = alive[0][1];
+        box.prepend(el('div', { class: 'mini-targets' }, el('span', { class: 'small' }, '🎯 Cible : '),
+          ...alive.map(([m, i]) => el('button', { class: 'mini-target' + (i === target ? ' sel' : ''), onclick: () => { target = i; render(); } }, `${m.name} (${m.hp} PV)`)),
+          el('span', { class: 'small muted' }, 'ou clique sur un monstre')));
+      }
     } else if (r.state === 'loot') box.append(B(`🧺 Récolter ${r.loot.amount} ${resIcon(r.mode)}${r.loot.jackpot ? ` (coup de chance ×${String(r.loot.jackpot).replace('.', ',')} !)` : ''}`, startHarvest, { cls: 'primary', disabled: !!(harvestFx && !harvestFx.sent) }));
     else if (r.state === 'cleared') box.append(B('➡️ Salle suivante', () => act('next'), { cls: 'primary' }));
     else if (r.state === 'choice') {
@@ -345,6 +360,15 @@
     // héros
     if (r.state === 'over' && r.over.dead) A.drawGrave(ctx, HERO_X, G + 6);
     else if (me) A.drawHero(ctx, heroX + (heroAnim > 0 ? 18 * Math.sin((heroAnim / 0.3) * Math.PI) : 0), G + 6, { cls: me.cls, look: me.look, gear: window.PlayerApp.myGear(), t, scale: 2.2, facing: 0, moving: Math.abs(heroX - HERO_X) > 2 && Math.abs(heroX - (LOOT_X - 95)) > 2, attack: heroAnim });
+    // bulle de bouclier autour du héros
+    if (r.shield > 0 && r.state !== 'over') {
+      const k = r.shield / (r.shieldMax || M.BASE.shield);
+      ctx.save(); ctx.globalAlpha = 0.25 + 0.35 * k;
+      ctx.beginPath(); ctx.ellipse(heroX, G - 40, 52, 66, 0, 0, Math.PI * 2);
+      const gr = ctx.createRadialGradient(heroX, G - 40, 20, heroX, G - 40, 66); gr.addColorStop(0, 'rgba(127,208,255,0)'); gr.addColorStop(1, 'rgba(127,208,255,.9)');
+      ctx.fillStyle = gr; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#bfe8ff'; ctx.stroke();
+      ctx.restore();
+    }
     // butin
     const hf = harvestFx;
     if (r.loot || (hf && !hf.sent)) {

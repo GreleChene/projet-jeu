@@ -390,3 +390,8 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 .mini-sound { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .mini-vol { display: flex; align-items: center; gap: 6px; }
 .mini-vol input[type=range] { width: 110px; accent-color: var(--gold); }
+.mini-shield > span { background: #5ab4f0 !important; }
+.mini-targets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; width: 100%; }
+.mini-target { padding: 4px 10px; font-size: .9rem; }
+.mini-target.sel { outline: 3px solid var(--gold); background: #3a2f12; }
+.mini-sub { margin: 12px 0 4px; color: var(--gold); font-size: 1rem; }

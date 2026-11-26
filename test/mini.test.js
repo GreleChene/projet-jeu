@@ -87,3 +87,20 @@ test('mini-jeux : se protéger ne soigne pas', () => {
   mini.act(u, { action: 'defend' }, { rnd: fixed(0.99) });
   assert.ok(run.hp <= 10, 'pas de PV rendus');
 });
+
+test('mini-jeux : statistiques propres (améliorables), bouclier qui absorbe avec temps de recharge', () => {
+  const u = user();
+  u.mini = { energy: 3, energyAt: Date.now(), up: { vie: 2, force: 1, bouclier: 1 } };
+  const run = mini.start(u, 'mine', {}, { rnd: fixed(0.99) });
+  assert.strictEqual(run.max, 100 + 2 * 15, 'PV d’expédition, pas ceux du héros');
+  assert.strictEqual(run.dmg, 12);
+  assert.strictEqual(run.shieldMax, 30);
+  run.mobs.forEach((m) => { m.hp = 9999; m.dmg = 10; });
+  const hp0 = run.hp;
+  mini.act(u, { action: 'defend' }, { rnd: fixed(0.5) });
+  assert.ok(run.shield > 0 && run.shield < 30, 'le bouclier a absorbé les coups');
+  assert.strictEqual(run.hp, hp0, 'aucun PV perdu tant que le bouclier tient');
+  assert.throws(() => mini.act(u, { action: 'defend' }), /pas encore prêt/);
+  mini.buyUpgrade(Object.assign(u, { mini: { ...u.mini, res: { pierre: 999, bois: 999, baies: 999 } } }), 'vie');
+  assert.strictEqual(u.mini.up.vie, 3);
+});
