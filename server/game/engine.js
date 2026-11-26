@@ -852,6 +852,23 @@ class Game {
         seg.hp = Math.min(seg.max, Math.max(0, ratio * seg.max) + seg.max * (repair || 0));
       }
     }
+    // tours d'angle : avec la Pierre taillée, entre deux remparts voisins (ferme le passage des angles)
+    if (up.df_stone) {
+      for (const [c, [s1, s2, a]] of Object.entries(W.CORNERS)) {
+        const l1 = up['df_wall_' + s1] || 0, l2 = up['df_wall_' + s2] || 0;
+        if (!l1 || !l2) continue;
+        const base = W.HP.corner * (1 + 0.5 * (Math.min(l1, l2) - 1)) * scale * (1 + 0.3 * up.df_stone);
+        let seg = r.walls.find((x) => x.side === c && x.kind === 'corner');
+        if (!seg) {
+          const rad = (a * Math.PI) / 180;
+          seg = { side: c, a, kind: 'corner', x: WORLD.CX + Math.cos(rad) * W.D * 1.35, y: WORLD.CY + Math.sin(rad) * W.D * 0.85, hp: base, max: base };
+          r.walls.push(seg);
+        }
+        const ratio = seg.max > 0 ? seg.hp / seg.max : 1;
+        seg.max = Math.round(base);
+        seg.hp = Math.min(seg.max, Math.max(0, ratio * seg.max) + seg.max * (repair || 0));
+      }
+    }
   }
 
   // Segment de rempart qui barre la route d'un monstre de corps à corps vers sa destination
@@ -1269,7 +1286,7 @@ class Game {
       t: Math.round(this.time * 1000), ph: this.phase, ps: this.paused ? 1 : 0, sp: this.speed, gt: Math.floor(r.playTime || 0), w: r.wave,
       tw: [Math.ceil(r.tower.hp), r.tower.max], tr: r.treasury, up: r.upgrades, ts: r.towerSpec || '',
       // remparts : [x, y, PV % (0 = détruit), 1 = muret, angle]
-      wl: r.walls.map((w) => [Math.round(w.x), Math.round(w.y), w.hp > 0 ? Math.max(1, Math.ceil((100 * w.hp) / w.max)) : 0, w.kind === 'muret' ? 1 : 0, w.a]),
+      wl: r.walls.map((w) => [Math.round(w.x), Math.round(w.y), w.hp > 0 ? Math.max(1, Math.ceil((100 * w.hp) / w.max)) : 0, w.kind === 'muret' ? 1 : w.kind === 'corner' ? 2 : 0, w.a]),
       left: this.mobs.length + r.queue.length + r.bossPending.length,
       timer: Math.ceil(r.timer), seed: r.seed, tv: this.terrainVersion, ter: this.terrain, rv: this.rosterVersion,
       vote: r.vote ? { o: r.vote.options, c: this.voteCounts(), cost: Object.fromEntries(r.vote.options.map((o) => [o, UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0])) } : null,

@@ -791,7 +791,7 @@
     df_wall_s: { tower: 'defense', wall: 's', name: 'Rempart sud', icon: '🧱', desc: 'Construit (puis renforce) un rempart au sud des habitations : les monstres doivent le casser', cost: 70, growth: 1.5, max: 3 },
     df_wall_e: { tower: 'defense', wall: 'e', name: 'Rempart est', icon: '🧱', desc: 'Construit (puis renforce) un rempart à l’est des habitations : les monstres doivent le casser', cost: 70, growth: 1.5, max: 3 },
     df_wall_w: { tower: 'defense', wall: 'w', name: 'Rempart ouest', icon: '🧱', desc: 'Construit (puis renforce) un rempart à l’ouest des habitations : les monstres doivent le casser', cost: 70, growth: 1.5, max: 3 },
-    df_stone: { tower: 'defense', name: 'Pierre taillée', icon: '🪨', desc: '+30 % de PV pour tous les remparts (et les répare)', cost: 100, growth: 1.5, max: 5 },
+    df_stone: { tower: 'defense', name: 'Pierre taillée', icon: '🪨', desc: '+30 % de PV pour tous les remparts (et les répare) ; dresse une tour d’angle entre deux remparts voisins pour fermer le passage', cost: 100, growth: 1.5, max: 5 },
     df_spikes: { tower: 'defense', name: 'Pieux', icon: '🔱', desc: 'Les monstres qui frappent un rempart se blessent', cost: 90, growth: 1.5, max: 4 },
     df_armor: { tower: 'defense', name: 'Armurerie', icon: '🛡️', desc: '+6 % de réduction de dégâts pour tous les héros', cost: 110, growth: 1.5, max: 5 },
     df_keep: { tower: 'defense', name: 'Donjon renforcé', icon: '🏰', desc: '+10 % de PV max pour la tour (et autant de soin)', cost: 60, growth: 1.25, max: 10 },
@@ -820,10 +820,12 @@
   // Remparts (tour de défense) et murets (tour de soin) : segments autour des habitations
   const WALLS = {
     D: 250,             // rayon (repère elliptique des habitations) où se dressent les remparts
-    SPAN: 36,           // chaque côté couvre ±SPAN degrés (les angles restent ouverts : les monstres peuvent contourner)
+    SPAN: 36,           // chaque côté couvre ±SPAN degrés (les angles restent ouverts sans tour d'angle)
     STEP: 12,           // un segment tous les STEP degrés
     SIDES: { e: 0, s: 90, w: 180, n: 270 },
-    HP: { wall: 260, muret: 120 }, // PV d'un segment au niveau 1 (× 1 + 0,5 par niveau, × la manche)
+    // tours d'angle (Pierre taillée) : entre deux remparts voisins construits
+    CORNERS: { se: ['s', 'e', 45], sw: ['s', 'w', 135], nw: ['n', 'w', 225], ne: ['n', 'e', 315] },
+    HP: { wall: 260, muret: 120, corner: 420 }, // PV d'un segment au niveau 1 (× 1 + 0,5 par niveau, × la manche)
     REPAIR: 0.25        // part des PV réparée à chaque fin de manche
   };
 

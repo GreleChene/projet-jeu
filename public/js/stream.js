@@ -450,6 +450,7 @@
 
   // Segment de rempart (tour de défense) ou de muret (tour de soin) : [x, y, PV %, muret, angle]
   function drawWall(w) {
+    if (w[3] === 2) return drawCornerTower(w);
     const [x, y, hp, muret, aDeg] = w;
     const a = (aDeg * Math.PI) / 180;
     // tangente à l'ellipse des habitations (vue 3/4)
@@ -487,6 +488,39 @@
       }
     }
     if (hp < 100) bar(x - 22, y - H - (muret ? 14 : 18), 44, 4, hp / 100, hp > 40 ? P.ui.ok : P.ui.danger);
+    ctx.restore();
+  }
+
+  // Tour d'angle (Pierre taillée) : petite tour ronde en pierre avec créneaux et fanion
+  function drawCornerTower(w) {
+    const [x, y, hp] = w;
+    ctx.save();
+    if (!hp) {
+      for (let i = 0; i < 7; i++) A.rrect(ctx, x - 18 + (i % 4) * 10, y - 6 + ((i / 4) | 0) * 7 - (i % 2) * 2, 10, 7, 2, '#7d828b', 1.4);
+      ctx.restore();
+      return;
+    }
+    const R = 17, H = 46;
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 4, y + 4, R + 4, 8, 0, 0, Math.PI * 2); ctx.fill();
+    // fût
+    ctx.beginPath(); ctx.moveTo(x - R, y); ctx.lineTo(x - R, y - H); ctx.lineTo(x + R, y - H); ctx.lineTo(x + R, y);
+    ctx.ellipse(x, y, R, 7, 0, 0, Math.PI); ctx.closePath();
+    ctx.fillStyle = '#9aa3ae'; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = '#120c0a'; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x - R + 3, y - H + 2, 6, H - 2);
+    ctx.strokeStyle = '#6b7480'; ctx.lineWidth = 1.2;
+    for (let r = 1; r < 4; r++) { const yy = y - (H * r) / 4; ctx.beginPath(); ctx.moveTo(x - R + 1, yy); ctx.lineTo(x + R - 1, yy); ctx.stroke(); }
+    for (let r = 0; r < 4; r++) { const yy = y - (H * r) / 4, o = r % 2 ? 0 : 8; ctx.beginPath(); ctx.moveTo(x - 4 + o, yy); ctx.lineTo(x - 4 + o, yy - H / 4); ctx.stroke(); }
+    // meurtrière
+    A.rrect(ctx, x - 2, y - H * 0.62, 4, 10, 1, '#2a2226', 1);
+    // plateforme et créneaux
+    ctx.beginPath(); ctx.ellipse(x, y - H, R + 3, 6, 0, 0, Math.PI * 2); ctx.fillStyle = '#c4cbd4'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#120c0a'; ctx.stroke();
+    for (const dx of [-15, -5, 5, 15]) { ctx.beginPath(); ctx.rect(x + dx - 4, y - H - 10 + (Math.abs(dx) > 10 ? 2 : 4), 8, 8); ctx.fillStyle = '#c4cbd4'; ctx.fill(); ctx.stroke(); }
+    // fanion bleu (tour de défense)
+    ctx.strokeStyle = '#120c0a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - H - 4); ctx.lineTo(x, y - H - 30); ctx.stroke();
+    const fl = Math.sin(time * 4 + x) * 2;
+    ctx.beginPath(); ctx.moveTo(x + 1, y - H - 30); ctx.lineTo(x + 16, y - H - 25 + fl); ctx.lineTo(x + 1, y - H - 20); ctx.closePath();
+    ctx.fillStyle = '#3d7bd9'; ctx.fill(); ctx.lineWidth = 1.5; ctx.stroke();
+    if (hp < 100) bar(x - 22, y - H - 40, 44, 4, hp / 100, hp > 40 ? P.ui.ok : P.ui.danger);
     ctx.restore();
   }
 

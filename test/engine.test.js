@@ -217,6 +217,25 @@ test('remparts : un côté construit par amélioration, les monstres de corps à
   assert.ok(seg.hp < hp0, 'il le frappe');
 });
 
+test('tours d’angle : avec la Pierre taillée, entre deux remparts voisins, elles ferment le passage', () => {
+  const GD = require('../shared/constants');
+  const g = makeGame();
+  g.startRun(1);
+  g.run.towerSpec = 'defense'; g.run.treasury = 1000;
+  g.applyUpgrade('df_wall_e'); g.applyUpgrade('df_stone');
+  assert.strictEqual(g.run.walls.filter((w) => w.kind === 'corner').length, 0, 'pas de tour avec un seul rempart');
+  g.applyUpgrade('df_wall_s');
+  const corners = g.run.walls.filter((w) => w.kind === 'corner');
+  assert.deepStrictEqual(corners.map((w) => w.side), ['se'], 'une tour entre le sud et l’est');
+  g.setWave(3); g.mobs = []; g.run.queue = []; g.run.bossPending = [];
+  const c = corners[0], k = 1.6;
+  const m = g.spawnMob('gobelin', GD.WORLD.CX + (c.x - GD.WORLD.CX) * k, GD.WORLD.CY + (c.y - GD.WORLD.CY) * k, {});
+  const hp0 = c.hp;
+  for (let i = 0; i < 20 * 25; i++) { g.tick(0.05); if (m.hp <= 0) break; }
+  assert.ok(Math.hypot(m.x - GD.WORLD.CX, m.y - GD.WORLD.CY) > Math.hypot(c.x - GD.WORLD.CX, c.y - GD.WORLD.CY) - 10, 'le gobelin ne passe pas par l’angle');
+  assert.ok(c.hp < hp0, 'il frappe la tour d’angle');
+});
+
 test('partie rapide : 35 manches, boss et terrain accélérés, 1 zone max ; difficultés', () => {
   const GD = require('../shared/constants');
   const g = makeGame();
