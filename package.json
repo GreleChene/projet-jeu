@@ -13,7 +13,8 @@
     "sim:classes": "node tools/sim/classes.js",
     "sim:invocations": "node tools/sim/invocations.js",
     "sim:passifs": "node tools/sim/passifs.js",
-    "captures": "node tools/captures.js"
+    "captures": "node tools/captures.js",
+    "sim:minijeux": "node tools/sim/minijeux.js"
   },
   "engines": {
     "node": ">=18"

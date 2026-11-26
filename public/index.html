@@ -52,6 +52,7 @@
       </div>
       <nav class="tabs" id="tabs">
         <button data-tab="battle" class="active">⚔️ Bataille</button>
+        <button data-tab="mini">🎲 Mini-jeux</button>
         <button data-tab="hero">🧬 Classe & compétences <span class="badge" id="skillBadge"></span></button>
         <button data-tab="stats">📊 Statistiques <span class="badge hidden" id="ptsBadge"></span></button>
         <button data-tab="equip">🎒 Équipement <span class="badge hidden" id="iceBadge"></span></button>
@@ -248,6 +249,9 @@
         </div>
       </div>
 
+      <!-- Mini-jeux (expéditions solo) -->
+      <div data-view="mini" class="hidden"><div id="miniRoot"><div class="panel">Chargement…</div></div></div>
+
       <!-- Classement -->
       <div data-view="ladder" class="hidden">
         <div class="panel"><h2>Meilleurs défenseurs</h2><div class="table-wrap"><table id="ladder"></table></div></div>
@@ -300,5 +304,6 @@
   <script src="/js/art.js"></script>
   <script src="/js/common.js"></script>
   <script src="/js/player.js"></script>
+  <script src="/js/mini.js"></script>
 </body>
 </html>

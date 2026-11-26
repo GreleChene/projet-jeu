@@ -369,6 +369,8 @@ class Game {
     const prevCls = h.cls;
     // apparence et comportement (IA) restent modifiables ; classe, niveau, stats, équipement et habitation sont figés
     h.cls = p.cls; h.level = p.level; h.look = live.look; h.ai = live.ai;
+    // récolte en défense de tour : améliorée par « Récolteur aguerri » (mini-jeux)
+    h.harvestMul = 1 + 0.1 * ((live.mini && live.mini.up && live.mini.up.harvest) || 0);
     h.gear = GD.gearFor(p.cls, h.isBot ? p.gear : h.lock ? h.lock.gear : this.db.gearOf(p));
     h.attrs = p.attrs;
     const c = CLASSES[h.cls] || CLASSES.habitant;

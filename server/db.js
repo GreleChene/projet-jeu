@@ -124,6 +124,11 @@ function migrateUser(u) {
     }
     u.skillsV1 = u.skillsV2 = true;
   }
+  // mini-jeux : ressources du compte, améliorations, énergie (3 charges pour commencer)
+  if (!u.miniV1) {
+    u.mini = { res: { pierre: 0, bois: 0, baies: 0 }, up: {}, best: {}, energy: 3, energyAt: Date.now(), run: null, ...(u.mini || {}) };
+    u.miniV1 = true;
+  }
   return u;
 }
 

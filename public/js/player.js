@@ -72,6 +72,8 @@
   }
 
   function setUser(u) { me = u; renderAll(); }
+  // accès pour l'onglet Mini-jeux (mini.js)
+  window.PlayerApp = { me: () => me, myGear: () => myGear(), setUser: (u) => setUser(u) };
 
   // Équipement porté { slot: {t, r} } à partir de l'inventaire
   function myGear() {
@@ -114,6 +116,7 @@
     $$('[data-view]').forEach((v) => v.classList.toggle('hidden', v.dataset.view !== b.dataset.tab));
     if (b.dataset.tab === 'ladder') loadLadder();
     if (b.dataset.tab === 'market') loadMarket();
+    if (b.dataset.tab === 'mini' && window.MiniGames) window.MiniGames.open();
   }));
 
   function renderAll() {
@@ -1020,7 +1023,13 @@
         ul(GD.ATTR_IDS.map((a) => `${GD.ATTRIBUTES[a].icon} ${GD.ATTRIBUTES[a].name} : ${GD.ATTRIBUTES[a].desc}`))),
       sec('💰 Monnaies', ul([
         [hail(), el('b', {}, 'Grêlons'), ' : ta monnaie personnelle, gagnée en combattant et conservée entre les parties. Elle sert à acheter des glaçons, et tu en récupères en recyclant des objets.'],
-        ['🪙 ', el('b', {}, 'Écus'), ' : le trésor commun de l’équipe pendant une partie (éliminations, bonus de fin de manche). Il est dépensé lors des votes.']])),
+        ['🪨🪵🫐 ', el('b', {}, 'Ressources (pierre, bois, baies)'), ` : en bataille, les héros récoltent automatiquement près des rochers, arbres et buissons de la carte (réserve de l’équipe, dépensée lors des votes ; la posture d’IA « Priorité à la récolte » s’y consacre). Une amélioration coûte la ressource principale de la tour (bois : attaque, pierre : défense, baies : soin) + 1/3 d’une autre ; la tour de mage demande deux ressources équilibrées. Dans les mini-jeux, elles vont sur ton compte.`]])),
+      sec('🎲 Mini-jeux', ul([
+        `Trois expéditions solo au tour par tour : ${Object.values(GD.MINI.MODES).map((m) => `${m.icon} ${m.name} (${GD.RESOURCES[m.res].icon} ${GD.RESOURCES[m.res].name.toLowerCase()})`).join(', ')}.`,
+        `1 ⚡ par expédition ; 1 énergie toutes les ${GD.MINI.ENERGY_HOURS} h (${GD.MINI.ENERGY_MAX} au plus).`,
+        'Chaque salle : du butin, ou des monstres qui rapportent 1 ressource et de l’XP chacun. Plus tu descends, plus c’est rentable… et dangereux.',
+        `Toutes les ${GD.MINI.ELITE_EVERY} salles : une élite, puis une récompense au choix. Toutes les ${GD.MINI.ESCAPE_EVERY} salles : remonter ou continuer (mort : ${Math.round(GD.MINI.DEATH_LOSS * 100)} % des ressources perdues).`,
+        'Les ressources du compte améliorent les mini-jeux et ta récolte en défense de tour (« Récolteur aguerri »).'])),
       sec('🧊 Glaçons', ul([
         `Tu gagnes ${G.PER_WAVE} glaçon pour chaque manche passée avec ton héros en jeu.`,
         ['Un glaçon s’achète ', hail(), `${G.PRICE} Grêlons.`],

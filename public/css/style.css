@@ -367,3 +367,22 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 .tnode.tpost { border-style: dashed; }
 .tnode.tpost.owned { border-style: solid; }
 .tnode.tsummon { font-size: .78rem; }
+
+/* Mini-jeux */
+.mini-head { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
+.mini-bolt { opacity: .25; font-size: 1.2rem; }
+.mini-bolt.on { opacity: 1; }
+.mini-res { display: flex; flex-wrap: wrap; gap: 8px; }
+.mini-card h3 { margin: 8px 0 4px; color: var(--gold); font-family: var(--font-title); }
+.mini-thumb { width: 100%; height: auto; border-radius: 8px; border: 2px solid var(--outline); display: block; }
+.mini-ups { margin-top: 10px; display: grid; gap: 6px; }
+.mini-up { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mini-up button { white-space: nowrap; padding: 6px 10px; }
+.mini-info { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; margin-bottom: 8px; }
+.mini-hp { min-width: 200px; flex: 1; }
+.mini-scene-wrap { width: 100%; }
+.mini-scene { width: 100%; height: auto; border-radius: 10px; border: 3px solid var(--outline); display: block; cursor: pointer; image-rendering: auto; }
+.mini-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 10px 0; }
+.mini-reward { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; max-width: 260px; }
+.mini-log { list-style: none; padding: 0; margin: 0; max-height: 160px; overflow: auto; }
+.mini-log li { padding: 2px 0; }

@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const config = require('./config');
 const db = require('./db');
 const Game = require('./game/engine');
+const mini = require('./mini');
 const GD = require('../shared/constants');
 
 db.load();
@@ -164,6 +165,25 @@ app.put('/api/me/ai', auth, (req, res) => {
   afterProfileChange(req.user);
   res.json({ user: publicUser(req.user) });
 });
+
+/* ============================== Mini-jeux (expéditions solo) ============================== */
+function miniReply(res, u, fn) {
+  try {
+    fn();
+    db.markDirty();
+    res.json({ mini: mini.publicState(u), user: publicUser(u) });
+  } catch (e) {
+    if (e instanceof mini.MiniError) return res.status(400).json({ error: e.message });
+    throw e;
+  }
+}
+app.get('/api/mini', auth, (req, res) => res.json({ mini: mini.publicState(req.user) }));
+app.post('/api/mini/start', auth, (req, res) => miniReply(res, req.user, () => mini.start(req.user, String((req.body || {}).mode), db.gearOf(req.user))));
+app.post('/api/mini/act', auth, (req, res) => {
+  const b = req.body || {};
+  miniReply(res, req.user, () => mini.act(req.user, { action: String(b.action), target: Number(b.target) || 0, id: String(b.id || '') }, { grantXp: (u, xp) => game.grantXp(u, xp) }));
+});
+app.post('/api/mini/upgrade', auth, (req, res) => miniReply(res, req.user, () => { mini.buyUpgrade(req.user, String((req.body || {}).id)); afterProfileChange(req.user); }));
 
 /* ============================== Améliorations d'habitation ============================== */
 app.post('/api/me/house', auth, (req, res) => {

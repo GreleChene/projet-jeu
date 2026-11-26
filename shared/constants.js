@@ -852,6 +852,94 @@
   }
   const canPay = (stock, cost) => Object.entries(cost).every(([r, n]) => (stock[r] || 0) >= n);
   const costText = (cost) => Object.entries(cost).map(([r, n]) => `${RESOURCES[r].icon} ${n}`).join(' + ');
+
+  /* ------------------------------------------------------------------ */
+  /* Mini-jeux solo (onglet « Mini-jeux ») : expéditions tour par tour   */
+  /* de salle en salle. Chaque mode rapporte une ressource au compte.    */
+  /* ------------------------------------------------------------------ */
+  const MINI = {
+    ENERGY_MAX: 3,          // charges d'énergie au plus
+    ENERGY_HOURS: 6,        // 1 énergie toutes les 6 h ; une expédition coûte 1 énergie
+    ESCAPE_EVERY: 3,        // toutes les 3 salles : remonter avec son butin ou continuer
+    ELITE_EVERY: 5,         // toutes les 5 salles : un monstre d'élite et un choix de récompense
+    DEATH_LOSS: 0.75,       // mort : perte de 75 % des ressources de l'expédition (l'XP est gardée)
+    LOOT_CHANCE: 0.35,      // chance qu'une salle normale contienne du butin plutôt que des monstres
+    POTIONS: 2,             // potions de soin par expédition (soignent 35 % des PV)
+    POTION_HEAL: 0.35,
+    SKILL_CD: 3,            // la compétence revient tous les 3 tours
+    FLEE_CHANCE: 0.6,       // fuite réussie (salle normale) : on passe à la salle suivante sans récompense
+    DECOR_ROOMS: 10,        // un nouveau décor toutes les 10 salles (3 décors, puis le dernier se répète)
+    MODES: {
+      mine: {
+        name: 'Exploration de mine', icon: '⛏️', res: 'pierre', verb: 'Descendre dans la mine',
+        desc: 'Descends de galerie en galerie : filons de pierre et monstres des profondeurs.',
+        decors: [
+          { name: 'Galeries de terre', subs: ['Entrée étayée', 'Puits aux lanternes', 'Rails abandonnés', 'Salle des wagonnets', 'Boyau étroit', 'Éboulis'] },
+          { name: 'Cavernes de cristal', subs: ['Grotte d’améthyste', 'Lac souterrain', 'Forêt de stalagmites', 'Géode géante', 'Pont de pierre', 'Veines bleues'] },
+          { name: 'Profondeurs de magma', subs: ['Rivière de lave', 'Forge naine en ruine', 'Salle d’obsidienne', 'Cheminée volcanique', 'Trône du roi nain', 'Gouffre ardent'] }
+        ],
+        mobs: [['gobelin', 'araignee', 'gobelin_archer'], ['golem_glace', 'esprit_givre', 'araignee'], ['diablotin', 'chien_infernal', 'salamandre', 'elementaire']],
+        loot: 'Filon de pierre'
+      },
+      foret: {
+        name: 'Visite de la forêt', icon: '🌲', res: 'bois', verb: 'Entrer dans la forêt',
+        desc: 'Avance de clairière en clairière : bois de qualité et bêtes sauvages.',
+        decors: [
+          { name: 'Sous-bois', subs: ['Clairière', 'Sentier moussu', 'Ruisseau', 'Souche géante', 'Ronds de champignons', 'Cabane de bûcheron'] },
+          { name: 'Forêt profonde', subs: ['Chênes centenaires', 'Brume matinale', 'Marais', 'Racines géantes', 'Ruines oubliées', 'Cercle de pierres'] },
+          { name: 'Bois maudit', subs: ['Arbres morts', 'Toiles d’araignée', 'Feux follets', 'Cimetière oublié', 'Tronc creux', 'Cœur de la forêt'] }
+        ],
+        mobs: [['loup', 'sanglier', 'gobelin'], ['loup_neige', 'rampant', 'treant'], ['araignee', 'mutant', 'crapaud', 'champignon']],
+        loot: 'Bois tombé'
+      },
+      champ: {
+        name: 'Récolte du champ de baies', icon: '🫐', res: 'baies', verb: 'Partir aux champs',
+        desc: 'Traverse haies et collines : buissons chargés de baies et nuisibles affamés.',
+        decors: [
+          { name: 'Champs ensoleillés', subs: ['Haies de mûres', 'Meules de foin', 'Épouvantail', 'Moulin', 'Ruches', 'Verger'] },
+          { name: 'Collines sauvages', subs: ['Buissons épineux', 'Rochers moussus', 'Prairie fleurie', 'Pont de bois', 'Ferme abandonnée', 'Vieux puits'] },
+          { name: 'Vallée crépusculaire', subs: ['Coucher de soleil', 'Champ de citrouilles', 'Buissons géants', 'Tour en ruine', 'Lucioles', 'Autel des récoltes'] }
+        ],
+        mobs: [['gobelin', 'gobelin_archer', 'sanglier'], ['crapaud', 'champignon', 'rampant'], ['diablotin', 'salamandre', 'mutant']],
+        loot: 'Buisson chargé'
+      }
+    },
+    // Récompenses d'élite (3 tirées au hasard) : { kind, …valeurs }
+    ELITE_REWARDS: {
+      dmg: { name: 'Force du vainqueur', icon: '⚔️', desc: '+20 % de dégâts jusqu’à la fin de l’expédition' },
+      hp: { name: 'Endurance', icon: '❤️', desc: '+20 % de PV max (et soin de ce bonus) jusqu’à la fin de l’expédition' },
+      crit: { name: 'Œil vif', icon: '🎯', desc: '+10 % de chances de critique jusqu’à la fin de l’expédition' },
+      heal: { name: 'Repos', icon: '💚', desc: 'Soigne tous les PV' },
+      res: { name: 'Trésor de l’élite', icon: '💰', desc: 'Un gros tas de la ressource du mode' },
+      grelons: { name: 'Bourse de Grêlons', icon: '🌨️', desc: 'Des Grêlons tout de suite (gardés même en cas de mort)' },
+      potion: { name: 'Fiole', icon: '🧪', desc: '+1 potion de soin' }
+    },
+    // Améliorations achetées avec les ressources du compte
+    // mode : amélioration d'un mini-jeu (payée avec sa ressource) ; all : payée avec les trois ressources
+    UPGRADES: {
+      luck: { perMode: true, name: 'Flair', icon: '🔎', desc: '+5 % de chances qu’une salle contienne du butin', cost: 15, growth: 1.6, max: 6 },
+      bounty: { perMode: true, name: 'Gros butin', icon: '💎', desc: '+15 % de ressources dans le butin', cost: 20, growth: 1.6, max: 6 },
+      jackpot: { perMode: true, name: 'Coup de chance', icon: '🍀', desc: '+4 % de chances qu’un butin soit triplé', cost: 25, growth: 1.65, max: 5 },
+      potion: { name: 'Sacoche de potions', icon: '🧪', desc: '+1 potion de soin par expédition', res: 'baies', cost: 40, growth: 2, max: 3 },
+      harvest: { name: 'Récolteur aguerri', icon: '🧺', desc: '+10 % de récolte pour ton héros en défense de tour', all: true, cost: 25, growth: 1.5, max: 10 }
+    }
+  };
+  // Identifiant d'une amélioration de mini-jeu (luck_mine, potion, harvest…) et son coût au niveau lvl
+  function miniUpgradeCost(id, lvl) {
+    const [key, mode] = id.split('_');
+    const u = MINI.UPGRADES[key];
+    if (!u || (u.perMode && !MINI.MODES[mode])) return null;
+    const v = Math.round(u.cost * Math.pow(u.growth, lvl || 0));
+    if (u.all) return Object.fromEntries(RES_IDS.map((k) => [k, v]));
+    return { [u.perMode ? MINI.MODES[mode].res : u.res]: v };
+  }
+  const miniUpgradeIds = () => Object.entries(MINI.UPGRADES).flatMap(([k, u]) => (u.perMode ? Object.keys(MINI.MODES).map((m) => `${k}_${m}`) : [k]));
+  // Décor d'une salle : 0-2 selon la profondeur, sous-décor 0-5 tiré de la salle et de la graine de l'expédition
+  function miniDecor(room, seed) {
+    const d = Math.min(2, Math.floor((room - 1) / MINI.DECOR_ROOMS));
+    let h = (room * 2654435761 + (seed | 0) * 40503) >>> 0; h ^= h >>> 15;
+    return { decor: d, sub: (h >>> 0) % 6 };
+  }
   // Remparts (tour de défense) et murets (tour de soin) : segments autour des habitations
   const WALLS = {
     D: 250,             // rayon (repère elliptique des habitations) où se dressent les remparts
@@ -912,5 +1000,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { MINI, miniUpgradeCost, miniUpgradeIds, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });
