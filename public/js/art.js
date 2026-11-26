@@ -608,6 +608,63 @@
   }
 
   /* ------------------------------ tour ------------------------------ */
+  /* ------------------------------ points de récolte (défense de tour) ------------------------------
+   * kind : 0 = rocher (pierre), 1 = arbre (bois), 2 = buisson (baies) ; pct : ressources restantes (0-100)
+   * Le point rétrécit en s'épuisant ; épuisé : cailloux, souche, buisson nu. */
+  function drawResNode(ctx, kind, x, y, pct, t, seed) {
+    const k = pct / 100, sc = 0.6 + 0.4 * k;
+    ctx.save(); ctx.translate(x, y);
+    if (kind === 0) {
+      if (pct <= 0) { for (const [dx, dy, r] of [[-10, 0, 4], [3, 2, 5], [12, -1, 3]]) ellipse(ctx, dx, dy, r, r * 0.7, P.stone[2], 1.4); ctx.restore(); return; }
+      shadow(ctx, 0, 2, 30 * sc, 8 * sc);
+      ctx.scale(sc, sc);
+      poly(ctx, [-30, 2, -26, -16, -12, -28, 4, -30, 18, -22, 28, -8, 30, 2], '#8e97a3', 2.5);
+      poly(ctx, [-26, -16, -12, -28, 4, -30, -4, -14, -18, -6], '#aeb6c0', 1.6);
+      poly(ctx, [4, -30, 18, -22, 28, -8, 10, -10, -4, -14], '#7c8591', 1.6);
+      ellipse(ctx, 22, 2, 11, 7, '#8e97a3', 2);
+      // filons qui brillent
+      for (const [gx, gy, ph] of [[-10, -12, 0], [12, -16, 2], [-18, -4, 4]]) {
+        const tw = 0.5 + 0.5 * Math.sin(t * 3 + ph + seed);
+        poly(ctx, [gx, gy - 4, gx + 3, gy, gx, gy + 3, gx - 3, gy], '#e8eef5', 1);
+        ctx.fillStyle = `rgba(255,255,255,${tw})`; ctx.fillRect(gx - 1, gy - 6, 2, 2);
+      }
+    } else if (kind === 1) {
+      if (pct <= 0) {
+        ellipse(ctx, 0, 0, 13, 6, P.wood[1], 2); ellipse(ctx, 0, -3, 11, 5, '#d9b07a', 1.8);
+        ctx.strokeStyle = '#a8703f'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(0, -3, 6, 2.5, 0, 0, TAU); ctx.stroke();
+        ctx.restore(); return;
+      }
+      shadow(ctx, 0, 3, 32 * sc, 9 * sc);
+      // tas de bûches au pied
+      for (const [dx, dy] of [[18, 2], [26, 2], [22, -5]]) { ellipse(ctx, dx, dy, 5, 4, '#d9b07a', 1.5); }
+      ctx.scale(sc, sc);
+      rrect(ctx, -7, -40, 14, 42, 4, P.wood[1], 2.5);
+      // entaille de hache
+      poly(ctx, [7, -18, -1, -14, 7, -10], '#e6c08a', 1.4);
+      const sway = Math.sin(t * 1.5 + seed) * 1.5;
+      const g = '#3f9a3e';
+      circle(ctx, -16 + sway, -48, 16, shade(g, -0.1)); circle(ctx, 16 + sway, -48, 16, shade(g, -0.1));
+      circle(ctx, 0 + sway, -66, 19, g); circle(ctx, -6 + sway, -52, 14, shade(g, 0.08), 0.01);
+    } else {
+      if (pct <= 0) {
+        ctx.strokeStyle = '#6b4a2a'; ctx.lineWidth = 2;
+        for (const a of [-0.9, -0.4, 0.1, 0.6]) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.sin(a) * 16, -Math.cos(a) * 16); ctx.stroke(); }
+        ctx.restore(); return;
+      }
+      shadow(ctx, 0, 2, 26 * sc, 7 * sc);
+      ctx.scale(sc, sc);
+      const g = '#4f9e3a';
+      circle(ctx, -14, -12, 13, shade(g, -0.12)); circle(ctx, 14, -12, 13, shade(g, -0.12)); circle(ctx, 0, -22, 16, g);
+      // baies : leur nombre baisse avec la récolte
+      const n = Math.max(1, Math.round(9 * k));
+      for (let i = 0; i < n; i++) {
+        const bx = Math.round(T.hash2(i, seed | 0, 41) * 34 - 17), by = Math.round(-6 - T.hash2(i, seed | 0, 43) * 26);
+        circle(ctx, bx, by, 3.2, i % 3 ? '#5a4fd6' : '#c0306a', 1.2);
+      }
+    }
+    ctx.restore();
+  }
+
   /* ------------------------------ dégradation des bâtiments ------------------------------
    * Effets superposés (non mis en cache, animés) selon les PV restants :
    *  < 85 % : fissures légères · < 60 % : grosses fissures, suie, gravats, filet de fumée
@@ -1748,5 +1805,5 @@
     ctx.restore();
   }
 
-  window.Art = { mobTop, heroPortrait, heroTop: (s, mounted) => 29 * Math.max(1, Math.round(s * 1.45)) + (mounted ? MOUNT_LIFT * Math.max(1, Math.round(Math.max(1, Math.round(s * 1.45)) * 0.8)) : 0), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawDamage, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
+  window.Art = { mobTop, heroPortrait, heroTop: (s, mounted) => 29 * Math.max(1, Math.round(s * 1.45)) + (mounted ? MOUNT_LIFT * Math.max(1, Math.round(Math.max(1, Math.round(s * 1.45)) * 0.8)) : 0), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawDamage, drawResNode, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
 })();

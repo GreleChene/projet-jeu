@@ -86,7 +86,7 @@
         el('div', { class: 'stat' }, el('b', {}, `${r.wave}/${r.maxWave}`), el('span', { class: 'small muted' }, `${r.modeName} · ${r.difficultyName} · ${r.era}`)),
         el('div', { class: 'stat' }, el('b', {}, r.mobs), el('span', { class: 'small muted' }, 'ennemis')),
         el('div', { class: 'stat' }, el('b', {}, `${r.tower.hp}`), el('span', { class: 'small muted' }, `PV tour / ${r.tower.max}`)),
-        el('div', { class: 'stat' }, el('b', {}, '🪙 ' + r.treasury), el('span', { class: 'small muted' }, 'écus de l’équipe')),
+        el('div', { class: 'stat' }, el('b', {}, GD.RES_IDS.map((k) => `${GD.RESOURCES[k].icon} ${(r.res || {})[k] || 0}`).join('  ')), el('span', { class: 'small muted' }, 'réserve de l’équipe')),
         el('div', { class: 'stat' }, el('b', {}, r.heroes), el('span', { class: 'small muted' }, 'héros'))
       ),
       el('p', { class: 'small muted' }, 'Améliorations : ' + (Object.entries(r.upgrades).filter(([k, v]) => v && k !== 'pact' && k !== 'revive').map(([k, v]) => `${GD.UPGRADES[k].icon} ${GD.UPGRADES[k].name} ${v}`).join(' · ') || 'aucune'))

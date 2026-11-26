@@ -195,6 +195,7 @@
       case 'lvl': add({ k: 'text', x: e[1], y: e[2] - 50, s: 'NIVEAU ' + e[3], color: P.ui.gold, dur: 1.6, size: 22 }); add({ k: 'ring', x: e[1], y: e[2], r: 40, color: P.ui.gold, dur: 0.6, w: 6 }); break;
       case 'coin': add({ k: 'text', x: e[1], y: e[2], s: '+' + e[3] + ' 🪙', color: P.ui.gold, dur: 1.1, size: 15 }); break;
       case 'text': add({ k: 'text', x: e[1], y: e[2], s: e[3], color: e[4], dur: 1.5, size: 18 }); break;
+      case 'hv': { const R = GD.RESOURCES[GD.RES_IDS[e[3]]]; add({ k: 'text', x: e[1], y: e[2], s: '+3 ' + R.icon, color: '#ffffff', dur: 1.1, size: 14 }); break; }
       case 'dash': add({ k: 'dash', x: e[1], y: e[2] - 14, x2: e[3], y2: e[4] - 14, dur: 0.3 }); break;
       case 'puff': add({ k: 'puff', x: e[1], y: e[2] - 10, dur: 0.5, r: 18 }); break;
       case 'ult': {
@@ -341,6 +342,7 @@
       const shake = trackHit('b' + bx + ',' + by, hp, bx, by - 30);
       list.push({ y: by + 4, d: () => { ctx.save(); ctx.translate(bx, by); ctx.scale(BUILDING_SCALE, BUILDING_SCALE); A.drawBuilding(ctx, variant || def.family, 0, 0, { hp: hp / 100, t: time + bx, color: fam ? fam.color : P.ui.gold, seed: bx + by, shake }); ctx.restore(); } });
     }
+    for (const n of snap.rn || []) list.push({ y: n[1], d: () => A.drawResNode(ctx, n[2], n[0], n[1], n[3], time, n[0] + n[1]) });
     for (const w of snap.wl || []) { trackHit('w' + w[0] + ',' + w[1], w[2], w[0], w[1] - 14, '#b8b0a6'); list.push({ y: w[1], d: () => drawWall(w) }); }
     for (const [id, h] of heroes) list.push({ y: h.y, d: () => drawHeroEnt(id, h) });
     for (const m of mobs.values()) list.push({ y: m.y, d: () => drawMobEnt(m, false) });
@@ -814,10 +816,14 @@
     }
     // écus de l'équipe + améliorations
     panel(14, 14, 300, 104);
-    text(`🪙 ${s.tr} écus`, 34, 50, 24, P.ui.gold, 'left', 'b');
-    text('Trésor de l’équipe', 34, 70, 12, P.ui.muted, 'left', 'b');
+    (s.rs || []).forEach((n, i) => {
+      const R = GD.RESOURCES[GD.RES_IDS[i]];
+      ctx.font = `20px ${FONT_B}`; ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.fillText(R.icon, 30 + i * 94, 50);
+      text(String(n), 56 + i * 94, 50, 22, '#ffffff', 'left', 'b');
+    });
+    text('Réserve de l’équipe', 34, 70, 12, P.ui.muted, 'left', 'b');
     let ux = 34;
-    const ups = Object.entries(s.up).filter(([id, lvl]) => lvl && id !== 'pact' && id !== 'revive' && UPGRADES[id])
+    const ups = Object.entries(s.up).filter(([id, lvl]) => lvl && id !== 'pact' && id !== 'revive' && id !== 'nature' && UPGRADES[id])
       .sort((a, b) => (UPGRADES[b[0]].towerSpec ? 1 : 0) - (UPGRADES[a[0]].towerSpec ? 1 : 0)).slice(0, 7);
     for (const [id, lvl] of ups) {
       ctx.font = `18px ${FONT_B}`; ctx.textAlign = 'left'; ctx.fillStyle = '#fff'; ctx.fillText(UPGRADES[id].icon, ux, 102);
@@ -919,16 +925,16 @@
     opts.forEach((o, i) => {
       const x = x0 + i * (w + gap);
       const up = UPGRADES[o];
-      const name = o === 'save' ? 'Économiser' : up.name;
-      const icon = o === 'save' ? '🪙' : up.icon;
-      const cost = s.vote.cost[o];
-      const afford = !cost || cost <= s.tr;
+      const name = up.name, icon = up.icon;
+      const cost = s.vote.cost[o] || {};
+      const stock = Object.fromEntries(GD.RES_IDS.map((k, j) => [k, (s.rs || [])[j] || 0]));
+      const paid = Object.keys(cost).length > 0, afford = GD.canPay(stock, cost);
       ctx.globalAlpha = afford ? 1 : 0.45;
       A.rrect(ctx, x, y0, w, h, 8, o === 'pact' ? '#3a1f2a' : P.ui.panel2, 2);
       ctx.font = `22px ${FONT_B}`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(icon, x + 20, y0 + 30);
       text(name, x + 38, y0 + 22, 14, '#ffffff', 'left', 'b');
       text(`!${i + 1}`, x + w - 8, y0 + 20, 14, '#bf94ff', 'right', 'b');
-      text(cost ? `🪙 ${cost}` : o === 'pact' ? 'Récompenses ×2' : 'Garder les écus', x + 38, y0 + 39, 11, cost ? P.ui.gold : P.ui.muted, 'left', 'b');
+      text(paid ? GD.costText(cost) : o === 'pact' ? 'Récompenses ×2' : o === 'nature' ? 'Repousse de 30 %' : 'Gratuit', x + 38, y0 + 39, 11, paid ? P.ui.gold : P.ui.muted, 'left', 'b');
       const n = s.vote.c[o] || 0;
       bar(x + 8, y0 + 48, w - 50, 7, n / total, o === 'pact' ? P.ui.danger : P.ui.accent);
       text(`${n}`, x + w - 10, y0 + 56, 12, P.ui.text, 'right', 'b');

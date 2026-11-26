@@ -315,12 +315,6 @@
     WAVE_XP_PER_WAVE: 4,
     WAVE_GRELONS_BASE: 2,
     WAVE_GRELONS_PER_WAVE: 0.5,
-    WAVE_ECUS_BASE: 20, // écus pour l'équipe en fin de manche (de quoi acheter tôt les premières améliorations)
-    WAVE_ECUS_PER_WAVE: 0.5,
-    KILL_ECUS: 0.5, // part de la valeur d'un monstre versée en écus à l'équipe
-    // les écus d'élimination diminuent au fil de la partie (÷2 vers la manche ECUS_LATE_DECAY, ÷4 vers 3× cette manche)
-    // pour éviter d'accumuler des milliers d'écus inutilisés en fin de partie
-    ECUS_LATE_DECAY: 30,
     HAZARD_BASE: 2, // zones dangereuses du biome par manche = BASE + PAR_MANCHE×m (max HAZARD_MAX)
     HAZARD_PER_WAVE: 0.08,
     HAZARD_MAX: 4,
@@ -653,7 +647,7 @@
   /* IA personnalisable                                                  */
   /* ------------------------------------------------------------------ */
   const AI_OPTIONS = {
-    stance: { offensive: 'Offensive (chasse partout)', balanced: 'Équilibrée', defensive: 'Défensive (près de la tour)', home: 'Garde de son habitation (reste près d’elle)' },
+    stance: { offensive: 'Offensive (chasse partout)', balanced: 'Équilibrée', defensive: 'Défensive (près de la tour)', home: 'Garde de son habitation (reste près d’elle)', harvest: 'Priorité à la récolte (sans se mettre en danger)' },
     target: { nearest: 'Le plus proche', weakest: 'Le plus faible', strongest: 'Le plus fort (élites, boss)', tower: 'Ceux qui attaquent la tour' },
     ult: { asap: 'Dès qu’il est prêt', smart: 'Au bon moment (groupe / urgence)', boss: 'Garder pour les boss' }
   };
@@ -815,8 +809,49 @@
     mg_focus: { tower: 'mage', name: 'Concentration', icon: '🔮', desc: 'Les ultimes des héros se chargent 8 % plus vite', cost: 90, growth: 1.45, max: 5 },
     // proposée seulement s'il y a au moins un héros mort (les héros ne réapparaissent pas d'eux-mêmes)
     revive: { name: 'Résurrection', icon: '💖', desc: 'Réanime un héros mort au hasard à 60% de ses PV', cost: 40, growth: 1.3, max: 999, revive: true },
-    pact: { name: 'Pacte de sang', icon: '💀', desc: 'Manche suivante : ennemis +50% PV et nombre, récompenses ×2', cost: 0, growth: 1, max: 999, challenge: true }
+    pact: { name: 'Pacte de sang', icon: '💀', desc: 'Manche suivante : ennemis +50% PV et nombre, récompenses ×2', cost: 0, growth: 1, max: 999, challenge: true },
+    // proposée au hasard dans les votes quand la carte a été bien récoltée
+    nature: { name: 'Vitalité de la nature', icon: '🌱', desc: 'Les points de récolte de la carte récupèrent 30 % de leurs ressources', cost: 0, growth: 1, max: 999, nature: true }
   };
+
+  /* ------------------------------------------------------------------ */
+  /* Ressources (pierre, bois, baies) : récoltées par les héros sur la carte (réserve d'équipe de la partie)
+   * et gagnées dans les mini-jeux (réserve du compte)                                                     */
+  /* ------------------------------------------------------------------ */
+  const RESOURCES = {
+    pierre: { name: 'Pierre', icon: '🪨', color: '#9aa3ae', node: 'rocher' },
+    bois: { name: 'Bois', icon: '🪵', color: '#a8703f', node: 'arbre' },
+    baies: { name: 'Baies', icon: '🫐', color: '#7a4fd6', node: 'buisson' }
+  };
+  const RES_IDS = Object.keys(RESOURCES);
+  // ressource principale de chaque tour (la tour de mage équilibre les trois)
+  const TOWER_RES = { attaque: 'bois', defense: 'pierre', soin: 'baies' };
+  const HARVEST = {
+    PER_KIND: 10,         // points de récolte de chaque sorte au début d'une partie
+    AMOUNT: [110, 180],   // ressources dans un point de récolte
+    RANGE: 70,            // un héros à moins de RANGE px d'un point récolte automatiquement
+    RATE: 1.5,            // ressources par seconde et par héros
+    NATURE_REGROW: 0.3,   // vote « Vitalité de la nature » : part des ressources rendue à chaque point
+    NATURE_CHANCE: 0.4,   // chance que ce choix apparaisse dans un vote (si la carte a été entamée)
+    START: 30             // réserve de chaque ressource au début de la partie
+  };
+  // Coût d'une amélioration au niveau lvl, en ressources : sa ressource principale + 1/3 d'une autre
+  // (tour de mage : deux ressources à peu près équilibrées). Résurrection : des baies.
+  function upgradeResCost(id, lvl) {
+    const u = UPGRADES[id];
+    if (!u || u.challenge || u.nature || u.towerSpec || !u.cost) return {};
+    const v = Math.round(u.cost * Math.pow(u.growth, lvl || 0));
+    if (u.revive) return { baies: v };
+    const k = Object.keys(UPGRADES).filter((x) => UPGRADES[x].tower === u.tower).indexOf(id);
+    if (u.tower === 'mage') {
+      const [a, b] = [['pierre', 'bois'], ['bois', 'baies'], ['baies', 'pierre']][k % 3];
+      return { [a]: Math.round(v * 0.7), [b]: Math.round(v * 0.62) };
+    }
+    const main = TOWER_RES[u.tower], others = RES_IDS.filter((r) => r !== main);
+    return { [main]: v, [others[k % 2]]: Math.round(v / 3) };
+  }
+  const canPay = (stock, cost) => Object.entries(cost).every(([r, n]) => (stock[r] || 0) >= n);
+  const costText = (cost) => Object.entries(cost).map(([r, n]) => `${RESOURCES[r].icon} ${n}`).join(' + ');
   // Remparts (tour de défense) et murets (tour de soin) : segments autour des habitations
   const WALLS = {
     D: 250,             // rayon (repère elliptique des habitations) où se dressent les remparts
@@ -877,5 +912,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

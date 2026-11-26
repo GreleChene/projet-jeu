@@ -69,8 +69,10 @@ class Game {
       walls: [], // segments de remparts / murets
       // habitations : une par héros, du type de sa classe (refuge et soin entre les manches)
       buildings: [],
-      treasury: 0,
-      wealthEarned: 0,
+      // réserve d'équipe (pierre, bois, baies) et total récolté ; points de récolte de la carte
+      res: Object.fromEntries(GD.RES_IDS.map((k) => [k, GD.HARVEST.START])),
+      resEarned: Object.fromEntries(GD.RES_IDS.map((k) => [k, 0])),
+      nodes: [],
       upgrades: Object.fromEntries(Object.keys(UPGRADES).map((k) => [k, 0])),
       pactNext: false,
       pactActive: false,
@@ -159,8 +161,9 @@ class Game {
     this.resetRun();
     this.run.cleared = Math.max(0, Math.min(this.maxWave() - 1, (fromWave | 0) - 1));
     this.run.wave = this.run.cleared;
-    // si on démarre plus loin (test), on donne quelques écus et d'améliorations cohérentes
-    if (this.run.cleared > 0) this.run.treasury = this.run.wealthEarned = this.run.cleared * 25;
+    // si on démarre plus loin (test), on donne quelques ressources
+    if (this.run.cleared > 0) for (const k of GD.RES_IDS) this.run.res[k] += this.run.cleared * 20;
+    this.spawnNodes();
     this.terrainChanged();
     this.phase = 'intermission';
     this.run.timer = Math.max(5, this.settings.prepTime);
@@ -174,10 +177,7 @@ class Game {
     const u = UPGRADES[id];
     if (!u || u.challenge || u.revive || this.run.upgrades[id] >= u.max) return false;
     if (u.tower && !this.run.towerSpec) this.run.towerSpec = u.tower;
-    const t = this.run.treasury;
-    this.run.treasury = 1e9;
-    this.applyUpgrade(id);
-    this.run.treasury = t;
+    this.applyUpgrade(id, true);
     return true;
   }
 
@@ -304,7 +304,7 @@ class Game {
         return sk;
       })(),
       attrs: (() => { const a = GD.emptyAttrs(); for (let i = 1; i < lvl; i++) a[U.pick(GD.ATTR_IDS)]++; return a; })(),
-      ai: { stance: U.pick(['offensive', 'balanced', 'defensive']), target: U.pick(['nearest', 'weakest', 'strongest', 'tower']), ult: U.pick(['asap', 'smart', 'boss']) }
+      ai: { stance: U.pick(['offensive', 'balanced', 'defensive', 'harvest']), target: U.pick(['nearest', 'weakest', 'strongest', 'tower']), ult: U.pick(['asap', 'smart', 'boss']) }
     };
     this.refreshHero(h);
     h.hp = h.maxHp;
@@ -536,14 +536,12 @@ class Game {
     for (const h of dead) { this.reviveHero(h); this.pushFeed(`⛑️ Le sanctuaire réanime ${h.name} !`); }
     // remparts et murets : nouveaux PV selon la manche, et une partie est réparée
     this.refreshWalls(GD.WALLS.REPAIR);
-    const bonus = Math.round((GD.BALANCE.WAVE_ECUS_BASE + this.powerWave(r.wave) * GD.BALANCE.WAVE_ECUS_PER_WAVE) * (r.pactActive ? 2 : 1));
-    this.addTreasury(bonus);
     r.pactActive = false;
     if (r.wave >= this.maxWave()) { this.closeVote(true); return this.victory(); }
     // le vote reste ouvert pendant l'entracte : il est appliqué au début de la manche suivante
     this.phase = 'intermission';
     r.timer = this.settings.intermission;
-    this.announce(`Manche ${r.wave} terminée !`, wasBoss ? 'Le terrain se transforme…' : `+${bonus} écus`);
+    this.announce(`Manche ${r.wave} terminée !`, wasBoss ? 'Le terrain se transforme…' : 'Récoltez avant la prochaine manche !');
   }
 
   // partie rapide : vote à chaque manche ; classique : réglage de l'admin
@@ -559,19 +557,76 @@ class Game {
     return (Math.floor(this.run.cleared / n) + 1) * n;
   }
 
-  addTreasury(n) {
-    this.run.treasury += n;
-    this.run.wealthEarned += n;
+  // Ajoute des ressources à la réserve d'équipe (n peut être négatif : test admin)
+  addRes(k, n) {
+    const r = this.run;
+    r.res[k] = Math.max(0, (r.res[k] || 0) + n);
+    if (n > 0) r.resEarned[k] = (r.resEarned[k] || 0) + n;
+  }
+  resStock() { return Object.fromEntries(GD.RES_IDS.map((k) => [k, Math.floor(this.run.res[k] || 0)])); }
+
+  /* ============================== Récolte ============================== */
+  // Points de récolte placés au hasard au début de la partie : arbres (bois), rochers (pierre), buissons (baies)
+  spawnNodes() {
+    const H = GD.HARVEST, out = [];
+    const er = (x, y) => Math.hypot((x - WORLD.CX) / 1.35, (y - WORLD.CY) / 0.85);
+    for (const k of GD.RES_IDS) {
+      for (let i = 0; i < H.PER_KIND; i++) {
+        for (let tries = 0; tries < 60; tries++) {
+          const x = U.rand(90, WORLD.W - 90), y = U.rand(130, WORLD.H - 70);
+          const e = er(x, y);
+          if (e < 330 || e > 760) continue; // hors du village, sans aller trop loin
+          if (out.some((n) => (n.x - x) ** 2 + (n.y - y) ** 2 < 95 * 95)) continue;
+          const amt = Math.round(U.rand(H.AMOUNT[0], H.AMOUNT[1]));
+          out.push({ id: out.length, res: k, x: Math.round(x), y: Math.round(y), amt, max: amt });
+          break;
+        }
+      }
+    }
+    this.run.nodes = out;
+  }
+
+  // Chaque héros vivant récolte le point le plus proche à sa portée (récolte améliorée par les mini-jeux)
+  updateHarvest(dt) {
+    const r = this.run, H = GD.HARVEST;
+    if (!r.nodes.length) return;
+    for (const h of this.heroes.values()) {
+      if (!h.alive || h.zombie) continue;
+      let best = null, bd = H.RANGE * H.RANGE;
+      for (const n of r.nodes) {
+        if (n.amt <= 0) continue;
+        const d = (n.x - h.x) ** 2 + (n.y - h.y) ** 2;
+        if (d < bd) { bd = d; best = n; }
+      }
+      h.harvesting = best ? best.id : -1;
+      if (!best) continue;
+      const take = Math.min(best.amt, H.RATE * (h.harvestMul || 1) * dt);
+      best.amt -= take;
+      this.addRes(best.res, take);
+      h.runHarvest = (h.runHarvest || 0) + take;
+      h.hvFrac = (h.hvFrac || 0) + take;
+      if (h.hvFrac >= 3) { h.hvFrac -= 3; this.fx(['hv', Math.round(h.x), Math.round(h.y) - 50, GD.RES_IDS.indexOf(best.res)]); }
+      if (best.amt <= 0) { best.amt = 0; this.fx(['puff', best.x, best.y]); }
+    }
+  }
+
+  // Vote « Vitalité de la nature » : chaque point récupère 30 % de ses ressources
+  regrowNodes() {
+    for (const n of this.run.nodes) n.amt = Math.min(n.max, n.amt + n.max * GD.HARVEST.NATURE_REGROW);
+  }
+  natureNeeded() {
+    const r = this.run;
+    const left = r.nodes.reduce((s, n) => s + n.amt, 0), max = r.nodes.reduce((s, n) => s + n.max, 0);
+    return max > 0 && left < max * 0.8;
   }
 
   /* ============================== Votes d'équipe ============================== */
-  upgradeCost(id) {
-    const u = UPGRADES[id];
-    return Math.round(u.cost * Math.pow(u.growth, this.run.upgrades[id]));
-  }
+  // Coût en ressources (objet { pierre, bois, baies }) au prochain niveau
+  upgradeCost(id) { return GD.upgradeResCost(id, this.run.upgrades[id] || 0); }
+  canAfford(id) { return GD.canPay(this.run.res, this.upgradeCost(id)); }
 
-  // Premier vote : la spécialisation de la tour ; ensuite 2 de ses améliorations + Pacte de sang + Économiser
-  // (+ Résurrection s'il y a un mort) : 4 choix, 5 avec la Résurrection
+  // Premier vote : la spécialisation de la tour ; ensuite 2 de ses améliorations + Pacte de sang
+  // (+ Vitalité de la nature, au hasard) (+ Résurrection s'il y a un mort)
   openVote() {
     const r = this.run;
     let opts;
@@ -582,10 +637,11 @@ class Game {
         return u.tower === r.towerSpec && r.upgrades[id] < u.max && (!u.needs || r.upgrades[u.needs] > 0);
       });
       // priorité aux améliorations abordables, puis les autres pour faire rêver
-      const affordable = U.shuffle(avail.filter((id) => this.upgradeCost(id) <= r.treasury));
-      const others = U.shuffle(avail.filter((id) => this.upgradeCost(id) > r.treasury));
+      const affordable = U.shuffle(avail.filter((id) => this.canAfford(id)));
+      const others = U.shuffle(avail.filter((id) => !this.canAfford(id)));
       opts = [...affordable, ...others].slice(0, 2);
-      opts.push('pact', 'save');
+      opts.push('pact');
+      if (this.natureNeeded() && Math.random() < GD.HARVEST.NATURE_CHANCE) opts.push('nature');
     }
     // un héros est mort : l'équipe peut voter sa résurrection
     if ([...this.heroes.values()].some((h) => !h.alive)) opts.push('revive');
@@ -597,7 +653,7 @@ class Game {
     const v = this.run.vote;
     if (!v || (this.phase !== 'wave' && this.phase !== 'intermission') || !v.options.includes(opt)) return false;
     if (!fromChat && !this.heroes.has(userId)) return false;
-    if (opt !== 'save' && opt !== 'pact' && this.upgradeCost(opt) > this.run.treasury) return false;
+    if (!this.canAfford(opt)) return false;
     v.votes.set(userId, opt);
     return true;
   }
@@ -618,17 +674,18 @@ class Game {
     if (silent) return;
     // les bots votent au hasard
     for (const h of this.heroes.values()) if (h.isBot && !v.votes.has(h.id)) {
-      const ok = v.options.filter((o) => o === 'save' || o === 'pact' || this.upgradeCost(o) <= this.run.treasury);
-      v.votes.set(h.id, U.pick(ok));
+      const ok = v.options.filter((o) => o !== 'pact' && this.canAfford(o));
+      if (ok.length) v.votes.set(h.id, U.pick(ok));
     }
     const counts = {};
     for (const o of v.votes.values()) counts[o] = (counts[o] || 0) + 1;
-    // sans aucun vote : spécialisation au hasard au premier vote, sinon on garde les écus
-    let best = v.options[0].startsWith('spec_') ? U.pick(v.options.filter((o) => o.startsWith('spec_'))) : 'save', bestN = 0;
+    // sans aucun vote : spécialisation au hasard au premier vote, sinon rien
+    let best = v.options[0].startsWith('spec_') ? U.pick(v.options.filter((o) => o.startsWith('spec_'))) : null, bestN = 0;
     for (const o of v.options) if ((counts[o] || 0) > bestN) { best = o; bestN = counts[o]; }
+    if (!best) { this.pushFeed('Aucun vote : rien n’est acheté.'); return ''; }
     this.applyUpgrade(best);
     const u = UPGRADES[best];
-    return best === 'save' ? 'Vote : l’équipe garde ses écus' : `Vote : ${u ? u.icon + ' ' + u.name : best}`;
+    return `Vote : ${u ? u.icon + ' ' + u.name : best}`;
   }
 
   reviveHero(h) {
@@ -639,27 +696,35 @@ class Game {
     this.fx(['revive', Math.round(h.x), Math.round(h.y)]);
   }
 
-  applyUpgrade(id) {
+  // free : amélioration offerte (test admin)
+  applyUpgrade(id, free) {
     const r = this.run;
-    if (id === 'save') { this.pushFeed('L’équipe garde ses écus.'); return; }
+    if (id === 'nature') {
+      this.regrowNodes();
+      r.upgrades.nature++;
+      this.announce('🌱 Vitalité de la nature !', 'Les points de récolte repoussent');
+      this.pushFeed('🌱 La nature reprend vie : les points de récolte repoussent.');
+      return;
+    }
     if (id === 'pact') {
       r.pactNext = true;
       this.pushFeed('💀 Pacte de sang accepté : la prochaine manche sera brutale !');
       return;
     }
-    const cost = this.upgradeCost(id);
-    if (cost > r.treasury) return;
+    const cost = free ? {} : this.upgradeCost(id);
+    if (!GD.canPay(r.res, cost)) return;
+    const pay = () => { for (const [k, n] of Object.entries(cost)) r.res[k] -= n; };
     if (id === 'revive') {
       const dead = [...this.heroes.values()].filter((h) => !h.alive);
       if (!dead.length) return;
-      r.treasury -= cost;
+      pay();
       r.upgrades.revive++;
       const h = U.pick(dead);
       this.reviveHero(h);
       this.pushFeed(`💖 L’équipe réanime ${h.name} !`);
       return;
     }
-    r.treasury -= cost;
+    pay();
     r.upgrades[id]++;
     const u = UPGRADES[id];
     if (u.towerSpec) {
@@ -732,6 +797,7 @@ class Game {
         this.updateAllies(dt);
         this.updateMobs(dt);
         this.updateTower(dt);
+        this.updateHarvest(dt);
         this.updateBuildingSpecials(dt);
         this.updateProjectiles(dt);
         this.updateZones(dt);
@@ -1284,12 +1350,14 @@ class Game {
     this.numBudget = 0;
     return {
       t: Math.round(this.time * 1000), ph: this.phase, ps: this.paused ? 1 : 0, sp: this.speed, gt: Math.floor(r.playTime || 0), w: r.wave,
-      tw: [Math.ceil(r.tower.hp), r.tower.max], tr: r.treasury, up: r.upgrades, ts: r.towerSpec || '',
+      tw: [Math.ceil(r.tower.hp), r.tower.max], rs: GD.RES_IDS.map((k) => Math.floor(r.res[k] || 0)), up: r.upgrades, ts: r.towerSpec || '',
+      // points de récolte : [x, y, sorte (index de RES_IDS), reste en %]
+      rn: r.nodes.map((n) => [n.x, n.y, GD.RES_IDS.indexOf(n.res), Math.ceil((100 * n.amt) / n.max)]),
       // remparts : [x, y, PV % (0 = détruit), 1 = muret, angle]
       wl: r.walls.map((w) => [Math.round(w.x), Math.round(w.y), w.hp > 0 ? Math.max(1, Math.ceil((100 * w.hp) / w.max)) : 0, w.kind === 'muret' ? 1 : w.kind === 'corner' ? 2 : 0, w.a]),
       left: this.mobs.length + r.queue.length + r.bossPending.length,
       timer: Math.ceil(r.timer), seed: r.seed, tv: this.terrainVersion, ter: this.terrain, rv: this.rosterVersion,
-      vote: r.vote ? { o: r.vote.options, c: this.voteCounts(), cost: Object.fromEntries(r.vote.options.map((o) => [o, UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0])) } : null,
+      vote: r.vote ? { o: r.vote.options, c: this.voteCounts(), cost: Object.fromEntries(r.vote.options.map((o) => [o, this.upgradeCost(o)])) } : null,
       pact: r.pactActive ? 1 : r.pactNext ? 2 : 0,
       // habitations : [index du type, x, y, PV %, nids des occupants]
       era: GD.eraFor(r.mode, Math.max(1, r.wave)).name, mi: this.modeInfo(),
@@ -1313,7 +1381,7 @@ class Game {
     const r = this.run;
     return {
       phase: this.phase, paused: this.paused, speed: this.speed, wave: r.wave, cleared: r.cleared, timer: Math.ceil(r.timer),
-      tower: { hp: Math.ceil(r.tower.hp), max: r.tower.max }, treasury: r.treasury, wealthEarned: r.wealthEarned,
+      tower: { hp: Math.ceil(r.tower.hp), max: r.tower.max }, res: this.resStock(), resEarned: Object.fromEntries(GD.RES_IDS.map((k) => [k, Math.floor(r.resEarned[k])])),
       upgrades: r.upgrades, towerSpec: r.towerSpec, heroes: this.heroes.size, mobs: this.mobs.length + r.queue.length + r.bossPending.length,
       canJoin: this.canJoin(), joinEndsAt: Number.isFinite(r.joinUntil) ? r.joinUntil : null,
       voting: !!r.vote, nextVote: this.nextVoteWave(), voteEvery: this.voteEvery(),
@@ -1329,7 +1397,7 @@ class Game {
     if (u) out.profile = { level: u.level, xp: u.xp, xpNext: PROGRESSION.xpForLevel(u.level), attrPoints: u.attrPoints || 0, glacons: u.glacons || 0 };
     if (r.vote) {
       out.vote = {
-        options: r.vote.options.map((o) => ({ id: o, cost: UPGRADES[o] && !UPGRADES[o].challenge ? this.upgradeCost(o) : 0, level: r.upgrades[o] || 0 })),
+        options: r.vote.options.map((o) => ({ id: o, cost: this.upgradeCost(o), afford: this.canAfford(o), level: r.upgrades[o] || 0 })),
         counts: this.voteCounts(), mine: r.vote.votes.get(userId) || null, endsAt: r.vote.endsAt
       };
     }

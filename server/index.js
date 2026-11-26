@@ -584,7 +584,7 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
     case 'openJoin': game.openJoin(b.seconds === undefined ? game.settings.joinWindow : b.seconds); break;
     case 'closeJoin': game.closeJoin(); break;
     case 'upgrade': if (!game.forceUpgrade(String(b.id))) return res.status(400).json({ error: 'Amélioration impossible (inconnue ou au maximum).' }); break;
-    case 'treasury': game.addTreasury(Math.max(-game.run.treasury, Number(b.amount) || 0)); break;
+    case 'treasury': for (const k of GD.RES_IDS) game.addRes(k, Number(b.amount) || 0); break;
     case 'healTower': game.run.tower.hp = game.run.tower.max; break;
     case 'bots': {
       const cls = GD.CLASSES[b.cls] ? b.cls : null;

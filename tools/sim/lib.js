@@ -20,7 +20,7 @@ function addBots(g, n, classes, level) {
   for (let i = 0; i < n; i++) g.addBot({ cls: classes[i % classes.length], level });
 }
 
-// Votes des bots : Résurrection s'il y a un mort, sinon la première amélioration abordable
+// Votes des bots : Résurrection s'il y a un mort (si abordable), sinon la première amélioration abordable (ou Vitalité de la nature)
 // (strategy 'expensive' : la plus chère abordable, plus proche de joueurs réels)
 function botVotes(g, strategy) {
   const close = g.closeVote.bind(g);
@@ -34,9 +34,11 @@ function botVotes(g, strategy) {
         for (const h of g.heroes.values()) v.votes.set(h.id, v.options.includes('revive') ? 'revive' : pick);
         return close(silent);
       }
-      const ok = v.options.filter((o) => o !== 'pact' && o !== 'save' && o !== 'revive' && g.upgradeCost(o) <= g.run.treasury);
-      if (strategy === 'expensive') ok.sort((a, b) => g.upgradeCost(b) - g.upgradeCost(a));
-      for (const h of g.heroes.values()) v.votes.set(h.id, v.options.includes('revive') ? 'revive' : ok[0] || 'save');
+      const total = (o) => Object.values(g.upgradeCost(o)).reduce((a, b) => a + b, 0);
+      const ok = v.options.filter((o) => o !== 'pact' && o !== 'revive' && g.canAfford(o));
+      if (strategy === 'expensive') ok.sort((a, b) => total(b) - total(a));
+      const pick = v.options.includes('revive') && g.canAfford('revive') ? 'revive' : ok[0];
+      if (pick) for (const h of g.heroes.values()) v.votes.set(h.id, pick);
     }
     return close(silent);
   };

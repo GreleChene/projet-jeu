@@ -77,11 +77,12 @@ test('la tour a 200 PV ; premier vote = spécialisation de la tour, puis 4 choix
   assert.strictEqual(g.run.towerSpec, 'defense', 'spécialisation appliquée au début de la manche suivante');
   g.setWave(4);
   const o = g.run.vote.options;
-  assert.strictEqual(o.length, 4, '2 améliorations + Pacte de sang + Économiser');
-  assert.ok(o.includes('pact') && o.includes('save'));
-  for (const id of o.filter((x) => x !== 'pact' && x !== 'save')) assert.strictEqual(GD.UPGRADES[id].tower, 'defense', 'seulement des améliorations de la tour choisie');
+  assert.ok(!o.includes('save'), 'plus de choix « Économiser »');
+  assert.strictEqual(o.filter((x) => x !== 'nature').length, 3, '2 améliorations + Pacte de sang (+ Vitalité de la nature au hasard)');
+  assert.ok(o.includes('pact'));
+  for (const id of o.filter((x) => x !== 'pact' && x !== 'nature')) assert.strictEqual(GD.UPGRADES[id].tower, 'defense', 'seulement des améliorations de la tour choisie');
   const h = [...g.heroes.values()][0];
-  if (h) { g.heroDie(h); g.setWave(6); assert.strictEqual(g.run.vote.options.length, 5, 'Résurrection en 5e choix'); }
+  if (h) { g.heroDie(h); g.setWave(6); assert.ok(g.run.vote.options.includes('revive'), 'Résurrection proposée'); }
 });
 
 test('arbres de compétences : une seule branche, ultime au niveau 30', () => {
@@ -162,7 +163,7 @@ test('pas de réapparition ; vote « Résurrection » proposé s’il y a un mor
   g.closeVote(true); // personne ne vote la résurrection
   g.mobs = []; g.run.queue = []; g.run.bossPending = []; g.tick(0.05);
   assert.strictEqual(a.alive, false, 'toujours mort après la manche');
-  g.run.treasury = 1000;
+  g.run.res.baies = 1000;
   g.applyUpgrade('revive');
   assert.strictEqual(a.alive, true);
   assert.strictEqual(a.hp, Math.round(a.maxHp * 0.6));
@@ -203,7 +204,7 @@ test('remparts : un côté construit par amélioration, les monstres de corps à
   const GD = require('../shared/constants');
   const g = makeGame();
   g.startRun(1);
-  g.run.towerSpec = 'defense'; g.run.treasury = 1000;
+  g.run.towerSpec = 'defense'; g.run.res = { pierre: 1000, bois: 1000, baies: 1000 };
   g.applyUpgrade('df_wall_e');
   const east = g.run.walls.filter((w) => w.side === 'e');
   assert.strictEqual(east.length, 2 * GD.WALLS.SPAN / GD.WALLS.STEP + 1, 'segments du rempart est');
@@ -221,7 +222,7 @@ test('tours d’angle : avec la Pierre taillée, entre deux remparts voisins, el
   const GD = require('../shared/constants');
   const g = makeGame();
   g.startRun(1);
-  g.run.towerSpec = 'defense'; g.run.treasury = 1000;
+  g.run.towerSpec = 'defense'; g.run.res = { pierre: 1000, bois: 1000, baies: 1000 };
   g.applyUpgrade('df_wall_e'); g.applyUpgrade('df_stone');
   assert.strictEqual(g.run.walls.filter((w) => w.kind === 'corner').length, 0, 'pas de tour avec un seul rempart');
   g.applyUpgrade('df_wall_s');
@@ -267,4 +268,38 @@ test('écran de fin : reste affiché jusqu’à la validation d’un admin', () 
   assert.ok(g.endRunAck(), 'validation par l’admin');
   assert.strictEqual(g.phase, 'lobby');
   assert.strictEqual(g.endRunAck(), false, 'rien à valider hors de l’écran de fin');
+});
+
+test('ressources : points de récolte, coûts en ressources, Vitalité de la nature', () => {
+  const GD = require('../shared/constants');
+  // coût : ressource principale + 1/3 d'une autre ; tour de mage : deux ressources équilibrées
+  const c = GD.upgradeResCost('df_wall_n', 0);
+  assert.strictEqual(c.pierre, 70);
+  assert.strictEqual(Object.keys(c).length, 2);
+  assert.strictEqual(Object.values(c)[1], Math.round(70 / 3));
+  const m = GD.upgradeResCost('mg_fire', 0), mv = Object.values(m);
+  assert.strictEqual(mv.length, 2); assert.ok(Math.min(...mv) / Math.max(...mv) > 0.8, 'mage : ressources équilibrées');
+  assert.deepStrictEqual(Object.keys(GD.upgradeResCost('revive', 0)), ['baies']);
+  const g = makeGame();
+  g.addBot({ cls: 'soldat', level: 10 });
+  g.startRun(1);
+  assert.strictEqual(g.run.nodes.length, 3 * GD.HARVEST.PER_KIND, 'points de récolte placés au début');
+  // un héros à côté d'un rocher récolte de la pierre, le rocher s'épuise
+  const h = [...g.heroes.values()][0], n = g.run.nodes.find((x) => x.res === 'pierre');
+  h.x = n.x; h.y = n.y + 20;
+  const p0 = g.run.res.pierre, a0 = n.amt;
+  g.updateHarvest(2);
+  assert.ok(g.run.res.pierre > p0 && n.amt < a0, 'récolte');
+  // achat : paie en ressources
+  g.run.towerSpec = 'defense'; g.run.res = { pierre: 500, bois: 500, baies: 500 };
+  const cost = g.upgradeCost('df_wall_n');
+  g.applyUpgrade('df_wall_n');
+  assert.strictEqual(g.run.upgrades.df_wall_n, 1);
+  assert.strictEqual(g.run.res.pierre, 500 - cost.pierre);
+  g.run.res = { pierre: 0, bois: 0, baies: 0 };
+  g.applyUpgrade('df_wall_s');
+  assert.strictEqual(g.run.upgrades.df_wall_s, 0, 'pas assez de ressources');
+  // Vitalité de la nature : +30 %
+  n.amt = 0; g.applyUpgrade('nature');
+  assert.strictEqual(Math.round(n.amt), Math.round(n.max * 0.3));
 });

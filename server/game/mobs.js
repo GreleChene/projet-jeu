@@ -432,11 +432,6 @@ module.exports = {
     const d = MOBS[m.type];
     this.fx(['death', Math.round(m.x), Math.round(m.y), MOB_IDS.indexOf(m.type), m.boss ? 1 : 0]);
     const mult = m.elite ? 4 : 1;
-    // écus d'élimination, de moins en moins généreux au fil de la partie (fractions cumulées)
-    const B = GD.BALANCE, decay = 1 / (1 + this.powerWave(this.run.wave) / B.ECUS_LATE_DECAY);
-    this.run.ecuFrac = (this.run.ecuFrac || 0) + d.gold * (m.elite ? 3 : 1) * B.KILL_ECUS * decay;
-    const whole = Math.floor(this.run.ecuFrac);
-    if (whole > 0) { this.run.ecuFrac -= whole; this.addTreasury(whole); }
     const hero = killer && this.heroes.get(killer.id) === killer ? killer : null;
     if (hero) {
       hero.runKills++;

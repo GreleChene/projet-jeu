@@ -63,8 +63,35 @@ module.exports = {
     }
   },
 
+  // Priorité à la récolte : va au point de récolte sûr le plus proche (aucun monstre autour)
+  harvestMove(h, dt, speedMul) {
+    const nodes = this.run.nodes || [];
+    h.hvT = (h.hvT || 0) - dt;
+    let n = nodes[h.hvNode];
+    const unsafe = (p) => this.mobs.some((m) => m.hp > 0 && (m.x - p.x) ** 2 + (m.y - p.y) ** 2 < 280 * 280);
+    if (!n || n.amt <= 0 || h.hvT <= 0) {
+      h.hvT = 1.5;
+      // préfère la ressource dont l'équipe a besoin : principale de la tour, et celles dont la réserve est basse
+      const r = this.run, main = GD.TOWER_RES[r.towerSpec];
+      const want = (k) => (main ? (k === main ? 2.5 : 1) : 1.4) / (1 + (r.res[k] || 0) / 150);
+      let best = null, bs = Infinity;
+      for (const c of nodes) {
+        if (c.amt <= 0 || unsafe(c)) continue;
+        const s = (Math.hypot(c.x - h.x, c.y - h.y) + 120) / want(c.res);
+        if (s < bs) { bs = s; best = c; }
+      }
+      h.hvNode = best ? best.id : -1;
+      n = best;
+    }
+    if (!n) return false;
+    const a = (h.nid * 1.7) % (Math.PI * 2), tx = n.x + Math.cos(a) * 34, ty = n.y + 22 + Math.sin(a) * 12;
+    if ((h.x - tx) ** 2 + (h.y - ty) ** 2 > 64) this.moveToward(h, tx, ty, h.speed * 0.8 * speedMul, dt);
+    return true;
+  },
+
   heroIdle(h, dt, speedMul) {
     const st = h.ai.stance;
+    if (st === 'harvest' && this.harvestMove(h, dt, speedMul)) return;
     if (st === 'home') {
       // garde de son habitation : tourne autour d'elle
       const b = this.buildingOfHero(h) || { x: WORLD.CX, y: WORLD.CY };
@@ -247,11 +274,25 @@ module.exports = {
   },
 
   heroAI(h, c, dt, speedMul) {
-    if (this.phase === 'intermission' && !this.mobs.length) { this.heroRest(h, dt, h.speed * speedMul); this.clampHero(h); return; }
-    h.resting = false;
     const ai = h.ai;
     const ratio = h.hp / h.maxHp;
+    // entracte : repos dans l'habitation (les récolteurs en bonne santé continuent de récolter)
+    if (this.phase === 'intermission' && !this.mobs.length) {
+      if (ai.stance === 'harvest' && ratio >= 0.7) { h.resting = false; this.heroIdle(h, dt, speedMul); }
+      else this.heroRest(h, dt, h.speed * speedMul);
+      this.clampHero(h); return;
+    }
+    h.resting = false;
     const speed = h.speed * speedMul * (h.buffs.swift > 0 ? 1.4 : 1);
+    // récolteur blessé : s'éloigne des monstres proches (vers la tour)
+    if (ai.stance === 'harvest' && ratio < 0.35) {
+      const near = this.nearestMob(h.x, h.y, 260);
+      if (near) {
+        h.atkT -= dt;
+        this.moveToward(h, WORLD.CX + (h.x - near.x) * 0.3, WORLD.CY + 60, speed, dt);
+        this.clampHero(h); return;
+      }
+    }
 
     h.retargetT -= dt;
     if (h.retargetT <= 0 || !h.target || h.target.hp <= 0) {
@@ -289,7 +330,7 @@ module.exports = {
     const st = h.ai.stance, pr = h.ai.target;
     const leash = h.leash + h.range;
     // portée de chasse : les héros vont chercher les monstres plus loin sur la carte
-    const hunt = st === 'offensive' ? 5000 : st === 'balanced' ? 800 : 0;
+    const hunt = st === 'offensive' ? 5000 : st === 'balanced' ? 800 : st === 'harvest' ? 150 + h.range : 0;
     const defR = st === 'defensive' ? 460 : 520;
     // garde de son habitation : seulement les ennemis proches d'elle
     const home = st === 'home' ? this.buildingOfHero(h) || { x: WORLD.CX, y: WORLD.CY } : null;
@@ -303,6 +344,7 @@ module.exports = {
       const dh = Math.sqrt((m.x - h.x) ** 2 + (m.y - h.y) ** 2);
       const dTower = Math.sqrt(dt2);
       if (home) { if ((m.x - home.x) ** 2 + (m.y - home.y) ** 2 > homeR * homeR) continue; }
+      else if (st === 'harvest') { if (dh > hunt) continue; } // se défend seulement
       else if (dh > hunt && dTower > defR) continue;
       let s;
       switch (pr) {

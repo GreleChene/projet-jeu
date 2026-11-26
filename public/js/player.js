@@ -152,7 +152,7 @@
       el('div', { class: 'stats3' },
         el('div', { class: 'stat' }, el('b', {}, r.wave || '—'), el('span', { class: 'small muted' }, 'manche')),
         el('div', { class: 'stat' }, el('b', {}, r.heroes), el('span', { class: 'small muted' }, 'héros')),
-        el('div', { class: 'stat' }, el('b', {}, '🪙 ' + r.treasury), el('span', { class: 'small muted' }, 'écus de l’équipe'))
+        el('div', { class: 'stat' }, el('b', {}, GD.RES_IDS.map((k) => `${GD.RESOURCES[k].icon} ${(r.res || {})[k] || 0}`).join('  ')), el('span', { class: 'small muted' }, 'réserve de l’équipe'))
       ),
       el('p', {}, `${PHASES[r.phase] || r.phase}${r.paused ? ' (pause)' : ''}${r.phase === 'intermission' ? ` · prochaine manche dans ${r.timer}s` : ''}${r.phase === 'wave' ? ` · ${r.mobs} ennemis` : ''}`),
       r.phase !== 'lobby' ? el('p', { class: 'small' }, `${r.modeName} · ${(GD.DIFFICULTIES[r.difficulty] || {}).icon || ''} ${r.difficultyName} · manche ${r.wave}/${r.maxWave}`) : '',
@@ -196,18 +196,18 @@
     $('#voteBox').classList.toggle('hidden', !v || !h);
     if (v && h) {
       $('#voteTimer').textContent = v.endsAt ? `${Math.max(0, Math.ceil((v.endsAt - Date.now()) / 1000))} s` : 'jusqu’au début de la manche suivante';
-      const sig = JSON.stringify([v.options.map((o) => o.id), v.counts, v.mine, r.treasury]);
+      const sig = JSON.stringify([v.options.map((o) => o.id), v.counts, v.mine, r.res]);
       if (sig !== lastVoteSig) {
         lastVoteSig = sig;
         $('#voteOpts').replaceChildren(...v.options.map((o) => {
           const up = GD.UPGRADES[o.id];
-          const isSave = o.id === 'save';
-          const afford = isSave || !o.cost || o.cost <= r.treasury;
+          const paid = o.cost && Object.keys(o.cost).length > 0;
+          const afford = o.afford !== false;
           return el('button', { class: 'option' + (o.id === 'pact' ? ' challenge' : '') + (v.mine === o.id ? ' voted' : ''), disabled: !afford, onclick: () => socket.emit('vote', o.id) },
             el('span', { class: 'icon' }, isSave ? '🪙' : up.icon),
             el('span', { class: 'name' }, isSave ? 'Économiser' : `${up.name}${o.level && !up.revive ? ` (niv. ${o.level + 1})` : ''}`),
-            el('span', { class: 'desc' }, isSave ? 'Garder les écus pour plus tard' : up.desc),
-            el('span', { class: 'desc', style: 'display:block;margin-top:6px;color:var(--gold)' }, `${o.cost ? '🪙 ' + o.cost + ' écus · ' : ''}${v.counts[o.id] || 0} vote(s)`));
+            el('span', { class: 'desc' }, up.desc),
+            el('span', { class: 'desc', style: 'display:block;margin-top:6px;color:var(--gold)' }, `${paid ? GD.costText(o.cost) + ' · ' : ''}${v.counts[o.id] || 0} vote(s)`));
         }));
       }
     }
@@ -1042,11 +1042,11 @@
         'Entre les manches, chaque héros s’y soigne. Si elle est détruite, plus de soin jusqu’à la fin de la partie.',
         `Une reconversion remet les améliorations d’habitation à zéro et rembourse ${Math.round(GD.HOUSE_RESPEC_REFUND * 100)} % des Grêlons dépensés.`,
         'Onglet « Amélioration de bâtiment » : PV, puissance de soin (moyenne des occupants si partagée) et une amélioration spéciale par classe : ' + Object.entries(GD.HOUSE_SPECIALS).map(([f, sp]) => `${sp.icon} ${sp.name} (${GD.CLASSES[f].name})`).join(', ') + '.'])),
-      sec('🗳️ Votes d’équipe', el('p', {}, `Toutes les ${voteEvery} manches, pendant la manche, les héros (et le chat Twitch) votent pour dépenser les écus de l’équipe. Le vote reste ouvert pendant l’entracte ; l’option la plus votée est appliquée au début de la manche suivante :`),
+      sec('🗳️ Votes d’équipe', el('p', {}, `Toutes les ${voteEvery} manches, pendant la manche, les héros (et le chat Twitch) votent pour dépenser les ressources de l’équipe (🪨 pierre, 🪵 bois, 🫐 baies, récoltées sur la carte). Le vote reste ouvert pendant l’entracte ; l’option la plus votée est appliquée au début de la manche suivante :`),
         el('p', {}, 'Le premier vote choisit la spécialisation de la tour (gratuit). Ensuite, chaque vote propose 2 de ses 8 améliorations, le Pacte de sang et « Économiser » (+ la Résurrection s’il y a un mort).'),
         ...Object.entries(GD.TOWER_SPECS).map(([k, T]) => el('div', {}, el('b', { style: `color:${T.color}` }, `${T.icon} ${T.name}`), ` — ${T.desc}`,
           ul(Object.values(GD.UPGRADES).filter((u) => u.tower === k).map((u) => `${u.icon} ${u.name} : ${u.desc} (${u.max} niv.)`)))),
-        ul([`${GD.UPGRADES.pact.icon} ${GD.UPGRADES.pact.name} : ${GD.UPGRADES.pact.desc}`, '🪙 Économiser : garder les écus pour plus tard', `${GD.UPGRADES.revive.icon} ${GD.UPGRADES.revive.name} : ${GD.UPGRADES.revive.desc}`])),
+        ul([`${GD.UPGRADES.pact.icon} ${GD.UPGRADES.pact.name} : ${GD.UPGRADES.pact.desc}`, `${GD.UPGRADES.nature.icon} ${GD.UPGRADES.nature.name} (proposée au hasard quand la carte a été récoltée) : ${GD.UPGRADES.nature.desc}`, `${GD.UPGRADES.revive.icon} ${GD.UPGRADES.revive.name} : ${GD.UPGRADES.revive.desc} (coûte des baies)`])),
       // pas de détails sur l'évolution du terrain ni sur les boss : c'est une surprise pour les joueurs
       sec('🌍 Le monde', el('p', {}, 'Le monde autour de la tour ne restera pas longtemps paisible… À vous de découvrir ce qui vous attend.'))
     );
