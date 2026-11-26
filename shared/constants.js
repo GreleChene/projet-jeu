@@ -826,7 +826,7 @@
     // tours d'angle (Pierre taillée) : entre deux remparts voisins construits
     CORNERS: { se: ['s', 'e', 45], sw: ['s', 'w', 135], nw: ['n', 'w', 225], ne: ['n', 'e', 315] },
     HP: { wall: 260, muret: 120, corner: 420 }, // PV d'un segment au niveau 1 (× 1 + 0,5 par niveau, × la manche)
-    REPAIR: 0.25        // part des PV réparée à chaque fin de manche
+    REPAIR: 0.05        // part des PV réparée à chaque fin de manche (entracte)
   };
 
   /* ------------------------------------------------------------------ */
