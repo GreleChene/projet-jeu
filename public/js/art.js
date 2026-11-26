@@ -608,61 +608,335 @@
   }
 
   /* ------------------------------ tour ------------------------------ */
+  /* ---- skins des tours spécialisées (premier vote) ----
+   * corps : dessiné dans le cache (animations lentes, cycle de TAU/2 s)
+   * parties vivantes : redessinées à chaque image (drawTowerLive) */
+  function towerCracks(ctx, hp, t, top) {
+    if (hp < 0.66) {
+      ctx.strokeStyle = OL; ctx.lineWidth = 2.5; ctx.beginPath();
+      ctx.moveTo(-34, -40); ctx.lineTo(-26, -24); ctx.lineTo(-32, -8); ctx.moveTo(28, -10); ctx.lineTo(20, 4); ctx.lineTo(28, 14); ctx.stroke();
+    }
+    if (hp < 0.33) {
+      for (let i = 0; i < 3; i++) {
+        const fx = -28 + i * 28, fh = 14 + Math.sin(t * 12 + i) * 5;
+        poly(ctx, [fx - 7, top, fx, top - fh, fx + 7, top], P.biome.fire.accent[i % 2], 1.5);
+      }
+    }
+  }
+  function torch(ctx, tx, ty, t) {
+    rrect(ctx, tx - 2, ty, 4, 12, 1, P.wood[2], 1.3);
+    rrect(ctx, tx - 4, ty - 3, 8, 4, 1, '#3c3546', 1.2);
+    const fh = 9 + Math.sin(t * 14 + tx) * 2;
+    ctx.save(); ctx.translate(tx, ty - 7); glow(ctx, '#ffb02e', 9); ctx.restore();
+    poly(ctx, [tx - 4, ty - 3, tx, ty - 3 - fh, tx + 4, ty - 3], '#ff7a1a', 1.2);
+    poly(ctx, [tx - 2, ty - 3, tx, ty - 3 - fh * 0.6, tx + 2, ty - 3], '#ffd76a', 0.01);
+  }
+  function flagAt(ctx, x, y, h, col, t, w) {
+    line(ctx, x, y, x, y - h, P.wood[2], 2);
+    const wv = Math.sin(t * 4 + x) * 3;
+    poly(ctx, [x, y - h, x + (w || 22), y - h + 4 + wv, x, y - h + 12], col, 1.6);
+  }
+
+  // ⚔️ Fort de bois du baliste
+  function fortBody(ctx, t, up) {
+    // plateforme sur pilotis (derrière la palissade)
+    for (const px of [-52, -18, 18, 52]) rrect(ctx, px - 4, -100, 8, 70, 2, P.wood[2], 2);
+    line(ctx, -52, -88, 18, -50, P.wood[2], 2); line(ctx, 52, -88, -18, -50, P.wood[2], 2);
+    rrect(ctx, -72, -108, 144, 11, 2, P.wood[0], 2.5);
+    ctx.fillStyle = rgba(OL, 0.35); for (let i = -3; i <= 3; i++) ctx.fillRect(i * 20 - 1, -106, 1.5, 8);
+    // tonneau de carreaux sur la plateforme
+    rrect(ctx, 50, -126, 16, 19, 4, P.wood[1], 2);
+    for (const dx of [53, 58, 63]) { line(ctx, dx, -126, dx - 1, -138, '#d9d2c0', 1.2); poly(ctx, [dx - 4, -138, dx - 1, -144, dx + 2, -138], '#c9cfd6', 0.8); }
+    // grand drapeau rouge
+    flagAt(ctx, -62, -108, 52, '#c0392b', t, 26);
+    // palissade de rondins pointus, en arc de cercle
+    for (let i = -6; i <= 6; i++) {
+      const lx = i * 12, base = 26 - Math.abs(i) * 0.9, h = 66 + (i % 2 ? 7 : 0) - Math.abs(i) * 0.6;
+      const col = T.hash2(i, 4, 11) > 0.5 ? P.wood[0] : shade(P.wood[0], -0.12);
+      poly(ctx, [lx - 6, base, lx - 6, base - h, lx, base - h - 10, lx + 6, base - h, lx + 6, base], col, 2.2);
+      ctx.fillStyle = 'rgba(255,230,180,.28)'; ctx.fillRect(lx - 4, base - h + 2, 2, h - 6);
+      ctx.fillStyle = rgba(OL, 0.3); ctx.fillRect(lx - 4, base - h * 0.55, 8, 1.5);
+    }
+    // cordage, boucliers en peau, crânes qui se balancent
+    line(ctx, -78, -24, 78, -24, '#5a3a1e', 2);
+    for (const sx of [-44, 44]) { circle(ctx, sx, -24, 11, '#c9a77a', 2); circle(ctx, sx, -24, 4, '#b8382e', 1.5); }
+    for (const sx of [-16, 16]) {
+      const sw = Math.sin(t * 2 + sx) * 3;
+      line(ctx, sx, -24, sx + sw, -12, '#5a3a1e', 1);
+      circle(ctx, sx + sw, -8, 6, '#f1ead6', 1.6); ctx.fillStyle = OL; ctx.fillRect(sx + sw - 3.5, -9, 2.5, 2.5); ctx.fillRect(sx + sw + 1, -9, 2.5, 2.5);
+    }
+    // porte de rondins + braseros
+    rrect(ctx, -14, -6, 28, 34, 2, P.wood[2], 2.5);
+    ctx.fillStyle = rgba(OL, 0.45); for (const px of [-7, 0, 7]) ctx.fillRect(px, -4, 1.5, 30);
+    rrect(ctx, -14, 4, 28, 4, 1, '#3c3546', 1);
+    for (const bx of [-26, 26]) {
+      poly(ctx, [bx - 7, 10, bx + 7, 10, bx + 4, 18, bx - 4, 18], '#3c3546', 1.8);
+      rrect(ctx, bx - 1.5, 18, 3, 9, 1, '#3c3546', 1);
+      const fh = 10 + Math.sin(t * 14 + bx) * 3;
+      ctx.save(); ctx.translate(bx, 2); glow(ctx, '#ffb02e', 12); ctx.restore();
+      poly(ctx, [bx - 6, 10, bx - 2, 10 - fh * 0.8, bx, 10 - fh, bx + 3, 10 - fh * 0.7, bx + 6, 10], '#ff7a1a', 1.2);
+      poly(ctx, [bx - 3, 10, bx, 10 - fh * 0.55, bx + 3, 10], '#ffd76a', 0.01);
+    }
+    // pieux devant le fort
+    for (const px of [-86, -74, 74, 86]) { const d = px < 0 ? -1 : 1; line(ctx, px, 30, px + d * 8, 12, P.wood[1], 3); }
+  }
+  // grande baliste qui pivote vers sa cible (aim en radians, recul 0..1)
+  function fortLive(ctx, o) {
+    const up = o.up || {}, big = up.at_bolt > 0 ? 1 + 0.06 * Math.min(6, up.at_bolt) : 0.9;
+    const a = o.aim === undefined ? Math.sin((o.t || 0) * 0.5) * 0.8 - Math.PI / 2 : o.aim;
+    const ca = Math.cos(a), sa = Math.sin(a) * 0.6, px = -sa, py = ca * 0.6; // vue 3/4 : profondeur écrasée
+    const cx = 0, cy = -116, rec = (o.recoil || 0) * 6;
+    ellipse(ctx, cx, cy + 6, 16, 6, P.wood[2], 2);
+    rrect(ctx, cx - 5, cy - 4, 10, 10, 2, P.wood[1], 1.8);
+    const L = 34 * big, B = 26 * big;
+    // fût
+    const bx = cx - ca * (10 + rec), by = cy - sa * (10 + rec);
+    line(ctx, bx, by, cx + ca * L, cy + sa * L, P.wood[1], 5);
+    // arc (perpendiculaire au fût), légèrement recourbé vers l'arrière
+    const ax = cx + ca * L * 0.65, ay = cy + sa * L * 0.65;
+    const e1 = [ax + px * B - ca * 8, ay + py * B - sa * 8], e2 = [ax - px * B - ca * 8, ay - py * B - sa * 8];
+    ctx.beginPath(); ctx.moveTo(e1[0], e1[1]); ctx.quadraticCurveTo(ax + ca * 4, ay + sa * 4, e2[0], e2[1]);
+    ctx.lineCap = 'round'; ctx.lineWidth = 7; ctx.strokeStyle = OL; ctx.stroke(); ctx.lineWidth = 4; ctx.strokeStyle = '#8a5a2e'; ctx.stroke();
+    // corde tendue jusqu'à l'encoche
+    const nx = bx + ca * 4, ny = by + sa * 4;
+    ctx.lineWidth = 1.4; ctx.strokeStyle = '#f1ead6'; ctx.beginPath(); ctx.moveTo(e1[0], e1[1]); ctx.lineTo(nx, ny); ctx.lineTo(e2[0], e2[1]); ctx.stroke();
+    // carreau armé
+    if (rec < 3) { line(ctx, nx, ny, cx + ca * (L + 10), cy + sa * (L + 10), '#d9d2c0', 1.6); const tx = cx + ca * (L + 14), ty = cy + sa * (L + 14); circle(ctx, tx, ty, 2.6, '#c9cfd6', 1); }
+  }
+
+  // 🛡️ Citadelle de granit
+  function citadelBody(ctx, t, up) {
+    const S = ['#a3adbb', '#8a95a6', '#6b7588', '#4a5264'];
+    // contreforts
+    for (const s of [-1, 1]) poly(ctx, [s * 96, 26, s * 74, -56, s * 74, 26], S[1], 2.5);
+    // bloc principal en granit
+    rrect(ctx, -76, -70, 152, 96, 3, S[0], 3);
+    ctx.save(); ctx.beginPath(); ctx.rect(-74, -68, 148, 92); ctx.clip();
+    for (let row = 0; row < 7; row++) {
+      const yy = 24 - row * 14;
+      for (let i = -6; i <= 5; i++) {
+        const bx = i * 14 + (row % 2) * 7, k = T.hash2(i + 9, row, 31);
+        ctx.fillStyle = shade(S[0], (k - 0.5) * 0.2); ctx.fillRect(bx + 1, yy - 13, 12, 12);
+        ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(bx + 1, yy - 13, 12, 2);
+      }
+    }
+    const lg = ctx.createLinearGradient(-76, 0, 76, 0);
+    lg.addColorStop(0, 'rgba(255,240,210,.2)'); lg.addColorStop(0.4, 'rgba(255,240,210,0)'); lg.addColorStop(0.7, 'rgba(29,22,38,0)'); lg.addColorStop(1, 'rgba(29,22,38,.35)');
+    ctx.fillStyle = lg; ctx.fillRect(-76, -70, 152, 96);
+    ctx.fillStyle = '#4f8f3a'; for (let i = 0; i < 10; i++) { ctx.beginPath(); ctx.ellipse(-70 + i * 15, 22 - T.hash2(i, 2, 8) * 6, 7, 4, 0, 0, TAU); ctx.fill(); }
+    ctx.restore();
+    // chemin de ronde et créneaux
+    rrect(ctx, -82, -82, 164, 14, 2, S[1], 2.5);
+    for (let i = -3; i <= 3; i++) rrect(ctx, i * 24 - 7, -96, 14, 14, 2, S[1], 2.2);
+    // donjon central
+    rrect(ctx, -28, -142, 56, 62, 2, S[0], 2.5);
+    ctx.fillStyle = 'rgba(29,22,38,.25)'; ctx.fillRect(10, -140, 16, 58);
+    for (let r = 1; r < 4; r++) { ctx.fillStyle = rgba(OL, 0.25); ctx.fillRect(-26, -142 + r * 15, 52, 1.5); }
+    rrect(ctx, -32, -152, 64, 12, 2, S[1], 2.2);
+    for (const i of [-1, 0, 1]) rrect(ctx, i * 22 - 6, -164, 12, 12, 2, S[1], 2);
+    // meurtrières éclairées
+    for (const wx of [-12, 12]) { ctx.save(); ctx.translate(wx, -118); ctx.globalAlpha = 0.5 + 0.2 * Math.sin(t * 3 + wx); glow(ctx, '#ffd76a', 7); ctx.restore(); rrect(ctx, wx - 3, -126, 6, 16, 2, '#ffd76a', 1.8); }
+    flagAt(ctx, 0, -164, 34, '#3d7bd9', t, 26);
+    // herse
+    ctx.beginPath(); ctx.moveTo(-22, 26); ctx.lineTo(-22, -6); ctx.arc(0, -6, 22, Math.PI, TAU); ctx.lineTo(22, 26); ctx.closePath(); fillStroke(ctx, S[2], 2.5);
+    ctx.beginPath(); ctx.moveTo(-16, 26); ctx.lineTo(-16, -6); ctx.arc(0, -6, 16, Math.PI, TAU); ctx.lineTo(16, 26); ctx.closePath(); fillStroke(ctx, '#2a2a30', 2);
+    ctx.strokeStyle = '#8a8a92'; ctx.lineWidth = 2.5;
+    for (const gx of [-10, -3.5, 3.5, 10]) { ctx.beginPath(); ctx.moveTo(gx, 22); ctx.lineTo(gx, -16 + Math.abs(gx) * 0.5); ctx.stroke(); }
+    for (const gy of [-4, 6, 16]) { ctx.beginPath(); ctx.moveTo(-15, gy); ctx.lineTo(15, gy); ctx.stroke(); }
+    // boucliers blasonnés
+    for (const sx of [-50, 50]) {
+      poly(ctx, [sx - 12, -50, sx + 12, -50, sx + 12, -34, sx, -22, sx - 12, -34], '#3d7bd9', 2);
+      ctx.fillStyle = P.ui.gold; ctx.fillRect(sx - 2, -47, 4, 21); ctx.fillRect(sx - 9, -40, 18, 4);
+    }
+    torch(ctx, -34, -6, t); torch(ctx, 34, -6, t);
+  }
+  // sentinelle qui patrouille sur le chemin de ronde
+  function citadelLive(ctx, o) {
+    const t = o.t || 0, k = Math.sin(t * 0.45), gx = k * 58, dir = Math.cos(t * 0.45) >= 0 ? 1 : -1;
+    const step = Math.abs(Math.sin(t * 6)) * 1.5, gy = -84;
+    // la sentinelle passe derrière le donjon
+    if (Math.abs(gx) < 30) return;
+    ctx.save(); ctx.translate(gx, gy - step); ctx.scale(dir, 1);
+    rrect(ctx, -4, -12, 8, 10, 2, '#3d7bd9', 1.6);
+    circle(ctx, 0, -16, 4.5, '#f0c9a0', 1.4);
+    poly(ctx, [-5.5, -17, 5.5, -17, 4, -22, -4, -22], '#c9cfd6', 1.3);
+    line(ctx, 5, -2, 5, -30, P.wood[1], 1.4); poly(ctx, [3, -30, 5, -36, 7, -30], '#e8eef5', 0.8);
+    ctx.restore();
+  }
+
+  // 💚 Moulin-infirmerie
+  function millBody(ctx, t, up) {
+    // jardin d'herbes médicinales et petite barrière
+    for (const [gx, col] of [[-82, '#5cb84a'], [-68, '#7fd060'], [68, '#5cb84a'], [82, '#6fc04f'], [-96, '#6fc04f'], [96, '#7fd060']]) {
+      const sw = Math.sin(t * 2 + gx) * 1.2;
+      ellipse(ctx, gx + sw, 16, 9, 7, col, 1.8);
+      circle(ctx, gx + sw - 2, 12, 2.2, ['#ff9fd0', '#ffffff', '#c9a0ff', '#ffd23a'][Math.abs(gx) % 4], 0.8);
+    }
+    for (const s of [-1, 1]) { line(ctx, s * 58, 26, s * 104, 26, P.wood[0], 2); for (let i = 0; i < 4; i++) line(ctx, s * (60 + i * 14), 28, s * (60 + i * 14), 16, P.wood[0], 2); }
+    // corps conique en planches crème
+    ctx.beginPath(); ctx.moveTo(-46, 26); ctx.lineTo(-32, -110); ctx.lineTo(32, -110); ctx.lineTo(46, 26); ctx.quadraticCurveTo(0, 36, -46, 26); ctx.closePath();
+    fillStroke(ctx, '#efe6d2', 3, [-46, -110, 46, 30]);
+    ctx.save(); ctx.clip();
+    ctx.strokeStyle = '#d6cbb2'; ctx.lineWidth = 1.4;
+    for (let r = 1; r < 9; r++) { ctx.beginPath(); ctx.moveTo(-50, 26 - r * 15); ctx.lineTo(50, 26 - r * 15); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(29,22,38,.18)'; ctx.fillRect(14, -112, 40, 150);
+    ctx.restore();
+    // fenêtres et potions qui bouillonnent
+    for (const [wx, wy, col] of [[-14, -40, '#ff5a8a'], [12, -78, '#5ad1ff']]) {
+      rrect(ctx, wx - 11, wy - 12, 22, 20, 2, '#5a3a20', 2.5);
+      rrect(ctx, wx - 7, wy - 5, 6, 11, 2, col, 1.4); rrect(ctx, wx + 1, wy - 1, 5, 7, 2, '#7fe07a', 1.4);
+      for (let i = 0; i < 3; i++) { const q = ((t / Math.PI) * 2 + i / 3) % 1; ctx.fillStyle = rgba(col, 1 - q); ctx.beginPath(); ctx.arc(wx - 4 + Math.sin(q * 9 + i) * 3, wy - 7 - q * 22, 2.2, 0, TAU); ctx.fill(); }
+    }
+    // porte et enseigne
+    ctx.beginPath(); ctx.moveTo(-14, 30); ctx.lineTo(-14, 2); ctx.arc(0, 2, 14, Math.PI, TAU); ctx.lineTo(14, 30); ctx.closePath(); fillStroke(ctx, P.wood[1], 2.5);
+    ctx.fillStyle = rgba(OL, 0.4); for (const px of [-5, 4]) ctx.fillRect(px, -8, 1.5, 36);
+    const sw = Math.sin(t * 2) * 0.08;
+    ctx.save(); ctx.translate(24, -6); ctx.rotate(sw);
+    line(ctx, -6, 0, -6, 6, '#5a3a1e', 1); line(ctx, 6, 0, 6, 6, '#5a3a1e', 1);
+    rrect(ctx, -9, 6, 18, 14, 2, '#ffffff', 1.8); ctx.fillStyle = '#3fb05a'; ctx.fillRect(-2, 8, 4, 10); ctx.fillRect(-6, 11, 12, 4);
+    ctx.restore();
+    // toit vert
+    poly(ctx, [-40, -106, 40, -106, 0, -152], '#3a9a5a', 3);
+    ctx.strokeStyle = 'rgba(29,22,38,.3)'; ctx.lineWidth = 1.4; for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-40 + i * 10, -106); ctx.lineTo(0, -152); ctx.moveTo(40 - i * 10, -106); ctx.lineTo(0, -152); ctx.stroke(); }
+    // fontaine (améliorations « Fontaine de vie »)
+    if (up.so_fountain > 0) {
+      ellipse(ctx, -96, -4, 13, 5, '#d2c7b0', 1.8); ellipse(ctx, -96, -5, 10, 3, '#7fc8ff', 0.01);
+      for (let i = 0; i < 3; i++) { const q = ((t / Math.PI) * 2 + i / 3) % 1; ctx.fillStyle = `rgba(190,230,255,${1 - q})`; ctx.beginPath(); ctx.arc(-96 + (i - 1) * 5 * q, -10 - 8 * q + 10 * q * q, 1.8, 0, TAU); ctx.fill(); }
+    }
+  }
+  // ailes du moulin (plus rapides pendant le soin de l'entracte) et papillons
+  function millLive(ctx, o) {
+    const t = o.t || 0, hx = 0, hy = -116, ang = o.spin || t * 0.7;
+    for (let k = 0; k < 4; k++) {
+      const a = ang + (k * Math.PI) / 2, ca = Math.cos(a), sa = Math.sin(a), px = -sa, py = ca;
+      line(ctx, hx, hy, hx + ca * 82, hy + sa * 82, P.wood[2], 3);
+      const p = (d, q) => [hx + ca * d + px * q, hy + sa * d + py * q];
+      const c1 = p(20, 0), c2 = p(80, 0), c3 = p(80, 17), c4 = p(20, 17);
+      poly(ctx, [c1[0], c1[1], c2[0], c2[1], c3[0], c3[1], c4[0], c4[1]], '#ffffff', 2);
+      ctx.strokeStyle = 'rgba(29,22,38,.25)'; ctx.lineWidth = 1; for (const d of [40, 60]) { const a1 = p(d, 0), a2 = p(d, 17); ctx.beginPath(); ctx.moveTo(a1[0], a1[1]); ctx.lineTo(a2[0], a2[1]); ctx.stroke(); }
+      const m = p(52, 8.5);
+      ctx.fillStyle = '#3fb05a'; ctx.fillRect(m[0] - 5, m[1] - 1.8, 10, 3.6); ctx.fillRect(m[0] - 1.8, m[1] - 5, 3.6, 10);
+    }
+    circle(ctx, hx, hy, 6, P.wood[1], 2);
+    // papillons
+    for (let i = 0; i < 2; i++) {
+      const bx = Math.cos(t * 0.8 + i * 3) * (70 + i * 14), by = -40 + Math.sin(t * 1.3 + i) * 18 - i * 16, f = Math.abs(Math.sin(t * 16 + i)) * 4 + 1;
+      ctx.fillStyle = i ? '#ffd23a' : '#ff9fd0'; ctx.strokeStyle = OL; ctx.lineWidth = 1;
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(bx + s * f * 0.7, by, f, 3, 0, 0, TAU); ctx.fill(); ctx.stroke(); }
+    }
+  }
+
+  // 🔮 Tour du sorcier
+  const WIZ_FLOORS = [[100, 42, 0, -0.04, '#d2bd94'], [84, 38, 9, 0.05, '#c1a47a'], [72, 34, -7, -0.06, '#d2bd94'], [60, 30, 8, 0.07, '#c1a47a']];
+  function wizardBody(ctx, t, up) {
+    // cercle runique au sol
+    ctx.save(); ctx.globalAlpha = 0.55 + 0.25 * Math.sin(t * 2);
+    ctx.strokeStyle = '#c9a8ff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(0, 24, 100, 28, 0, 0, TAU); ctx.stroke();
+    ctx.fillStyle = '#e0ccff'; for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + t * 2; ctx.fillRect(Math.cos(a) * 100 - 2, 24 + Math.sin(a) * 28 - 2, 4, 4); }
+    ctx.restore();
+    // étages empilés de travers, qui oscillent un peu
+    let y = 28;
+    const sway = Math.sin(t * 2) * 0.012;
+    ctx.save();
+    WIZ_FLOORS.forEach(([w, h, dx, tilt, col], i) => {
+      ctx.translate(dx, 0); ctx.rotate(tilt * 0.5 + sway);
+      rrect(ctx, -w / 2, y - h, w, h, 3, col, 2.5);
+      ctx.fillStyle = 'rgba(29,22,38,.2)'; ctx.fillRect(w / 2 - 14, y - h + 2, 12, h - 4);
+      ctx.fillStyle = 'rgba(29,22,38,.18)'; for (let k = 0; k < 3; k++) ctx.fillRect(-w / 2 + 8 + k * w / 3, y - h + 8 + (k % 2) * 12, 9, 5);
+      rrect(ctx, -w / 2 - 5, y - h - 5, w + 10, 7, 2, P.wood[1], 2);
+      if (i > 0) {
+        const wx = i % 2 ? -12 : 12;
+        ctx.save(); ctx.translate(wx, y - h / 2 - 2); ctx.globalAlpha = 0.5 + 0.25 * Math.sin(t * 4 + i); glow(ctx, '#ffd76a', 9); ctx.restore();
+        rrect(ctx, wx - 8, y - h / 2 - 10, 16, 16, 2, '#ffe98a', 2.2);
+        ctx.strokeStyle = OL; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(wx, y - h / 2 - 10); ctx.lineTo(wx, y - h / 2 + 6); ctx.moveTo(wx - 8, y - h / 2 - 2); ctx.lineTo(wx + 8, y - h / 2 - 2); ctx.stroke();
+      } else {
+        // porte violette
+        ctx.beginPath(); ctx.moveTo(-13, y); ctx.lineTo(-13, y - 22); ctx.arc(0, y - 22, 13, Math.PI, TAU); ctx.lineTo(13, y); ctx.closePath(); fillStroke(ctx, '#5a3a8a', 2.5);
+        circle(ctx, 7, y - 14, 2, P.ui.gold, 1);
+        torch(ctx, -30, y - 30, t);
+      }
+      // télescope au 3e étage
+      if (i === 2) {
+        ctx.save(); ctx.translate(w / 2 - 6, y - h + 6); ctx.rotate(-0.7 + Math.sin(t * 2) * 0.15);
+        rrect(ctx, 0, -5, 36, 10, 3, '#c97b3a', 2); rrect(ctx, 30, -7, 9, 14, 2, '#8a5a2e', 1.8); ctx.restore();
+      }
+      y -= h + 4;
+    });
+    // cheminée et fumée violette
+    rrect(ctx, -26, y - 18, 10, 20, 1, '#8a7a6a', 2);
+    for (let i = 0; i < 3; i++) { const q = ((t / Math.PI) * 2 + i / 3) % 1; ctx.fillStyle = `rgba(190,150,255,${0.7 * (1 - q)})`; ctx.beginPath(); ctx.arc(-21 - q * 10, y - 22 - q * 30, 4 + q * 6, 0, TAU); ctx.fill(); }
+    // chapeau pointu étoilé, pointe recourbée
+    const hb = y + 2, tip = Math.sin(t * 2) * 4;
+    ctx.beginPath(); ctx.moveTo(-42, hb); ctx.lineTo(46, hb); ctx.quadraticCurveTo(28, hb - 30, 22, hb - 52);
+    ctx.quadraticCurveTo(40 + tip, hb - 70, 52 + tip, hb - 66); ctx.quadraticCurveTo(14, hb - 92, 2, hb - 46); ctx.quadraticCurveTo(-16, hb - 20, -42, hb); ctx.closePath();
+    fillStroke(ctx, '#3c3a9a', 3);
+    ellipse(ctx, 2, hb, 50, 7, '#2e2c80', 2.5);
+    for (const [sx, sy, ph] of [[-10, -14, 0], [16, -24, 2], [8, -44, 4], [30, -58, 1]]) {
+      const tw = 0.5 + 0.5 * Math.sin(t * 4 + ph), r = 2.5 + tw * 1.5;
+      ctx.fillStyle = rgba('#ffd23a', 0.6 + 0.4 * tw);
+      ctx.beginPath(); ctx.moveTo(sx, hb + sy - r * 1.6); ctx.lineTo(sx + r * 0.5, hb + sy - r * 0.5); ctx.lineTo(sx + r * 1.6, hb + sy); ctx.lineTo(sx + r * 0.5, hb + sy + r * 0.5);
+      ctx.lineTo(sx, hb + sy + r * 1.6); ctx.lineTo(sx - r * 0.5, hb + sy + r * 0.5); ctx.lineTo(sx - r * 1.6, hb + sy); ctx.lineTo(sx - r * 0.5, hb + sy - r * 0.5); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+  // livres volants et orbes de sorts (un par sort de la tour)
+  function wizardLive(ctx, o) {
+    const t = o.t || 0, up = o.up || {};
+    const books = [['#e0352b', 0], ['#3d7bd9', 2.1], ['#3fb05a', 4.2]];
+    for (const [col, ph] of books) {
+      const a = t * 0.9 + ph, bx = Math.cos(a) * 92, by = -70 + Math.sin(a) * 26 + Math.sin(t * 3 + ph) * 5;
+      const flap = Math.abs(Math.sin(t * 9 + ph)) * 7;
+      ctx.save(); ctx.translate(bx, by);
+      poly(ctx, [-13, -flap * 0.4, 0, 3, 0, -5, -13, -flap], '#fff6e0', 1.6);
+      poly(ctx, [13, -flap * 0.4, 0, 3, 0, -5, 13, -flap], '#fff6e0', 1.6);
+      poly(ctx, [-12, -flap * 0.4 + 2, 0, 5, 12, -flap * 0.4 + 2, 12, -flap * 0.4 + 4, 0, 7, -12, -flap * 0.4 + 4], col, 1.4);
+      ctx.restore();
+    }
+    const orbs = [['mg_fire', '#ff6a2a'], ['mg_frost', '#8fe0ff'], ['mg_lightning', '#fff27a'], ['mg_meteor', '#ffb03a']].filter(([id]) => up[id] > 0);
+    orbs.forEach(([, col], i) => {
+      const a = t * 1.8 + (i / orbs.length) * TAU, ox = Math.cos(a) * 46, oy = -176 + Math.sin(a) * 12;
+      ctx.save(); ctx.translate(ox, oy); glow(ctx, col, 9); ctx.restore();
+      circle(ctx, ox, oy, 4.5, col, 1.6);
+    });
+  }
+  const TOWER_SKINS = {
+    attaque: { body: fortBody, live: fortLive, top: -108 },
+    defense: { body: citadelBody, live: citadelLive, top: -150 },
+    soin: { body: millBody, live: millLive, top: -110 },
+    mage: { body: wizardBody, live: wizardLive, top: -130 }
+  };
+
   const TOWER_CACHE = new Map();
   function drawTower(ctx, x, y, o) {
     const t = o.t || 0, hp = o.hp === undefined ? 1 : o.hp;
-    const TP = TAU / 2, TN = 12, f = Math.floor(((t % TP) + TP) % TP / TP * TN);
+    const TP = TAU / 2, TN = 16, f = Math.floor(((t % TP) + TP) % TP / TP * TN);
     const sc = o.scale || 1;
     const key = (o.spec || '') + '|' + JSON.stringify(o.up || {}) + '|' + (hp < 0.33 ? 2 : hp < 0.66 ? 1 : 0) + '|' + f + '|' + sc;
     let c = TOWER_CACHE.get(key);
     if (!c) {
-      if (TOWER_CACHE.size > 120) TOWER_CACHE.clear();
+      if (TOWER_CACHE.size > 160) TOWER_CACHE.clear();
       c = document.createElement('canvas'); c.width = Math.ceil(300 * sc); c.height = Math.ceil(330 * sc);
       const x2 = c.getContext('2d'); x2.scale(sc, sc);
       drawTowerRaw(x2, 150, 270, { ...o, t: (f + 0.5) / TN * TP });
       TOWER_CACHE.set(key, c);
     }
     ctx.drawImage(c, Math.round(x - 150 * sc), Math.round(y - 270 * sc));
+    // parties animées de la tour spécialisée, redessinées à chaque image
+    const skin = TOWER_SKINS[o.spec];
+    if (skin && skin.live) { ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc); skin.live(ctx, o); ctx.restore(); }
   }
-  // Apparence de la tour selon sa spécialisation (choisie au premier vote)
-  const TOWER_LOOK = {
-    '': { stone: null, banner: '#b5413a', emblem: 'diamond', flag: null },
-    attaque: { stone: ['#b08a7e', '#8f6c62', '#6d4f48', '#4a3430'], banner: '#9b1f1f', emblem: 'swords', flag: '#c0392b' },
-    defense: { stone: ['#a3b0c2', '#8592a8', '#66728a', '#434c60'], banner: '#2f5a9e', emblem: 'shield', flag: '#4e6d95' },
-    soin: { stone: ['#ebe3d2', '#d2c7b0', '#ad9f87', '#7c705c'], banner: '#2e9e57', emblem: 'cross', flag: '#2e9e57' },
-    mage: { stone: ['#a596c2', '#8676a8', '#665684', '#43365e'], banner: '#6a2fa3', emblem: 'star', flag: '#8e44ad' }
-  };
+  // Tour sans spécialisation (avant le premier vote)
+  const TOWER_LOOK = { banner: '#b5413a', flag: null };
   function drawTowerRaw(ctx, x, y, o) {
-    const LK = TOWER_LOOK[o.spec || ''] || TOWER_LOOK[''];
-    const S = LK.stone || P.stone;
+    const LK = TOWER_LOOK;
+    const S = P.stone;
     const t = o.t || 0;
-    const up = o.up || {};
-    const spec = o.spec || '';
     const hp = o.hp === undefined ? 1 : o.hp;
     ctx.save();
     ctx.translate(x, y);
     shadow(ctx, 0, 30, 92, 26);
-    // cercle runique (mage) et fontaine (soin), au pied de la tour
-    if (spec === 'mage') {
-      ctx.save(); ctx.globalAlpha = 0.55 + 0.25 * Math.sin(t * 2);
-      ctx.strokeStyle = '#c9a8ff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(0, 26, 98, 30, 0, 0, TAU); ctx.stroke();
-      ctx.lineWidth = 1.2; ctx.beginPath(); ctx.ellipse(0, 26, 86, 25, 0, 0, TAU); ctx.stroke();
-      ctx.fillStyle = '#e0ccff'; for (let i = 0; i < 10; i++) { const a = i / 10 * TAU + t * 0.3; ctx.fillRect(Math.cos(a) * 92 - 2, 26 + Math.sin(a) * 27.5 - 2, 4, 4); }
-      ctx.restore();
-    }
-    if (spec === 'soin') {
-      // fontaine
-      ctx.beginPath(); ctx.ellipse(-92, 18, 22, 9, 0, 0, TAU); fillStroke(ctx, S[1], 2);
-      ctx.beginPath(); ctx.ellipse(-92, 16, 17, 6, 0, 0, TAU); ctx.fillStyle = '#7fc8ff'; ctx.fill();
-      rrect(ctx, -95, -4, 6, 20, 2, S[0], 1.5);
-      for (let i = 0; i < 3; i++) { const k = (t * 1.5 + i / 3) % 1; ctx.fillStyle = `rgba(190,230,255,${1 - k})`; ctx.beginPath(); ctx.arc(-92 + (i - 1) * 6 * k, -6 + 14 * k * k - 6 * k, 2, 0, TAU); ctx.fill(); }
-      // fleurs
-      for (let i = 0; i < 6; i++) circle(ctx, 66 + (i % 3) * 9, 16 + Math.floor(i / 3) * 7, 2.6, ['#ff7ad9', '#ffd34d', '#ffffff'][i % 3], 0.8);
-    }
-    if (spec === 'attaque') {
-      // pieux devant la tour
-      for (let i = -3; i <= 3; i++) { const px = i * 24; poly(ctx, [px - 4, 34, px, 18, px + 4, 34], P.wood[1], 1.4); }
-    }
+    const skin = TOWER_SKINS[o.spec];
+    if (skin) { skin.body(ctx, t, o.up || {}); towerCracks(ctx, hp, t, skin.top); ctx.restore(); return; }
     // corps de la tour
     ctx.beginPath(); ctx.moveTo(-58, 20); ctx.lineTo(-48, -110); ctx.lineTo(48, -110); ctx.lineTo(58, 20);
     ctx.quadraticCurveTo(0, 40, -58, 20); ctx.closePath(); fillStroke(ctx, S[0], 3);
@@ -722,12 +996,7 @@
         const wv = Math.sin(t * 2.5 + bx) * 1.5;
         rrect(ctx, bx - 8, -102, 16, 3, 1, P.wood[2], 1.2);
         poly(ctx, [bx - 7, -100, bx + 7, -100, bx + 7 + wv * 0.3, -70, bx + wv, -76, bx - 7 + wv * 0.3, -70], LK.banner, 1.6);
-        const em = LK.emblem, G = P.ui.gold;
-        if (em === 'swords') { line(ctx, bx - 4, -94, bx + 4, -82, G, 1.8); line(ctx, bx + 4, -94, bx - 4, -82, G, 1.8); }
-        else if (em === 'shield') { poly(ctx, [bx - 4, -94, bx + 4, -94, bx + 4, -88, bx, -82, bx - 4, -88], G, 1); }
-        else if (em === 'cross') { ctx.fillStyle = '#ffffff'; ctx.fillRect(bx - 1.5, -95, 3, 12); ctx.fillRect(bx - 5, -91, 10, 3); }
-        else if (em === 'star') { poly(ctx, [bx, -96, bx + 1.6, -90.5, bx + 5, -90, bx + 2, -87, bx + 3, -82, bx, -85, bx - 3, -82, bx - 2, -87, bx - 5, -90, bx - 1.6, -90.5], G, 0.8); }
-        else poly(ctx, [bx, -94, bx + 4, -88, bx, -82, bx - 4, -88], G, 1.1);
+        poly(ctx, [bx, -94, bx + 4, -88, bx, -82, bx - 4, -88], P.ui.gold, 1.1);
       }
       // torches de part et d'autre de la porte
       for (const tx of [-28, 28]) {
@@ -743,30 +1012,11 @@
     rrect(ctx, -60, -126, 120, 20, 3, S[1], 3);
     { ctx.fillStyle = rgba(OL, 0.3); for (let i = -4; i <= 4; i++) ctx.fillRect(i * 13, -124, 1.5, 16); ctx.fillStyle = 'rgba(29,22,38,.35)'; ctx.fillRect(-58, -109, 116, 3); for (let i = -4; i <= 4; i++) { ctx.beginPath(); ctx.moveTo(i * 13 - 4, -106); ctx.lineTo(i * 13, -101); ctx.lineTo(i * 13 + 4, -106); ctx.fill(); } }
     for (let i = -2; i <= 2; i++) rrect(ctx, i * 24 - 8, -140, 16, 16, 2, S[1], 2.5);
-    if (spec === 'defense') {
-      // boucliers cloutés sur la muraille
-      for (const sx of [-30, 30]) { poly(ctx, [sx - 9, -40, sx + 9, -40, sx + 9, -28, sx, -18, sx - 9, -28], LK.banner, 1.6); circle(ctx, sx, -31, 3, P.ui.gold, 1); }
-      rrect(ctx, -66, -112, 132, 8, 2, S[2], 2);
-    }
-    // grande arbalète sur les créneaux (tour d'attaque)
-    if (spec === 'attaque') {
-      const big = up.at_bolt > 0 ? 1.2 : 1;
-      rrect(ctx, -14 * big, -156, 28 * big, 12, 3, P.wood[1], 1.8);
-      ctx.beginPath(); ctx.arc(0, -150, 26 * big, Math.PI * 1.15, Math.PI * 1.85); ctx.lineWidth = 5; ctx.strokeStyle = OL; ctx.stroke(); ctx.lineWidth = 3; ctx.strokeStyle = '#c9cfd6'; ctx.stroke();
-      line(ctx, 0, -150, 0, -176 * big, P.wood[0], 2.5); poly(ctx, [-4, -176 * big, 0, -186 * big, 4, -176 * big], '#e8eef5', 1);
-    }
     // drapeau planté sur les créneaux
     const fb = -140;
     line(ctx, 0, fb, 0, fb - 27, P.wood[2], 2);
     const wave = Math.sin(t * 4) * 3;
     poly(ctx, [0, fb - 27, 22, fb - 23 + wave, 0, fb - 15], LK.flag || P.capes[0], 1.6);
-    // cristal flottant (tour de mage)
-    if (spec === 'mage') {
-      const fy = -190 + Math.sin(t * 2) * 5;
-      ctx.save(); ctx.translate(0, fy); ctx.globalAlpha = 0.5 + 0.2 * Math.sin(t * 3); glow(ctx, '#c9a8ff', 22); ctx.restore();
-      poly(ctx, [0, fy - 18, 10, fy, 0, fy + 18, -10, fy], '#b98cff', 2);
-      poly(ctx, [0, fy - 18, 4, fy, 0, fy + 18], '#e6d4ff', 0.01);
-    }
     // dégâts : fissures et feu
     if (hp < 0.66) {
       ctx.strokeStyle = OL; ctx.lineWidth = 2.5; ctx.beginPath();

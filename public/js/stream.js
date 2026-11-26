@@ -203,7 +203,7 @@
         break;
       }
       case 'heal': burst(e[1], e[2] - 20, F.heal, 10, 60); break;
-      case 'healring': add({ k: 'ring', x: e[1], y: e[2], r: e[3], color: F.heal, dur: 0.8, w: 8 }); break;
+      case 'healring': millBoost = 4; add({ k: 'ring', x: e[1], y: e[2], r: e[3], color: F.heal, dur: 0.8, w: 8 }); break;
       case 'beam': add({ k: 'beam', x: e[1], y: e[2] - 30, x2: e[3], y2: e[4] - 20, dur: 0.35 }); burst(e[3], e[4] - 20, F.heal, 6, 50); break;
       case 'death': {
         const d = MOBS[MOB_IDS[e[3]]];
@@ -252,7 +252,7 @@
   let last = performance.now(), time = 0;
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
-    last = now; time += dt;
+    last = now; time += dt; stepTowerAnim(dt);
     update(dt);
     draw(dt);
     requestAnimationFrame(frame);
@@ -302,6 +302,24 @@
     }
   }
 
+  // Animations de la tour : la baliste (tour d'attaque) vise le monstre le plus proche,
+  // les ailes du moulin (tour de soin) tournent plus vite pendant le soin de l'entracte
+  let aimNow, millSpin = 0, millBoost = 0;
+  function towerAim() {
+    if (snap.ts !== 'attaque') return undefined;
+    let best = null, bd = 700 * 700;
+    for (const m of mobs.values()) { const d = (m.x - WORLD.CX) ** 2 + (m.y - WORLD.CY) ** 2; if (d < bd) { bd = d; best = m; } }
+    const want = best ? Math.atan2(best.y - (WORLD.CY - 160), best.x - WORLD.CX) : Math.sin(time * 0.5) * 0.8 - Math.PI / 2;
+    if (aimNow === undefined) aimNow = want;
+    const d = Math.atan2(Math.sin(want - aimNow), Math.cos(want - aimNow));
+    aimNow += d * Math.min(1, 0.12);
+    return aimNow;
+  }
+  function stepTowerAnim(dt) {
+    millBoost = Math.max(0, millBoost - dt);
+    millSpin += dt * (millBoost > 0 ? 4 : 0.7);
+  }
+
   function draw() {
     ctx.save();
     const sx = shake > 0 ? (Math.random() - 0.5) * shake : 0, sy = shake > 0 ? (Math.random() - 0.5) * shake : 0;
@@ -320,7 +338,7 @@
     drawZones(0);
     // entités triées en profondeur
     const list = [];
-    list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, spec: snap.ts, hp: snap.tw[0] / snap.tw[1], scale: TOWER_SCALE }) });
+    list.push({ y: WORLD.CY + 20, d: () => A.drawTower(ctx, WORLD.CX, WORLD.CY, { t: time, up: snap.up, spec: snap.ts, hp: snap.tw[0] / snap.tw[1], scale: TOWER_SCALE, aim: towerAim(), spin: millSpin }) });
     // habitations des héros : [type, x, y, PV %, nid du propriétaire]
     for (const [ti, bx, by, hp, , variant] of snap.bd || []) {
       const def = GD.BUILDINGS[ti], fam = GD.CLASSES[def.family];

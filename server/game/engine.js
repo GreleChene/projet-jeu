@@ -760,7 +760,7 @@ class Game {
           t.boltT = 1.6 / (1 + 0.2 * (up.at_rate || 0));
           const big = tgt.boss || tgt.elite;
           const dmg = 18 * (1 + 0.5 * (up.at_bolt - 1)) * wscale * (big ? 1 + 0.3 * (up.at_sniper || 0) : 1);
-          this.shoot({ kind: 'ballista', side: 'hero', x: TX, y: TY, target: tgt, dmg, speed: 820, extra: up.at_mark ? { markV: 0.1 * up.at_mark } : null });
+          this.shoot({ kind: 'ballista', side: 'hero', x: TX, y: WORLD.CY - 165, target: tgt, dmg, speed: 820, extra: up.at_mark ? { markV: 0.1 * up.at_mark } : null });
         }
       }
     }
