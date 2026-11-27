@@ -22,62 +22,182 @@
   const costText = (cost) => GD.bastionCostText(cost);
   const visible = () => { const v = $('[data-view="bastion"]'); return v && !v.classList.contains('hidden'); };
 
-  /* ============================== Sons (synthétisés) ============================== */
+  /* ============================== Sons et musique (synthétisés, sans fichier) ==============================
+   * Une mélodie par zone, en deux ambiances : construction (calme) et vague (plus rapide, percussions) ;
+   * gardien : basse grondante en plus. Bruitages pour chaque action et chaque événement de la vague.
+   * Deux volumes réglables (musique, effets) + coupure générale, retenus dans le navigateur. */
   const Sound = (() => {
-    let ac = null, muted = false;
+    let ac = null, master = null, sfxBus = null, musBus = null;
+    const prefs = { music: 0.5, sfx: 0.8, muted: false };
     const last = {};
-    try { muted = localStorage.getItem('bastionMute') === '1'; } catch (e) { /* stockage indisponible */ }
+    try { Object.assign(prefs, JSON.parse(localStorage.getItem('bastionSound') || '{}')); } catch (e) { /* stockage indisponible */ }
+    const save = () => { try { localStorage.setItem('bastionSound', JSON.stringify(prefs)); } catch (e) { /* */ } };
     function audio() {
-      if (muted) return null;
-      if (!ac) { const Ctor = window.AudioContext || window.webkitAudioContext; if (!Ctor) return null; ac = new Ctor(); }
+      if (!ac) {
+        const Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return null;
+        ac = new Ctor();
+        master = ac.createGain(); master.connect(ac.destination);
+        sfxBus = ac.createGain(); sfxBus.connect(master);
+        musBus = ac.createGain(); musBus.connect(master);
+        applyVolumes();
+      }
       if (ac.state === 'suspended') ac.resume();
       return ac;
     }
-    function tone(c, f, dur, type, vol, when, slide) {
-      const o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + (when || 0);
+    function applyVolumes() {
+      if (!ac) return;
+      master.gain.value = prefs.muted ? 0 : 1;
+      sfxBus.gain.value = prefs.sfx;
+      musBus.gain.value = prefs.music * 0.42;
+    }
+    // note : fréquence, durée, forme, volume, décalage, glissement de fréquence, sortie
+    function tone(c, f, dur, type, vol, when, slide, out) {
+      const o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + Math.max(0, when || 0);
       o.type = type || 'sine'; o.frequency.setValueAtTime(f, t0);
       if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t0 + dur);
       g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      o.connect(g).connect(c.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+      o.connect(g).connect(out || sfxBus); o.start(t0); o.stop(t0 + dur + 0.02);
     }
-    function noise(c, dur, vol, when, freq, type) {
+    // bruit filtré (chocs, souffles, percussions)
+    function noise(c, dur, vol, when, freq, type, out) {
       const n = Math.max(1, Math.floor(c.sampleRate * dur)), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
       for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
-      const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(), t0 = c.currentTime + (when || 0);
+      const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(), t0 = c.currentTime + Math.max(0, when || 0);
       s.buffer = buf; f.type = type || 'bandpass'; f.frequency.value = freq || 1000; g.gain.value = vol;
-      s.connect(f).connect(g).connect(c.destination); s.start(t0);
+      s.connect(f).connect(g).connect(out || sfxBus); s.start(t0);
     }
+    const r = () => 0.92 + Math.random() * 0.16; // petite variation de hauteur
+    const chord = (c, notes, dur, type, vol, gap) => notes.forEach((f, i) => tone(c, f, dur, type, vol, i * (gap || 0)));
     const SFX = {
-      arrow: (c) => { noise(c, 0.06, 0.12, 0, 3200, 'highpass'); tone(c, 700, 0.06, 'triangle', 0.03, 0, -300); },
-      rock: (c) => { noise(c, 0.12, 0.18, 0, 400, 'lowpass'); },
-      orb: (c) => { tone(c, 660, 0.14, 'sine', 0.05, 0, 440); },
-      bolt: (c) => { noise(c, 0.05, 0.08, 0, 2400, 'highpass'); },
-      boom: (c) => { tone(c, 90, 0.25, 'sine', 0.22, 0, -40); noise(c, 0.25, 0.25, 0, 500, 'lowpass'); },
-      kill: (c) => { tone(c, 420, 0.1, 'square', 0.03, 0, -200); tone(c, 1320, 0.08, 'triangle', 0.03, 0.03); },
+      // tirs
+      arrow: (c) => { noise(c, 0.06, 0.12, 0, 3200 * r(), 'highpass'); tone(c, 760 * r(), 0.06, 'triangle', 0.03, 0, -320); },
+      rock: (c) => { tone(c, 140 * r(), 0.14, 'sine', 0.12, 0, -60); noise(c, 0.12, 0.16, 0, 420, 'lowpass'); },
+      orb: (c) => { tone(c, 620 * r(), 0.16, 'sine', 0.05, 0, 520); tone(c, 1240 * r(), 0.1, 'triangle', 0.02, 0.03, 300); },
+      bolt: (c) => { noise(c, 0.05, 0.08, 0, 2400, 'highpass'); tone(c, 520 * r(), 0.05, 'triangle', 0.02, 0, -200); },
+      boom: (c) => { tone(c, 90 * r(), 0.25, 'sine', 0.2, 0, -40); noise(c, 0.25, 0.22, 0, 500, 'lowpass'); },
+      zap: (c) => { tone(c, 1400 * r(), 0.09, 'sawtooth', 0.03, 0, -900); noise(c, 0.06, 0.1, 0, 4000, 'highpass'); },
+      freeze: (c) => { [1568, 2093, 2637].forEach((f, i) => tone(c, f * r(), 0.12, 'sine', 0.035, i * 0.03)); },
+      // monstres
+      kill: (c) => { tone(c, 420 * r(), 0.1, 'square', 0.03, 0, -200); tone(c, 1320, 0.08, 'triangle', 0.025, 0.03); },
+      bigKill: (c) => { tone(c, 220, 0.4, 'sawtooth', 0.08, 0, -150); noise(c, 0.5, 0.25, 0, 400, 'lowpass'); chord(c, [523, 659, 784, 1046], 0.35, 'triangle', 0.07, 0.09); },
       leak: (c) => { tone(c, 160, 0.35, 'sawtooth', 0.1, 0, -60); noise(c, 0.3, 0.2, 0, 300, 'lowpass'); },
-      build: (c) => { noise(c, 0.08, 0.25, 0, 900, 'bandpass'); noise(c, 0.08, 0.2, 0.09, 700, 'bandpass'); tone(c, 330, 0.12, 'triangle', 0.06, 0.05); },
-      upgrade: (c) => { [523, 659, 784].forEach((f, i) => tone(c, f, 0.16, 'triangle', 0.07, i * 0.06)); },
-      sell: (c) => { [784, 659, 523].forEach((f, i) => tone(c, f, 0.12, 'triangle', 0.05, i * 0.05)); },
-      clear: (c) => { noise(c, 0.2, 0.25, 0, 700, 'bandpass'); tone(c, 200, 0.15, 'square', 0.04, 0.05, -80); },
-      wave: (c) => { [392, 392, 523].forEach((f, i) => tone(c, f, 0.22, 'square', 0.05, i * 0.16)); },
-      boss: (c) => { [110, 104, 98].forEach((f, i) => tone(c, f, 0.4, 'sawtooth', 0.1, i * 0.22)); noise(c, 0.6, 0.12, 0, 300, 'lowpass'); },
-      end: (c) => { [523, 659, 784, 1046].forEach((f, i) => tone(c, f, 0.22, 'triangle', 0.07, i * 0.08)); },
-      lose: (c) => { [392, 330, 262, 196].forEach((f, i) => tone(c, f, 0.35, 'triangle', 0.08, i * 0.18)); },
-      abil: (c) => { tone(c, 330, 0.35, 'sawtooth', 0.06, 0, 660); noise(c, 0.3, 0.2, 0.05, 1200, 'bandpass'); },
-      error: (c) => { tone(c, 180, 0.15, 'square', 0.05); }
+      alarm: (c) => { tone(c, 880, 0.12, 'square', 0.05); tone(c, 660, 0.12, 'square', 0.05, 0.15); tone(c, 880, 0.12, 'square', 0.05, 0.3); },
+      heal: (c) => { tone(c, 660 * r(), 0.18, 'sine', 0.025, 0, 330); },
+      stomp: (c) => { tone(c, 60, 0.5, 'sine', 0.3, 0, -25); noise(c, 0.45, 0.3, 0, 220, 'lowpass'); },
+      summon: (c) => { tone(c, 220, 0.4, 'sawtooth', 0.04, 0, 220); noise(c, 0.3, 0.1, 0.05, 900, 'bandpass'); },
+      rebirth: (c) => { noise(c, 0.6, 0.2, 0, 1400, 'bandpass'); chord(c, [392, 523, 659, 784], 0.4, 'sawtooth', 0.05, 0.08); },
+      charge: (c) => { noise(c, 0.35, 0.18, 0, 600, 'bandpass'); tone(c, 120, 0.3, 'sawtooth', 0.05, 0, 80); },
+      barricade: (c) => { noise(c, 0.35, 0.3, 0, 700, 'bandpass'); tone(c, 180, 0.2, 'square', 0.06, 0.05, -100); },
+      soldier: (c) => { tone(c, 300, 0.2, 'triangle', 0.05, 0, -150); },
+      enrage: (c) => { [110, 117, 110, 117].forEach((f, i) => tone(c, f, 0.2, 'sawtooth', 0.09, i * 0.18)); },
+      // construction
+      build: (c) => { noise(c, 0.07, 0.25, 0, 900, 'bandpass'); noise(c, 0.07, 0.22, 0.1, 750, 'bandpass'); noise(c, 0.07, 0.2, 0.2, 820, 'bandpass'); tone(c, 330, 0.12, 'triangle', 0.06, 0.22); },
+      upgrade: (c) => { chord(c, [523, 659, 784], 0.16, 'triangle', 0.07, 0.06); noise(c, 0.05, 0.12, 0, 5000, 'highpass'); },
+      spec: (c) => { chord(c, [392, 523, 659, 784, 1046], 0.22, 'square', 0.05, 0.07); tone(c, 1568, 0.5, 'sine', 0.05, 0.38); },
+      sell: (c) => { [1319, 1568, 1319, 1760].forEach((f, i) => tone(c, f, 0.08, 'triangle', 0.05, i * 0.05)); },
+      chop: (c) => { for (let i = 0; i < 3; i++) { noise(c, 0.06, 0.3, i * 0.13, 1100 * r(), 'bandpass'); tone(c, 190 * r(), 0.08, 'sine', 0.12, i * 0.13, -60); } noise(c, 0.4, 0.12, 0.4, 500, 'lowpass'); },
+      crack: (c) => { for (let i = 0; i < 2; i++) noise(c, 0.08, 0.35, i * 0.16, 2600 * r(), 'bandpass'); noise(c, 0.3, 0.2, 0.32, 300, 'lowpass'); tone(c, 1900 * r(), 0.1, 'triangle', 0.04, 0.3); },
+      castleUp: (c) => { chord(c, [392, 523, 659, 784], 0.3, 'square', 0.06, 0.12); chord(c, [523, 659, 784, 1046], 0.6, 'triangle', 0.05, 0); },
+      repair: (c) => { for (let i = 0; i < 3; i++) { noise(c, 0.05, 0.25, i * 0.12, 2200, 'bandpass'); tone(c, 880, 0.08, 'triangle', 0.04, i * 0.12); } },
+      select: (c) => { tone(c, 1046, 0.05, 'triangle', 0.025); },
+      error: (c) => { tone(c, 180, 0.15, 'square', 0.05); },
+      plan: (c) => { [784, 988, 1175, 1568].forEach((f, i) => tone(c, f, 0.28, 'sine', 0.07, i * 0.09)); noise(c, 0.3, 0.06, 0.1, 6000, 'highpass'); },
+      // capacités de la tour principale
+      pluie: (c) => { for (let i = 0; i < 8; i++) noise(c, 0.08, 0.1, i * 0.04, 3000 + Math.random() * 1500, 'highpass'); },
+      gel: (c) => { noise(c, 0.4, 0.15, 0, 5000, 'highpass'); [1319, 1760, 2349, 3136].forEach((f, i) => tone(c, f, 0.3, 'sine', 0.04, i * 0.05)); },
+      reparation: (c) => { chord(c, [523, 784, 1046], 0.3, 'sine', 0.06, 0.1); noise(c, 0.1, 0.2, 0, 2200, 'bandpass'); },
+      colere: (c) => { tone(c, 1800, 0.5, 'sine', 0.05, 0, -1500); tone(c, 70, 0.6, 'sine', 0.35, 0.45, -30); noise(c, 0.7, 0.4, 0.45, 350, 'lowpass'); },
+      // vagues
+      wave: (c) => { [392, 392, 523].forEach((f, i) => tone(c, f, 0.22, 'square', 0.05, i * 0.16)); tone(c, 196, 0.5, 'sawtooth', 0.04, 0.32); },
+      boss: (c) => { [110, 104, 98].forEach((f, i) => tone(c, f, 0.45, 'sawtooth', 0.1, i * 0.24)); noise(c, 0.7, 0.14, 0, 300, 'lowpass'); },
+      end: (c) => { chord(c, [523, 659, 784, 1046], 0.22, 'triangle', 0.07, 0.08); },
+      victory: (c) => { chord(c, [523, 659, 784, 1046], 0.3, 'square', 0.07, 0.11); chord(c, [1046, 1319, 1568], 0.8, 'triangle', 0.06, 0); },
+      lose: (c) => { [392, 330, 262, 196].forEach((f, i) => tone(c, f, 0.4, 'triangle', 0.08, i * 0.2)); noise(c, 0.8, 0.15, 0.2, 250, 'lowpass'); }
     };
+
+    /* ---- musique : séquenceur (mélodie + contre-chant + basse + percussions), une mélodie par zone ---- */
+    const N = (n) => 440 * Math.pow(2, (n - 69) / 12); // note MIDI → Hz
+    const _ = null;
+    // mel : 32 croches ; bas : 16 croches ; kick / snare / hat : motifs de 16 ; vague : même zone, plus rapide et plus rythmée
+    const THEMES = {
+      champ: { // Clairière : air de fête champêtre, majeur, flûte et tambourin
+        build: { bpm: 104, lead: 'triangle', leadVol: 0.09, bass: 'triangle', bassVol: 0.09, kick: 'x.......x.......', snare: '', hat: 0.015,
+          mel: [72, _, 74, 76, 79, _, 76, _, 77, 76, 74, _, 72, _, _, _, 69, _, 72, 74, 76, _, 74, 72, 74, _, 67, _, 72, _, _, _],
+          bas: [48, _, 55, _, 53, _, 55, _, 48, _, 55, _, 43, _, 55, _] },
+        wave: { bpm: 138, lead: 'square', leadVol: 0.045, bass: 'square', bassVol: 0.05, kick: 'x...x...x...x...', snare: '....x.......x...', hat: 0.035,
+          mel: [72, 76, 79, 76, 81, _, 79, 76, 77, 76, 74, 72, 74, _, 67, _, 72, 76, 79, 84, 83, _, 79, 77, 76, 74, 72, 74, 72, _, _, _],
+          bas: [48, 48, 55, 55, 53, 53, 55, 55, 48, 48, 55, 55, 43, 43, 55, 55] }
+      },
+      foret: { // Forêt : complainte folklorique en ré dorien, flûte et bourdon
+        build: { bpm: 92, lead: 'sine', leadVol: 0.1, bass: 'triangle', bassVol: 0.11, kick: 'x.......x...x...', snare: '', hat: 0.012,
+          mel: [62, _, 65, _, 67, 69, 67, 65, 64, _, 62, _, 60, _, 62, _, 69, _, 72, 71, 69, _, 67, 65, 67, _, 64, _, 62, _, _, _],
+          bas: [38, _, _, _, 45, _, _, _, 36, _, _, _, 43, _, 45, _] },
+        wave: { bpm: 126, lead: 'triangle', leadVol: 0.08, bass: 'sawtooth', bassVol: 0.05, kick: 'x..x..x.x..x..x.', snare: '....x.......x..x', hat: 0.03,
+          mel: [74, 72, 69, 72, 74, _, 77, 76, 74, 72, 69, _, 67, 69, 72, _, 74, 72, 69, 67, 65, _, 67, 69, 70, 69, 67, 65, 62, _, _, _],
+          bas: [38, 38, 50, 38, 36, 36, 48, 36, 34, 34, 46, 34, 36, 36, 48, 45] }
+      },
+      mine: { // Caverne : mélodie grave et mystérieuse en la mineur (phrygien), échos de cristal
+        build: { bpm: 76, lead: 'square', leadVol: 0.04, bass: 'triangle', bassVol: 0.13, kick: 'x...........x...', snare: '', hat: 0, bell: 0.04,
+          mel: [57, _, _, 60, 58, _, 57, _, 64, _, 63, _, 60, _, _, _, 57, _, 58, 60, 62, _, 60, 58, 57, _, _, _, 52, _, _, _],
+          bas: [33, _, _, _, 34, _, _, _, 33, _, _, _, 28, _, _, _] },
+        wave: { bpm: 112, lead: 'sawtooth', leadVol: 0.03, bass: 'square', bassVol: 0.06, kick: 'x.x...x.x.x...x.', snare: '....x.......x...', hat: 0.025, bell: 0.03,
+          mel: [69, _, 70, 69, 67, _, 65, 64, 65, _, 64, 62, 60, _, 64, _, 69, _, 72, 70, 69, _, 67, 65, 64, 65, 64, 62, 57, _, _, _],
+          bas: [33, 33, 45, 33, 34, 34, 46, 34, 33, 33, 45, 33, 28, 28, 40, 31] }
+      }
+    };
+    let music = null; // { key, step, next, timer }
+    function startMusic(zone, mood, boss) {
+      const key = zone + ':' + mood + (boss ? ':boss' : '');
+      if (music && music.key === key) return;
+      stopMusic();
+      const c = audio(), Tz = THEMES[zone];
+      if (!c || !Tz) return;
+      const T = Tz[mood] || Tz.build, step = 60 / T.bpm / 2;
+      music = { key, step: 0, next: c.currentTime + 0.12 };
+      music.timer = setInterval(() => {
+        while (music && music.next < c.currentTime + 0.25) {
+          const i = music.step, w = music.next - c.currentTime, k = i % 16;
+          const m = T.mel[i % T.mel.length], b = T.bas[i % T.bas.length];
+          if (m) { tone(c, N(m), step * 1.7, T.lead, T.leadVol, w, 0, musBus); if (T.bell && i % 4 === 0) tone(c, N(m + 24), step * 3, 'sine', T.bell, w + step * 0.5, 0, musBus); }
+          // contre-chant : la tierce au-dessus, une note sur quatre
+          if (m && i % 4 === 2) tone(c, N(m + 4), step * 1.2, 'sine', T.leadVol * 0.5, w, 0, musBus);
+          if (b) tone(c, N(b), step * 3.2, T.bass, T.bassVol, w, 0, musBus);
+          if (T.kick[k] === 'x') tone(c, 110, 0.13, 'sine', 0.2, w, -70, musBus);
+          if (T.snare && T.snare[k] === 'x') noise(c, 0.1, 0.12, w, 1800, 'bandpass', musBus);
+          if (T.hat && i % 2 === 1) noise(c, 0.035, T.hat, w, 7000, 'highpass', musBus);
+          // gardien : grondement grave en plus
+          if (boss && k % 8 === 0) tone(c, N(b || T.bas[0]) / 2, step * 6, 'sawtooth', 0.05, w, 0, musBus);
+          music.step++; music.next += step;
+        }
+      }, 60);
+    }
+    function stopMusic() { if (music) { clearInterval(music.timer); music = null; } }
     return {
-      play(name) {
-        const now = performance.now();
-        if (last[name] && now - last[name] < 45) return;
+      // gap : délai minimal (s) entre deux déclenchements du même effet
+      play(name, gap) {
+        const now = performance.now() / 1000;
+        if (last[name] && now - last[name] < (gap || 0.045)) return;
         last[name] = now;
+        if (prefs.muted) return;
         const c = audio();
         if (c && SFX[name]) try { SFX[name](c); } catch (e) { /* audio indisponible */ }
       },
-      toggle() { muted = !muted; try { localStorage.setItem('bastionMute', muted ? '1' : '0'); } catch (e) { /* */ } return muted; },
-      get muted() { return muted; }
+      startMusic, stopMusic, musicKey: () => (music ? music.key : null),
+      prefs,
+      set(key, v) { prefs[key] = v; save(); applyVolumes(); },
+      toggle() { prefs.muted = !prefs.muted; save(); applyVolumes(); return prefs.muted; },
+      get muted() { return prefs.muted; }
     };
   })();
+  // Réglages du son : coupure + volumes de la musique et des effets
+  function soundControls() {
+    const slider = (key, label) => el('label', { class: 'mini-vol small' }, label,
+      el('input', { type: 'range', min: 0, max: 100, value: Math.round(Sound.prefs[key] * 100), oninput: (e) => { Sound.set(key, e.target.value / 100); if (key === 'sfx') Sound.play('arrow'); } }));
+    return el('div', { class: 'mini-sound' },
+      el('button', { class: 'mini-mute', title: 'Activer / couper tous les sons', onclick: (e) => { e.currentTarget.textContent = Sound.toggle() ? '🔇' : '🔊'; renderBars(); } }, Sound.muted ? '🔇' : '🔊'),
+      slider('music', '🎵 Musique'), slider('sfx', '💥 Effets'));
+  }
 
   /* ============================== Chargement et synchronisation ============================== */
   async function load() {
@@ -92,7 +212,7 @@
     const run = S.run;
     if (!run || !V || V.key !== runKey(run)) { render(); return; }
     // nouvelles entrées du journal (gardien vaincu, œuf, remboursement, victoire)
-    for (const line of run.log.slice(V.logSeen)) toast(line);
+    for (const line of run.log.slice(V.logSeen)) { toast(line); if (line.includes('Plan trouvé')) Sound.play('plan', 0.3); }
     V.logSeen = run.log.length;
     if (run.G.phase !== 'wave') {
       const mine = V.G;
@@ -136,6 +256,7 @@
       if (run.over) showOver(); else if (run.G.phase === 'won') showWon();
     } else {
       V = null;
+      Sound.stopMusic();
       document.body.classList.remove('bs-noscroll');
       root.replaceChildren(lobby());
       if (!ladder) loadLadder();
@@ -194,6 +315,7 @@
     return el('div', {},
       el('div', { class: 'panel bs-head' },
         el('div', {}, el('h2', { style: 'margin:0' }, '🏰 Bastion'), el('p', { class: 'small muted', style: 'margin:4px 0 0' }, 'Défense de tour solo : une carte différente à chaque partie, des bâtiments à placer, améliorer et combiner entre les vagues.')),
+        soundControls(),
         el('div', { class: 'mini-res' },
           el('span', { class: 'chip gold' }, `${hail} ${S.gold} Grêlons`),
           el('span', { class: 'chip' }, `📜 ${S.unlocked.length} / ${GD.bastionPlanKeys().length} plans`),
@@ -247,6 +369,10 @@
       const done = (v) => { closeOverlay(); resolve(v); };
       overlay([el('h3', {}, title), el('p', {}, text), el('div', { class: 'mini-panel-btns' }, el('span', { class: 'spacer' }), el('button', { onclick: () => done(false) }, 'Annuler'), el('button', { class: 'danger', onclick: () => done(true) }, ok))]);
     });
+  }
+  function openSound() {
+    overlay([el('h3', {}, '🔊 Son'), el('p', { class: 'small muted' }, `Une mélodie par zone (plus rythmée pendant les vagues, grondante quand un gardien est là) et des bruitages pour chaque action.`), soundControls(),
+      el('div', { class: 'mini-panel-btns' }, el('span', { class: 'spacer' }), el('button', { class: 'primary', onclick: closeOverlay }, 'Fermer'))]);
   }
   function closeOverlay() { if (V) V.plansOpen = false; const o = $('#bsOverlay'); if (o) o.classList.add('hidden'); renderPanel(); }
 
@@ -314,7 +440,7 @@
       el('span', { class: 'spacer' }),
       el('button', { class: 'small', title: 'Afficher toutes les zones d’attaque (Z)', onclick: () => { V.zones = !V.zones; renderBars(); }, id: 'bsZonesBtn' }, '👁️'),
       el('button', { class: 'small', title: 'Plans trouvés (bâtiments et spécialisations débloqués)', onclick: openPlans, id: 'bsPlansBtn' }, `📜 ${S.unlocked.length}`),
-      el('button', { class: 'small', title: 'Son', id: 'bsMute', onclick: () => { Sound.toggle(); renderBars(); } }, Sound.muted ? '🔇' : '🔊'),
+      el('button', { class: 'small', title: 'Son : musique et bruitages', id: 'bsMute', onclick: openSound }, Sound.muted ? '🔇' : '🔊'),
       el('button', { class: 'small', title: 'Abandonner la partie', onclick: abandon }, '🏳️'));
     const bottom = el('div', { class: 'bs-bottom', id: 'bsBottom' });
     const stage = el('div', { class: 'bs-stage' }, canvas, el('div', { class: 'bs-panel hidden', id: 'bsPanel' }), el('div', { class: 'mini-overlay hidden', id: 'bsOverlay' }));
@@ -434,6 +560,7 @@
   function onCellClick(cell) {
     if (!V || !cell) return;
     const G = V.G;
+    Sound.play('select');
     if (V.targeting) { // capacité visée
       V.abilQueue.push({ id: V.targeting, c: cell.c, r: cell.r });
       V.targeting = null; renderBars(); return;
@@ -530,7 +657,11 @@
   function loop(now) {
     if (!V || !V.canvas || !V.canvas.isConnected) { if (V) V.raf = 0; return; }
     // onglet caché : la partie se met en pause
-    if (!visible()) { V.last = now; V.raf = requestAnimationFrame(loop); return; }
+    if (!visible()) { Sound.stopMusic(); V.last = now; V.raf = requestAnimationFrame(loop); return; }
+    if (S && S.run && !S.run.over && V.G.phase !== 'won' && V.G.phase !== 'over') {
+      const W0 = V.G.W;
+      Sound.startMusic(V.G.zone, V.G.phase === 'wave' ? 'wave' : 'build', !!(W0 && W0.mobs.some((m) => m.boss)));
+    }
     const dt = Math.min(0.1, V.last ? (now - V.last) / 1000 : 0);
     V.last = now; V.t += dt;
     const G = V.G;
@@ -551,7 +682,7 @@
     V.prevP = new Map(W.proj.map((p) => [p.id, [p.x, p.y]]));
     for (const q of V.abilQueue.splice(0)) {
       const tickNo = W.tick, err = BS.useAbility(G, q.id, q.c, q.r, V.ev);
-      if (err) { toast(err); Sound.play('error'); } else { sendAbility([q.id, q.c, q.r, tickNo]); Sound.play('abil'); }
+      if (err) { toast(err); Sound.play('error'); } else { sendAbility([q.id, q.c, q.r, tickNo]); Sound.play(q.id); }
     }
     BS.step(G, V.ev);
     for (const e of V.ev) onEvent(e);
@@ -564,17 +695,20 @@
       case 'shot': Sound.play(e[2] === 'rock' ? 'rock' : e[2] === 'orb' ? 'orb' : e[2] === 'bolt' ? 'bolt' : 'arrow'); break;
       case 'boom': V.fx.push({ k: 'boom', x: X(e[1]), y: X(e[2]), r: X(e[3]), t0: t, dur: 0.45 }); Sound.play('boom'); break;
       case 'hit': if (e[4]) V.texts.push({ text: 'Critique !', x: X(e[1]), y: X(e[2]) - 30, col: '#ffd34d', t0: t, dur: 0.8 }); V.fx.push({ k: 'spark', x: X(e[1]), y: X(e[2]), t0: t, dur: 0.2, col: e[3] === 'orb' ? '#c9a8ff' : '#fff8e8' }); break;
-      case 'chain': V.fx.push({ k: 'chain', x: X(e[1]), y: X(e[2]), x2: X(e[3]), y2: X(e[4]), t0: t, dur: 0.25 }); break;
-      case 'kill': V.fx.push({ k: 'puff', x: X(e[2]), y: X(e[3]), t0: t, dur: 0.4, big: e[6] }); V.texts.push({ text: `+${e[4]} 🪙`, x: X(e[2]), y: X(e[3]) - 26, col: '#ffd34d', t0: t, dur: 0.9 }); Sound.play('kill'); if (e[6]) { V.banner = { text: 'Gardien vaincu !', t0: t }; Sound.play('end'); } break;
-      case 'leak': V.shake = Math.min(1.5, V.shake + 0.5); V.texts.push({ text: `−${e[2]} PV`, x: (V.G.castle.c + 1) * CELL, y: V.G.castle.r * CELL + 20, col: '#ff6a5a', t0: t, dur: 1.1 }); Sound.play('leak'); break;
-      case 'heal': V.fx.push({ k: 'ring', x: X(e[1]), y: X(e[2]), r: 1.5 * CELL, col: '#7cff8a', t0: t, dur: 0.5 }); break;
-      case 'stomp': V.fx.push({ k: 'ring', x: X(e[1]), y: X(e[2]), r: X(e[3]), col: '#d9a95f', t0: t, dur: 0.6, w: 6 }); Sound.play('boom'); break;
-      case 'summon': V.fx.push({ k: 'ring', x: X(e[1]), y: X(e[2]), r: 0.9 * CELL, col: '#c26bff', t0: t, dur: 0.5 }); break;
-      case 'rebirth': V.fx.push({ k: 'ring', x: X(e[1]), y: X(e[2]), r: 1.6 * CELL, col: '#ff7a1a', t0: t, dur: 0.8, w: 8 }); V.texts.push({ text: 'Renaissance !', x: X(e[1]), y: X(e[2]) - 50, col: '#ff7a1a', t0: t, dur: 1.4 }); break;
+      case 'chain': V.fx.push({ k: 'chain', x: X(e[1]), y: X(e[2]), x2: X(e[3]), y2: X(e[4]), t0: t, dur: 0.25 }); Sound.play('zap', 0.08); break;
+      case 'kill': V.fx.push({ k: 'puff', x: X(e[2]), y: X(e[3]), t0: t, dur: 0.4, big: e[6] }); V.texts.push({ text: `+${e[4]} 🪙`, x: X(e[2]), y: X(e[3]) - 26, col: '#ffd34d', t0: t, dur: 0.9 }); Sound.play(e[6] ? 'bigKill' : 'kill'); if (e[6]) V.banner = { text: 'Gardien vaincu !', t0: t }; break;
+      case 'leak': V.shake = Math.min(1.5, V.shake + 0.5); V.texts.push({ text: `−${e[2]} PV`, x: (V.G.castle.c + 1) * CELL, y: V.G.castle.r * CELL + 20, col: '#ff6a5a', t0: t, dur: 1.1 }); Sound.play('leak'); if (V.G.castle.hp < BS.castleMax(V.G) * 0.3) Sound.play('alarm', 4); break;
+      case 'heal': V.fx.push({ k: 'ring', x: X(e[1]), y: X(e[2]), r: 1.5 * CELL, col: '#7cff8a', t0: t, dur: 0.5 }); Sound.play('heal', 0.4); break;
+      case 'stomp': V.fx.push({ k: 'ring', x: X(e[1]), y: X(e[2]), r: X(e[3]), col: '#d9a95f', t0: t, dur: 0.6, w: 6 }); Sound.play('stomp'); break;
+      case 'summon': V.fx.push({ k: 'ring', x: X(e[1]), y: X(e[2]), r: 0.9 * CELL, col: '#c26bff', t0: t, dur: 0.5 }); Sound.play('summon', 0.3); break;
+      case 'rebirth': V.fx.push({ k: 'ring', x: X(e[1]), y: X(e[2]), r: 1.6 * CELL, col: '#ff7a1a', t0: t, dur: 0.8, w: 8 }); V.texts.push({ text: 'Renaissance !', x: X(e[1]), y: X(e[2]) - 50, col: '#ff7a1a', t0: t, dur: 1.4 }); Sound.play('rebirth'); break;
       case 'abil': V.fx.push({ k: 'abil', id: e[1], x: X(e[2]), y: X(e[3]), r: X(e[4]), t0: t, dur: e[1] === 'colere' ? 0.9 : 0.7 }); break;
-      case 'bar': { const b = BS.byId(V.G, e[1]); if (b) V.texts.push({ text: 'Barricade détruite', x: X(b.c + 0.5), y: X(b.r), col: '#ff9a6a', t0: t, dur: 1.4 }); Sound.play('boom'); break; }
+      case 'bar': { const b = BS.byId(V.G, e[1]); if (b) V.texts.push({ text: 'Barricade détruite', x: X(b.c + 0.5), y: X(b.r), col: '#ff9a6a', t0: t, dur: 1.4 }); Sound.play('barricade'); break; }
       case 'spawn': if (e[2]) { V.banner = { text: '👑 Le gardien arrive !', t0: t, boss: true }; Sound.play('boss'); } break;
-      case 'enrage': V.banner = { text: 'Les monstres s’énervent !', t0: t }; break;
+      case 'enrage': V.banner = { text: 'Les monstres s’énervent !', t0: t }; Sound.play('enrage'); break;
+      case 'charge': Sound.play('charge', 0.5); break;
+      case 'sol': Sound.play('soldier', 0.2); break;
+      case 'freeze': Sound.play('freeze', 0.2); break;
     }
   }
 
@@ -979,7 +1113,7 @@
       for (const [k, sp] of Object.entries(T.specs)) {
         const err = BS.specError(G, b, k);
         out.push(el('div', { class: 'bs-act' }, el('div', { class: 'small' }, `${sp.icon} `, el('b', {}, sp.name), ` — ${sp.desc}`),
-          el('button', { disabled: !!err, title: err || '', onclick: () => doOp(['s', b.id, k], 'upgrade') }, 'Choisir ', costEl(G, GD.bastionCost(b.t, 4))),
+          el('button', { disabled: !!err, title: err || '', onclick: () => doOp(['s', b.id, k], 'spec') }, 'Choisir ', costEl(G, GD.bastionCost(b.t, 4))),
           err && err !== 'Pas assez de ressources' ? el('div', { class: 'small bs-err' }, err) : ''));
       }
     }
@@ -1006,9 +1140,9 @@
       const ab = Object.values(B.ABILITIES).find((a) => a.level === n + 1);
       if (ab) gains.push(`capacité ${ab.icon} ${ab.name}`);
       out.push(el('div', { class: 'bs-act' }, el('div', { class: 'small' }, `Niveau ${n + 1} : ${gains.join(' · ')}`),
-        el('button', { class: 'primary', disabled: !!err, onclick: () => doOp(['c'], 'upgrade') }, '⬆️ Améliorer ', costEl(G, C.cost[n]))));
+        el('button', { class: 'primary', disabled: !!err, onclick: () => doOp(['c'], 'castleUp') }, '⬆️ Améliorer ', costEl(G, C.cost[n]))));
     }
-    out.push(el('div', { class: 'bs-act' }, el('button', { disabled: G.castle.hp >= max || !BS.canPay(G.res, C.repair.cost), onclick: () => doOp(['r'], 'upgrade') }, `🔨 Réparer +${C.repair.hp} PV `, costEl(G, C.repair.cost))));
+    out.push(el('div', { class: 'bs-act' }, el('button', { disabled: G.castle.hp >= max || !BS.canPay(G.res, C.repair.cost), onclick: () => doOp(['r'], 'repair') }, `🔨 Réparer +${C.repair.hp} PV `, costEl(G, C.repair.cost))));
     return out;
   }
 
@@ -1021,7 +1155,7 @@
     if (cell === BS.ARBRE || cell === BS.ROCHER) {
       const Cl = cell === BS.ARBRE ? B.CLEAR.arbre : B.CLEAR.rocher;
       out.push(el('p', { class: 'small' }, cell === BS.ARBRE ? `Une scierie qui touche ${G.zone === 'mine' ? 'ce champignon' : 'cet arbre'} produit plus de bois.` : 'Une carrière qui touche ce rocher produit plus de pierre.'));
-      out.push(el('div', { class: 'bs-act' }, el('button', { class: 'primary', disabled: (G.res.or || 0) < Cl.cost, onclick: () => { if (doOp(['d', c, r], 'clear')) { V.sel = { kind: 'cell', c, r, build: null }; renderPanel(); } } }, `🪓 Défricher : ${resIcon('or')} ${Cl.cost} → +${costText(Cl.gain)}`)));
+      out.push(el('div', { class: 'bs-act' }, el('button', { class: 'primary', disabled: (G.res.or || 0) < Cl.cost, onclick: () => { if (doOp(['d', c, r], cell === BS.ARBRE ? 'chop' : 'crack')) { V.sel = { kind: 'cell', c, r, build: null }; renderPanel(); } } }, `🪓 Défricher : ${resIcon('or')} ${Cl.cost} → +${costText(Cl.gain)}`)));
       return out;
     }
     if (cell === BS.CHEMIN) out.push(el('p', { class: 'small muted' }, 'Les monstres suivent ce chemin jusqu’à ta tour. Seule une barricade peut s’y construire.'));
@@ -1064,6 +1198,7 @@
   }
   function showWon() {
     const run = S.run;
+    Sound.stopMusic(); Sound.play('victory');
     overlay([
       el('h3', {}, '🏆 Victoire !'),
       el('p', {}, `Ton bastion a tenu ${B.WIN_WAVE} manches dans la zone « ${B.ZONES[run.zone].name} ».`),
@@ -1074,6 +1209,7 @@
     ]);
   }
   function showOver() {
+    Sound.stopMusic();
     const o = S.run.over, line = (icon, label, value) => el('div', { class: 'reward-line' }, el('span', {}, `${icon} ${label}`), el('b', {}, value));
     const title = o.won ? '🏆 Partie terminée — victoire !' : o.reason === 'lost' ? '💥 La tour principale est tombée' : '🏳️ Partie abandonnée';
     overlay([
@@ -1106,5 +1242,5 @@
     const fx = (((c + 0.5) * CELL - V.cam.x) * V.cam.z) / MW, fy = (((r + 0.5) * CELL - V.cam.y) * V.cam.z) / MH;
     return rot ? { x: R.right - fy * R.width, y: R.top + fx * R.height } : { x: R.left + fx * R.width, y: R.top + fy * R.height };
   }
-  window.BastionGame = { open: load, debug: () => V, cellToClient };
+  window.BastionGame = { open: load, debug: () => V, cellToClient, music: () => Sound.musicKey() };
 })();

@@ -1043,7 +1043,8 @@
         'Bâtiments d’attaque (avec leur zone d’attaque), de support, de production (bois, pierre) et de richesse (or) : 3 niveaux, puis une spécialisation au choix. Défricher un arbre ou un rocher coûte de l’or. La tour principale tire sur une grande zone et s’améliore : PV, tir, territoire constructible, niveau des bâtiments et capacités à lancer pendant les vagues.',
         'Synergies : deux bâtiments qui partagent un côté se renforcent (bannière ou phare et tours, scierie et arbres, carrière et rochers, marché entouré de commerces…).',
         `Plans : chaque zone a les siens ; chaque gardien vaincu en lâche un, tiré au hasard parmi ceux que tu n’as pas encore (jamais de doublon). Récompenses aussi : XP à chaque manche gagnée (versée en fin de partie) et ${Math.round(GD.BASTION.EGG_CHANCE * 100)} % de chances d’un œuf de familier par gardien. Le Bastion ne rapporte pas de ressources des mini-jeux.`,
-        'Sur téléphone : plein écran en paysage (la carte est tournée si le téléphone reste en portrait) ; pince pour zoomer, glisse pour te déplacer.'])),
+        'Sur téléphone : plein écran en paysage (la carte est tournée si le téléphone reste en portrait) ; pince pour zoomer, glisse pour te déplacer.',
+        'Une mélodie par zone (calme pendant la construction, rythmée pendant les vagues) et des bruitages pour chaque action ; volumes réglables avec le bouton 🔊.'])),
       sec('🏅 Succès et titres', ul([
         `${GD.ACHIEVEMENTS.length} succès en ${Object.keys(GD.ACH_CATS).length} catégories : ${Object.values(GD.ACH_CATS).map((c) => `${c.icon} ${c.name.toLowerCase()}`).join(', ')}.`,
         'Chaque succès débloque un titre (par exemple « Mangeur de glaçons » pour 500 glaçons ouverts). Équipe-le dans l’onglet Succès : il s’affiche au-dessus de ton héros sur le stream, dans le classement et en haut de ta page.',
