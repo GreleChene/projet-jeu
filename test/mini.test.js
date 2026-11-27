@@ -190,7 +190,7 @@ test('mini-jeux : « Rentrer » avec le seau / la charrette termine l’expédit
   assert.strictEqual(u.mini.best.champ, 4, 'record de profondeur');
 });
 
-test('mini-jeux : élite toutes les 5 salles, gardien toutes les 10 : récompense au choix, œuf à 10 %', () => {
+test('mini-jeux : élite toutes les 5 salles, gardien toutes les 10 : récompense au choix, œuf à 15 %', () => {
   const u = user();
   const run = mini.start(u, 'champ', {}, { now: T0, rnd: fixed(0.3) });
   goTo(u, 5);
@@ -200,14 +200,14 @@ test('mini-jeux : élite toutes les 5 salles, gardien toutes les 10 : récompens
   mini.act(u, { action: 'sync', report: { k: [0] } }, { now: T0 + 2e9, rnd: fixed(0.05) });
   assert.strictEqual(run.state, 'reward');
   assert.strictEqual(run.rewards.length, 3);
-  assert.ok(run.rewards.includes('egg'), 'tirage sous 10 % : un œuf est proposé');
+  assert.ok(run.rewards.includes('egg'), 'tirage sous 15 % : un œuf est proposé');
   assert.throws(() => mini.act(u, { action: 'exit' }, { now: T0 + 2e9 }), /récompense/);
   mini.act(u, { action: 'reward', id: 'egg' }, { now: T0 + 2e9 });
   assert.strictEqual(u.pets.eggs.length, 1);
   assert.strictEqual(u.pets.eggs[0].mode, 'champ');
   mini.act(u, { action: 'exit' }, { now: T0 + 2e9 });
   assert.strictEqual(run.room, 6);
-  // gardien en salle 10 ; pas d'œuf si le tirage dépasse 10 %
+  // gardien en salle 10 ; pas d'œuf si le tirage dépasse 15 %
   goTo(u, 10, T0 + 3e9);
   assert.strictEqual(run.type, 'gardien');
   run.cur.reward = 'todo';

@@ -1019,7 +1019,7 @@
     REST_PCT: 0.5,            // un familier K.-O. doit remonter à 50 % de ses PV avant d'être réutilisé
     REGEN_PER_HOUR: 0.1,      // hors expédition : +10 % des PV max par heure
     KENNEL_PRICE: GLACONS.PRICE * 10, // prix d'un animal du chenil : 10 glaçons
-    EGG_CHANCE: 0.1,          // chance que « Œuf mystérieux » fasse partie des récompenses d'élite et de gardien
+    EGG_CHANCE: 0.15,         // chance que « Œuf mystérieux » fasse partie des récompenses d'élite et de gardien
     INCUBATION_MIN: 30,       // un œuf éclot 30 minutes après avoir été trouvé
     DUP_RES: [5, 8, 12, 17, 23, 30], // œuf en double : ressources de la zone selon la rareté (30 au plus)
     MAX_LEVEL: 20,
