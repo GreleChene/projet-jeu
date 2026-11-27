@@ -458,3 +458,11 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 .ach-prog .bar > span { background: var(--gold); }
 .ach-title-line { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; font-size: .9rem; }
 .ach-title-line button { padding: 3px 10px; }
+
+/* Anti-triche (administration) */
+.cheat-score { display: inline-block; min-width: 28px; text-align: center; padding: 1px 8px; border-radius: 999px; font-weight: 800; border: 2px solid var(--outline); }
+.cheat-score.ok { background: var(--panel2); }
+.cheat-score.suspect { background: #e8a04a; color: var(--outline); }
+.cheat-score.bloque { background: var(--danger); color: #fff; }
+.cheat-log { margin: 0; padding-left: 16px; }
+.cheat-log li { margin: 1px 0; }

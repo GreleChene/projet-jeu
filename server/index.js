@@ -12,9 +12,13 @@ const Game = require('./game/engine');
 const mini = require('./mini');
 const pets = require('./pets');
 const ach = require('./achievements');
+const AC = require('./anticheat');
 const GD = require('../shared/constants');
 
 db.load();
+// anti-triche : sel secret pour hacher les adresses IP (jamais enregistrées en clair)
+if (!db.data.settings.ipSalt) { db.data.settings.ipSalt = require('crypto').randomBytes(16).toString('hex'); db.markDirty(); }
+AC.setSalt(db.data.settings.ipSalt);
 
 // Compte administrateur unique : « admin ». Seul ce compte a accès à l'administration.
 const ADMIN_PSEUDO = 'admin';
@@ -45,7 +49,10 @@ const io = new Server(server, { maxHttpBufferSize: 1e5 });
 const game = new Game(db, io);
 
 app.disable('x-powered-by');
+if (config.TRUST_PROXY) app.set('trust proxy', config.TRUST_PROXY);
 app.use(express.json({ limit: '20kb' }));
+// anti-triche : limitation du débit des requêtes par adresse (avant même la connexion)
+app.use('/api/', (req, res, next) => (AC.allow('ip:' + req.ip, 60, 200) ? next() : res.status(429).json({ error: 'Trop de requêtes : ralentis un peu.' })));
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
@@ -70,6 +77,9 @@ function auth(req, res, next) {
   const token = parseCookies(req.headers.cookie).sid;
   const u = db.sessionUser(token);
   if (!u) return res.status(401).json({ error: 'Non connecté' });
+  // anti-triche : débit par compte (l'admin n'est pas limité) et adresse hachée (comptes liés)
+  if (!isAdmin(u) && !AC.allow('u:' + u.id, 15, 45)) { AC.flag(u, 'debit', req.method + ' ' + req.path); return res.status(429).json({ error: 'Trop de requêtes : ralentis un peu.' }); }
+  if (AC.seen(u, req.ip)) db.markDirty();
   req.user = u; req.token = token;
   next();
 }
@@ -196,6 +206,7 @@ function miniReply(res, u, fn) {
 app.get('/api/mini', auth, (req, res) => res.json({ mini: mini.publicState(req.user) }));
 app.post('/api/mini/start', auth, (req, res) => miniReply(res, req.user, () => mini.start(req.user, String((req.body || {}).mode), db.gearOf(req.user))));
 app.post('/api/mini/act', auth, (req, res) => {
+  if (!AC.allow('mini:' + req.user.id, 6, 20)) { AC.flag(req.user, 'debit', 'actions d’expédition'); return res.status(429).json({ error: 'Trop d’actions : ralentis un peu.' }); }
   const b = req.body || {};
   const report = b.report && typeof b.report === 'object' ? b.report : null;
   miniReply(res, req.user, () => mini.act(req.user, { action: String(b.action), report, slot: b.slot === 'all' ? 'all' : Number(b.slot) || 0, id: String(b.id || '') }, { grantXp: (u, xp) => game.grantXp(u, xp) }));
@@ -513,6 +524,7 @@ app.post('/api/market/buy', auth, (req, res) => {
   seller.gold += l.price;
   giveItem(u, it);
   ach.add(u, 'bought'); ach.add(seller, 'sold'); ach.check(seller);
+  if (!isAdmin(u) && !isAdmin(seller)) AC.transfer(u, seller, players(), `achat de ${GD.itemName(it, u.cls)} pour ${l.price} Grêlons`);
   refreshUser(seller);
   afterProfileChange(u);
   notify(seller.id, `💰 ${u.pseudo} a acheté ${GD.itemName(it, seller.cls)} pour ${l.price} Grêlons.`);
@@ -531,6 +543,7 @@ app.post('/api/market/gift', auth, (req, res) => {
   purgeItem(uid);
   giveItem(o, it);
   ach.add(u, 'gifts');
+  if (!isAdmin(u) && !isAdmin(o)) AC.transfer(u, o, players(), `don de ${GD.itemName(it, o.cls)}`);
   afterProfileChange(u);
   refreshUser(o);
   notify(o.id, `🎁 ${u.pseudo} t’a offert ${GD.itemName(it, o.cls)} !`);
@@ -575,6 +588,7 @@ app.post('/api/market/trade/:id/:action', auth, (req, res) => {
   giveItem(u, a); giveItem(from, b);
   from.gold -= t.gold; u.gold += t.gold;
   ach.add(u, 'trades'); ach.add(from, 'trades'); ach.check(from);
+  if (!isAdmin(u) && !isAdmin(from)) AC.transfer(u, from, players(), `échange${t.gold ? ` (+${t.gold} Grêlons)` : ''}`);
   afterProfileChange(u);
   refreshUser(from);
   notify(from.id, `✅ ${u.pseudo} a accepté ton échange !`);
@@ -667,9 +681,27 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
   res.json({ ok: true, run: game.publicRunInfo(), settings: game.settings });
 });
 
+// Anti-triche : comptes avec des alertes ou liés à d'autres comptes (même connexion)
+// comptes des joueurs (sans l'admin, qui teste souvent depuis la même connexion)
+const players = () => db.allUsers().filter((u) => !isAdmin(u));
+app.get('/api/admin/anticheat', admin, (req, res) => {
+  const all = players();
+  const list = all.map((u) => ({ id: u.id, pseudo: u.pseudo, banned: !!u.banned, online: isOnline(u.id), ...AC.publicState(u, all) }))
+    .filter((x) => x.score > 0 || x.log.length || x.linked.length)
+    .sort((a, b) => b.score - a.score || b.log.length - a.log.length);
+  res.json({ list, suspect: AC.SUSPECT, block: AC.BLOCK, kinds: Object.fromEntries(Object.entries(AC.KINDS).map(([k, v]) => [k, v.name])) });
+});
+app.post('/api/admin/anticheat/:id/clear', admin, (req, res) => {
+  const u = db.userById(req.params.id);
+  if (!u) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  AC.clear(u);
+  db.markDirty();
+  res.json({ ok: true });
+});
+
 app.get('/api/admin/users', admin, (req, res) => {
   res.json({
-    users: db.allUsers().map((u) => ({ id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', banned: !!u.banned, cls: u.cls, level: u.level, gold: u.gold, glacons: u.glacons, energy: mini.ensure(u).energy, twitch: u.twitchName || null, stats: u.stats, createdAt: u.createdAt, online: isOnline(u.id) }))
+    users: db.allUsers().map((u) => ({ id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', banned: !!u.banned, cls: u.cls, level: u.level, gold: u.gold, glacons: u.glacons, energy: mini.ensure(u).energy, twitch: u.twitchName || null, stats: u.stats, createdAt: u.createdAt, online: isOnline(u.id), cheat: Math.round(AC.score(u)) }))
   });
 });
 
@@ -753,15 +785,18 @@ io.on('connection', (socket) => {
   });
 
   if (!u) return;
+  // anti-triche : un événement de jeu toutes les 250 ms au plus (rafales de 8 tolérées)
+  const okRate = () => AC.allow('s:' + socket.id, 4, 8);
   socket.emit('state', game.playerState(u.id));
 
   socket.on('join', (ack) => {
+    if (!okRate()) return;
     const user = db.userById(socket.data.userId);
     if (!user || user.banned) return;
     const h = game.joinUser(user);
     if (typeof ack === 'function') ack(h && !h.error ? { ok: true } : { error: (h && h.error) || 'Impossible de rejoindre.' });
   });
-  socket.on('vote', (opt) => game.castVote(socket.data.userId, String(opt)));
+  socket.on('vote', (opt) => { if (okRate()) game.castVote(socket.data.userId, String(opt)); });
 });
 
 // récompenses de fin de partie : notification au joueur
@@ -769,6 +804,7 @@ io.on('connection', (socket) => {
 for (const u of db.allUsers()) if (u.pending) game.settlePending(u);
 game.onPayout = (u, r) => notify(u.id, `🎁 Fin de partie : +${r.xp} XP, +${r.gold} Grêlons, +${r.glacons} glaçon(s)${r.levels ? ` · +${r.levels} niveau(x) !` : ''}`);
 // récapitulatif détaillé de fin de partie sur la page joueur
+AC.onFlag = (u, f) => { console.warn(`[anti-triche] ${u.pseudo} : ${f.name} — ${f.detail}`); db.markDirty(); };
 ach.onUnlock = (u, a) => {
   notify(u.id, `🏅 Succès débloqué : ${a.name} — titre « ${a.title} » à équiper dans l’onglet Succès !`);
   game.pushFeed(`🏅 ${u.pseudo} débloque le succès « ${a.name} » !`);

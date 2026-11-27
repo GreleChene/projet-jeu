@@ -13,6 +13,7 @@ const GD = require('../shared/constants');
 const X = require('../shared/expedition');
 const pets = require('./pets');
 const ach = require('./achievements');
+const AC = require('./anticheat');
 const { MINI } = GD;
 const ENERGY_MS = MINI.ENERGY_HOURS * 3600e3;
 
@@ -77,6 +78,7 @@ function start(u, mode, gear, opts = {}) {
   const m = ensure(u, now);
   if (!MINI.MODES[mode]) fail('Mini-jeu inconnu');
   if (m.run && m.run.state !== 'over') fail('Une expédition est déjà en cours');
+  if (AC.blocked(u)) fail('Mini-jeux suspendus : activité anormale détectée. Contacte l’administrateur.');
   if (m.energy < 1) fail('Plus d’énergie : reviens plus tard');
   if (m.energy >= MINI.ENERGY_MAX) m.energyAt = now;
   m.energy--;
@@ -102,24 +104,42 @@ function start(u, mode, gear, opts = {}) {
 function applyReport(u, run, rep, rnd = Math.random, now = Date.now()) {
   if (!rep || run.state === 'over') return;
   const R = roomOf(run), cur = run.cur, cap = bagCapOf(u, run), res = MINI.MODES[run.mode].res;
-  // renforts : numérotés à partir de X.REINF0 ; leur nombre est borné par le temps passé dans la salle
-  const maxReinf = Math.ceil(Math.max(0, now - run.roomAt) / 1000 * 0.8) + 4;
-  for (const v of Array.isArray(rep.k) ? rep.k : []) {
-    const i = Number.isInteger(v) ? v : -1;
-    if (i < 0 || cur.killed.includes(i)) continue;
-    if (i >= X.REINF0 ? i - X.REINF0 >= maxReinf : !R.mobs[i]) continue;
-    const mob = X.mobAt(R, i);
-    cur.killed.push(i); run.kills++; run.xp += mob.xp;
-    ach.add(u, 'miniKills'); if (mob.boss) ach.add(u, 'guardians'); else if (mob.elite) ach.add(u, 'elites');
+  // anti-triche : ce qu'un héros peut faire au plus depuis son entrée dans la salle (et depuis le dernier rapport)
+  const elapsed = Math.max(0, (now - run.roomAt) / 1000), sinceRep = Math.max(0, (now - (cur.repAt || run.roomAt)) / 1000);
+  const L = AC.miniLimits(run), GRACE = 0.3;
+  // --- monstres tués : pas plus vite que les dégâts possibles du héros, et un renfort pas avant d'être apparu ---
+  const want = [...new Set((Array.isArray(rep.k) ? rep.k : []).filter(Number.isInteger))].filter((i) => i >= 0 && !cur.killed.includes(i));
+  const cand = want.map((i) => {
+    if (i < X.REINF0) return R.mobs[i] ? { i, mob: R.mobs[i], t0: 0 } : null;
+    const j = i - X.REINF0, t0 = AC.reinfEarliest(R, j, X);
+    return j < 500 && isFinite(t0) ? { i, mob: X.mobAt(R, i), t0 } : null;
+  }).filter(Boolean);
+  if (cand.length < want.length) AC.flag(u, 'rapport', `${want.length - cand.length} monstre(s) inexistant(s), salle ${run.room}`, now);
+  cand.sort((a, b) => a.mob.max - b.mob.max);
+  let sumHp = cur.killed.reduce((a, i) => a + X.mobAt(R, i).max, 0), refused = 0;
+  for (const c of cand) {
+    // le plus tôt possible : son apparition + ses PV au rythme maximal ; et tous les PV tués, au plus 4 monstres touchés à la fois
+    const need = L.contact + Math.max(c.t0 + c.mob.max / L.dps, (sumHp + c.mob.max) / (L.dps * L.aoe));
+    if (need > elapsed + GRACE) { refused++; continue; } // refusé pour l'instant (la page le renverra)
+    sumHp += c.mob.max;
+    cur.killed.push(c.i); run.kills++; run.xp += c.mob.xp;
+    ach.add(u, 'miniKills'); if (c.mob.boss) ach.add(u, 'guardians'); else if (c.mob.elite) ach.add(u, 'elites');
   }
+  if (refused) AC.flag(u, 'kills', `${refused} monstre(s) tué(s) trop vite (${elapsed.toFixed(1)} s dans la salle ${run.room})`, now);
+  // --- opérations : récolte (pas plus vite que les coups possibles), ramassages, potions ---
+  let harvested = Object.values(cur.harv).reduce((a, n) => a + n, 0), capped = 0, pots = 0;
+  const maxHarvest = L.harvestRate * Math.max(0, elapsed - L.contact) + 2;
   for (const op of Array.isArray(rep.ops) ? rep.ops.slice(0, 2000) : []) {
     if (!Array.isArray(op)) continue;
     if (op[0] === 'h') { // récolte d'un point (dans la limite de ce qu'il contient et de la place dans le sac)
       const node = R.nodes[op[1] | 0];
       if (!node) continue;
-      const want = Math.min(Math.max(0, op[2] | 0), node.amt - (cur.harv[node.i] || 0));
-      if (want <= 0) continue;
-      cur.harv[node.i] = (cur.harv[node.i] || 0) + X.addRes(run.bag, cap, res, want);
+      let want2 = Math.min(Math.max(0, op[2] | 0), node.amt - (cur.harv[node.i] || 0));
+      const room = Math.floor(maxHarvest - harvested);
+      if (want2 > room) { capped += want2 - Math.max(0, room); want2 = Math.max(0, room); }
+      if (want2 <= 0) continue;
+      const got = X.addRes(run.bag, cap, res, want2);
+      cur.harv[node.i] = (cur.harv[node.i] || 0) + got; harvested += got;
     } else if (op[0] === 'p') { // ramassage d'un butin tombé d'un monstre tué, ou d'un tas de ressources
       const id = String(op[1]);
       const mm = /^m(\d+)_(\d+)$/.exec(id);
@@ -130,14 +150,33 @@ function applyReport(u, run, rep, rnd = Math.random, now = Date.now()) {
       } else {
         const pile = cur.extra.find((x) => x.id === id);
         if (!pile) continue;
-        const want = Math.min(Math.max(0, op[2] | 0), pile.n - (cur.picked[id] || 0));
-        if (want > 0) cur.picked[id] = (cur.picked[id] || 0) + X.addRes(run.bag, cap, pile.res, want);
+        const want3 = Math.min(Math.max(0, op[2] | 0), pile.n - (cur.picked[id] || 0));
+        if (want3 > 0) cur.picked[id] = (cur.picked[id] || 0) + X.addRes(run.bag, cap, pile.res, want3);
       }
-    } else if (op[0] === 'pot') { if (run.potions > 0) run.potions--; }
+    } else if (op[0] === 'pot') { if (run.potions > 0) { run.potions--; pots++; } }
   }
-  // parades parfaites et roulades depuis le dernier rapport (succès ; plafonnées par rapport)
-  ach.add(u, 'parries', Math.min(60, Math.max(0, rep.pa | 0))); ach.add(u, 'rolls', Math.min(60, Math.max(0, rep.ro | 0)));
-  if (typeof rep.hp === 'number' && isFinite(rep.hp)) run.hp = Math.max(0, Math.min(run.max, Math.round(rep.hp)));
+  if (capped > 3) AC.flag(u, 'recolte', `${capped} ressources de trop (${elapsed.toFixed(1)} s dans la salle ${run.room})`, now);
+  // --- parades parfaites et roulades depuis le dernier rapport (succès), bornées par le temps ---
+  let pa = Math.max(0, rep.pa | 0), ro = Math.max(0, rep.ro | 0);
+  const paMax = Math.ceil(sinceRep * 4) + 5, roMax = Math.ceil(sinceRep * 0.6) + 5;
+  if (pa > paMax || ro > roMax) { AC.flag(u, 'compteurs', `${pa} parades / ${ro} roulades en ${sinceRep.toFixed(1)} s`, now); pa = Math.min(pa, paMax); ro = Math.min(ro, roMax); }
+  ach.add(u, 'parries', Math.min(60, pa)); ach.add(u, 'rolls', Math.min(60, ro));
+  // --- PV : ils ne remontent qu'avec les potions, la fontaine et les soins des familiers ---
+  if (typeof rep.hp === 'number' && isFinite(rep.hp)) {
+    let hp = Math.max(0, Math.min(run.max, Math.round(rep.hp)));
+    let allowed = run.hp + pots * Math.round(run.max * MINI.POTION_HEAL) + L.healRate * run.max * sinceRep + 2;
+    const fountain = R.type === 'repos' ? MINI.FOUNTAIN.hps * MINI.FOUNTAIN.time - (cur.fountain || 0) : 0;
+    if (hp > allowed && fountain > 0) { const use = Math.min(fountain, hp - allowed); cur.fountain = (cur.fountain || 0) + use; allowed += use; }
+    if (hp > allowed) {
+      if (hp - allowed > Math.max(5, run.max * 0.05)) AC.flag(u, 'pv', `${Math.round(allowed)} → ${hp} PV sans soin (salle ${run.room})`, now);
+      hp = Math.floor(allowed);
+    }
+    if (hp < run.hp) run.dmgTaken = (run.dmgTaken || 0) + (run.hp - hp);
+    run.hp = Math.max(0, Math.min(run.max, hp));
+  }
+  // héros qui ne prend jamais le moindre coup, même en profondeur : très improbable
+  if (!run.acInv && run.room >= 30 && run.kills >= 100 && !(run.dmgTaken > 0)) { run.acInv = true; AC.flag(u, 'invulnerable', `salle ${run.room}, ${run.kills} monstres, aucun dégât subi`, now); }
+  cur.repAt = now;
   if (Array.isArray(rep.pets)) run.pets.forEach((p, i) => { const v = Number(rep.pets[i]); if (isFinite(v)) p.hp = Math.max(0, Math.min(p.hp, Math.round(v))); });
   // élite / gardien vaincu : choix de récompense
   if (cur.reward === 'todo' && R.mobs[0] && (R.mobs[0].boss || R.mobs[0].elite) && cur.killed.includes(0)) {

@@ -10,5 +10,8 @@ module.exports = {
   PUBLIC_URL: process.env.PUBLIC_URL || '',
   TICK_RATE: 20, // simulations / s
   SNAPSHOT_RATE: 20, // envois à l'écran du stream / s
-  PLAYER_RATE: 4 // envois aux joueurs / s
+  PLAYER_RATE: 4, // envois aux joueurs / s
+  // Derrière un proxy (hébergeur, nginx…) : nombre de proxys de confiance (ex. 1), pour connaître la vraie adresse
+  // des joueurs (anti-triche : limitation du débit, comptes liés). Laisser vide sinon.
+  TRUST_PROXY: process.env.TRUST_PROXY ? (Number.isNaN(Number(process.env.TRUST_PROXY)) ? process.env.TRUST_PROXY : Number(process.env.TRUST_PROXY)) : false
 };

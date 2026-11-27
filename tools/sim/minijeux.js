@@ -86,7 +86,9 @@ function expedition(mode, tier) {
     if (s.exitReached) { act('exit'); sync(); }
   }
   if (run.state !== 'over') act('die'); // garde-fou
-  return { ...run.over, ...st, minutes: st.roomTime / 60 };
+  // anti-triche : un bot qui joue honnêtement ne doit déclencher aucune alerte
+  const alerts = ((u.cheat && u.cheat.log) || []).map((l) => l.kind);
+  return { ...run.over, ...st, minutes: st.roomTime / 60, alerts };
 }
 
 // Décision du bot pour un pas de simulation
@@ -163,6 +165,7 @@ for (const mode of MODES) {
     const tro = (r) => Object.values(r.banked.tro || {}).reduce((a, b) => a + b, 0);
     console.log(`  améliorations ${String(Math.round(tier * 100)).padStart(3)} % : salle moy. ${avg((r) => r.room).toFixed(1)} (méd. ${rooms[N >> 1]}, max ${rooms[N - 1]}) · morts ${Math.round((100 * rs.filter((r) => r.dead).length) / N)} %`
       + ` · rapporté ${icon} ${Math.round(avg((r) => r.banked.res[R.res] || 0))} + ${avg(tro).toFixed(1)} butins · perdu ${icon} ${Math.round(avg((r) => (r.lost.res || {})[R.res] || 0))}`
-      + ` · ${avg((r) => r.minutes).toFixed(1)} min · seau renvoyé ${avg((r) => r.sends).toFixed(1)}× · parades ${avg((r) => r.parries).toFixed(0)}`);
+      + ` · ${avg((r) => r.minutes).toFixed(1)} min · seau renvoyé ${avg((r) => r.sends).toFixed(1)}× · parades ${avg((r) => r.parries).toFixed(0)}`
+      + (rs.some((r) => r.alerts.length) ? ` · ⚠️ alertes anti-triche : ${[...new Set(rs.flatMap((r) => r.alerts))].join(', ')} (${rs.filter((r) => r.alerts.length).length} expéditions)` : ' · aucune alerte anti-triche'));
   }
 }

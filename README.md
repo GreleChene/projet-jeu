@@ -28,8 +28,9 @@ npm start
 | `DATA_FILE` | `data/db.json` | fichier de sauvegarde (comptes, progression, réglages) |
 | `PUBLIC_URL` | hôte courant | adresse affichée sur le stream (« Rejoins la défense : … ») |
 | `SECURE_COOKIES` | `0` | à mettre à `1` derrière HTTPS |
+| `TRUST_PROXY` | (vide) | nombre de proxys de confiance devant le serveur (ex. `1` derrière Caddy, Nginx ou un hébergeur) : sans lui, tous les joueurs semblent venir de l'adresse du proxy (anti-triche : débit par adresse, comptes liés) |
 
-En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui transmet les WebSockets.
+En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui transmet les WebSockets, et mettez `TRUST_PROXY=1`.
 
 ## Le jeu
 
@@ -187,6 +188,26 @@ Trois expéditions solo **en temps réel, vues du dessus** : on dirige son héro
 - Quand un succès est débloqué, le joueur reçoit une notification et le **fil du stream** l'annonce (« 🏅 Pseudo débloque le succès … »).
 - Les comptes existants reçoivent d'office les succès déjà mérités (niveau, glaçons ouverts, éliminations, meilleures manches, profondeurs des mini-jeux, familiers…), sans notification ; les compteurs nouveaux (victoires, ventes, parades…) partent de zéro.
 
+### Anti-triche (onglet admin « 🛡️ Anti-triche »)
+
+La **défense de tour** est entièrement calculée par le serveur : les joueurs ne font que rejoindre et voter (une voix par joueur, au plus un événement toutes les 250 ms). Les **mini-jeux**, eux, sont simulés par la page : le serveur vérifie donc chaque rapport et **refuse ce qui est impossible**, en enregistrant une alerte :
+
+| Contrôle | Ce qui est refusé |
+|---|---|
+| Monstres tués trop vite | un monstre (ou un groupe) tué plus vite que les dégâts maximaux possibles du héros (statistiques, bonus, familiers, coups critiques, compétence, avec une marge) depuis son entrée dans la salle, ou un renfort tué avant d'être apparu ; la page le renvoie ensuite, il est accepté dès que c'est possible |
+| Récolte trop rapide | plus de ressources que les coups de récolte possibles depuis l'entrée dans la salle (familiers récolteurs compris) |
+| PV remontés sans soin | des PV qui remontent sans potion, fontaine (30 PV au plus) ni soin de familier : ramenés au possible |
+| Parades / roulades impossibles | plus que ce que permettent le temps et l'endurance (succès) |
+| Rapport invalide | monstres ou butins qui n'existent pas, renfort en salle d'élite |
+| Trop de requêtes | plus de 15 requêtes par seconde (rafales de 45 tolérées), 6 actions d'expédition par seconde ; 60 par seconde et par adresse |
+| Transfert entre comptes liés | don, échange ou achat entre deux comptes de la même connexion (sauf l'admin) |
+| Aucun dégât subi en profondeur | simple indice (salle 30, 100 monstres, aucun PV perdu) |
+
+- Chaque alerte ajoute des points au **score** du compte (de 0,5 à 3 selon la gravité ; les alertes identiques rapprochées ne comptent qu'une fois) ; le score **baisse de 2 points par jour**. À **10** le compte est signalé « suspect » ; à **30**, ses **mini-jeux sont suspendus** jusqu'à ce que l'admin efface ses alertes. Le bannissement reste une décision de l'admin.
+- **Comptes liés** : les adresses IP ne sont **jamais enregistrées en clair**, seulement hachées avec un sel secret ; deux comptes vus sur la même connexion sont « liés » (une adresse partagée par plus de 6 comptes — réseau public, proxy — n'est pas prise en compte).
+- Le panneau admin liste les comptes concernés (score, dernières alertes avec la date, comptes liés) avec les boutons « Effacer » et « Bannir » ; la colonne 🛡️ de la liste des comptes affiche le score. Chaque alerte est aussi écrite dans le journal du serveur (`[anti-triche] …`).
+- Les limites sont volontairement généreuses : `npm run sim:minijeux` affiche les alertes déclenchées par un bot qui joue honnêtement (aucune attendue). Un tricheur peut encore jouer « parfaitement » sans subir de coups dans la page : ce genre de triche reste impossible à prouver côté serveur, mais il ne peut plus tuer ni récolter plus vite que possible.
+
 ### Modes et difficultés
 
 L'admin choisit le mode et la difficulté au lancement de chaque partie.
@@ -220,6 +241,8 @@ server/             Node.js (Express + Socket.IO)
   index.js          API comptes / joueur / admin, sessions, temps réel
   twitch.js         lecture du chat Twitch (!join, !lier, votes)
   db.js             stockage JSON (écriture atomique)
+  anticheat.js      anti-triche : limites des expéditions, débit, comptes liés (IP hachées), alertes
+  achievements.js   succès et titres
   game/engine.js    boucle de jeu autoritaire (20 Hz), manches, votes, réseau
   game/heroes.js    IA des héros, passifs, ultimes, invocations
   game/mobs.js      vagues, IA des monstres, capacités des boss

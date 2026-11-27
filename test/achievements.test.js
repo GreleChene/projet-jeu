@@ -88,17 +88,18 @@ test('succès : mini-jeux (expéditions, élites, parades, roulades, ressources 
   // élite de la salle 5 vaincue, parades et roulades rapportées par la page (plafonnées)
   run.room = 4; run.roomAt = 0; run.cur.reward = 'done';
   mini.act(u, { action: 'exit' }, { now: T0 + 1e9 });
-  mini.act(u, { action: 'sync', report: { k: [0], pa: 3, ro: 9999 } }, { now: T0 + 1e9, rnd: () => 0.5 });
+  mini.act(u, { action: 'sync', report: { k: [0], pa: 3, ro: 9999 } }, { now: T0 + 1e9 + 120e3, rnd: () => 0.5 });
   assert.strictEqual(ach.value(u, 'elites'), 1);
   assert.strictEqual(ach.value(u, 'miniKills'), 1);
   assert.strictEqual(ach.value(u, 'parries'), 3);
   assert.strictEqual(ach.value(u, 'rolls'), 60, 'plafonné par rapport');
-  mini.act(u, { action: 'reward', id: run.rewards[0] }, { now: T0 + 1e9 });
+  assert.ok(u.cheat.log.some((l) => l.kind === 'compteurs'), 'roulades impossibles signalées');
+  mini.act(u, { action: 'reward', id: run.rewards[0] }, { now: T0 + 1e9 + 120e3 });
   // retour à la base : expédition terminée, ressources et butins mis à l'abri
   run.bag = [{ r: 'pierre', n: 15 }, { t: 'os' }];
   const R = X.genRoom('mine', run.seed, run.room, run.gen);
-  mini.act(u, { action: 'sync', report: { k: R.mobs.map((m) => m.i) } }, { now: T0 + 1e9 });
-  mini.act(u, { action: 'home' }, { now: T0 + 1e9 });
+  mini.act(u, { action: 'sync', report: { k: R.mobs.map((m) => m.i) } }, { now: T0 + 1e9 + 240e3 });
+  mini.act(u, { action: 'home' }, { now: T0 + 1e9 + 240e3 });
   assert.strictEqual(ach.value(u, 'expeditions'), 1);
   assert.strictEqual(ach.value(u, 'banked'), 15);
   assert.strictEqual(ach.value(u, 'trophies'), 1);

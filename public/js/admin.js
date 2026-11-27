@@ -5,6 +5,7 @@
   const { api, $, $$, el, toast, ask, askText } = window.UI;
   const PHASES = { lobby: 'En attente', intermission: 'Entracte', wave: 'Combat', gameover: 'Défaite', victory: 'Victoire' };
   let users = [];
+  const GD_CHEAT = { suspect: 10, block: 30 }; // seuils anti-triche (renvoyés par le serveur)
 
   api('/api/me').then((d) => {
     if (d.user.role !== 'admin') throw new Error('forbidden');
@@ -25,6 +26,8 @@
     $('#userFilter').addEventListener('input', renderUsers);
     refresh();
     loadUsers();
+    loadCheat();
+    $('#cheatRefresh').addEventListener('click', loadCheat);
     loadTwitch();
     setInterval(loadTwitch, 5000);
     $('#twSave').addEventListener('click', async () => {
@@ -42,6 +45,7 @@
     }));
     setInterval(refresh, 2000);
     setInterval(loadUsers, 15000);
+    setInterval(loadCheat, 15000);
   }
 
   let twLoaded = false;
@@ -141,12 +145,13 @@
     const q = $('#userFilter').value.trim().toLowerCase();
     const list = users.filter((u) => !q || u.pseudo.toLowerCase().includes(q)).sort((a, b) => b.level - a.level);
     $('#users').replaceChildren(
-      el('tr', {}, el('th', {}, 'Pseudo'), el('th', {}, 'Rôle'), el('th', {}, 'Classe'), el('th', {}, 'Niv.'), el('th', {}, 'Grêlons'), el('th', {}, 'Glaçons'), el('th', {}, 'Énergie'), el('th', {}, 'Record'), el('th', {}, 'Actions')),
+      el('tr', {}, el('th', {}, 'Pseudo'), el('th', {}, 'Rôle'), el('th', {}, 'Classe'), el('th', {}, 'Niv.'), el('th', {}, 'Grêlons'), el('th', {}, 'Glaçons'), el('th', {}, 'Énergie'), el('th', {}, 'Record'), el('th', {}, '🛡️'), el('th', {}, 'Actions')),
       ...list.map((u) => el('tr', {},
         el('td', {}, u.pseudo, u.online ? ' 🟢' : '', u.banned ? ' 🚫' : '', u.twitch ? el('div', { class: 'small muted' }, '🟣 ' + u.twitch) : ''),
         el('td', {}, u.role === 'admin' ? '⭐ admin' : 'joueur'),
         el('td', { style: `color:${GD.CLASSES[u.cls].color}` }, GD.CLASSES[u.cls].name),
         el('td', {}, u.level), el('td', {}, u.gold), el('td', {}, u.glacons || 0), el('td', {}, '⚡ ' + (u.energy ?? 0)), el('td', {}, u.stats.bestWave),
+        el('td', { title: 'Score anti-triche (alertes)' }, u.cheat ? el('span', { class: 'cheat-score ' + (u.cheat >= GD_CHEAT.block ? 'bloque' : u.cheat >= GD_CHEAT.suspect ? 'suspect' : 'ok') }, u.cheat) : '—'),
         el('td', { class: 'row', style: 'gap:4px' },
           el('button', { class: 'small', onclick: () => giveXp(u) }, '+ XP'),
           el('button', { class: 'small', onclick: () => giveGold(u) }, '+ Grêlons'),
@@ -161,6 +166,31 @@
           el('button', { class: 'small danger', onclick: () => deleteUser(u) }, 'Supprimer'))))
     );
   }
+  /* ---------- Anti-triche ---------- */
+  async function loadCheat() {
+    try {
+      const r = await api('/api/admin/anticheat');
+      GD_CHEAT.suspect = r.suspect; GD_CHEAT.block = r.block;
+      renderCheat(r);
+    } catch (e) { /* */ }
+  }
+  function renderCheat(r) {
+    const when = (t) => new Date(t).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const sus = r.list.filter((x) => x.score >= r.suspect).length;
+    $('#cheatCount').textContent = r.list.length ? `${r.list.length} compte(s) · ${sus} suspect(s)` : 'Rien à signaler ✓';
+    $('#cheat').replaceChildren(
+      el('tr', {}, el('th', {}, 'Pseudo'), el('th', {}, 'Score'), el('th', {}, 'Dernières alertes'), el('th', {}, 'Comptes liés'), el('th', {}, 'Actions')),
+      ...(r.list.length ? r.list.map((x) => el('tr', {},
+        el('td', {}, x.pseudo, x.online ? ' 🟢' : '', x.banned ? ' 🚫' : ''),
+        el('td', {}, el('span', { class: 'cheat-score ' + x.level }, x.score), x.level === 'bloque' ? el('div', { class: 'small' }, '⛔ mini-jeux suspendus') : x.level === 'suspect' ? el('div', { class: 'small' }, '⚠️ suspect') : ''),
+        el('td', { class: 'small' }, x.log.length ? el('ul', { class: 'cheat-log' }, ...x.log.slice(0, 6).map((l) => el('li', {}, el('b', {}, r.kinds[l.kind] || l.kind), l.n > 1 ? ` ×${l.n}` : '', ' — ', l.detail, el('span', { class: 'muted' }, ` (${when(l.t)})`)))) : el('span', { class: 'muted' }, 'aucune')),
+        el('td', { class: 'small' }, x.linked.length ? x.linked.join(', ') : el('span', { class: 'muted' }, '—')),
+        el('td', { class: 'row', style: 'gap:4px' },
+          el('button', { class: 'small', onclick: async () => { if (await ask(`Effacer les alertes de ${x.pseudo} ? (ses mini-jeux sont débloqués)`, { title: '🛡️ Anti-triche', ok: 'Effacer' })) { try { await api(`/api/admin/anticheat/${x.id}/clear`, { body: {} }); toast('Alertes effacées'); loadCheat(); loadUsers(); } catch (e) { toast(e.message); } } } }, 'Effacer'),
+          el('button', { class: 'small danger', onclick: async () => { await editUser(x, { banned: !x.banned }); loadCheat(); } }, x.banned ? 'Débannir' : 'Bannir'))))
+        : [el('tr', {}, el('td', { colspan: 5, class: 'muted' }, 'Aucune alerte ni compte lié.'))]));
+  }
+
   async function giveXp(u) {
     const n = await askText(`Combien d’XP donner à ${u.pseudo} ?`, '500', { title: '+ XP', type: 'number' });
     if (n !== null && Number(n) > 0) editUser(u, { addXp: Number(n) });

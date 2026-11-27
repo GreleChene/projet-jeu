@@ -100,13 +100,14 @@ test('mini-jeux : le serveur valide les rapports (récolte limitée au point et 
   assert.strictEqual(run.hp, 40);
   assert.strictEqual(run.potions, M.POTIONS - 1);
   mini.act(u, { action: 'sync', report: { hp: 1e6 } }, { now: T0 + 1000 });
-  assert.strictEqual(run.hp, run.max, 'jamais plus que les PV max');
+  assert.ok(run.hp <= 43, 'anti-triche : les PV ne remontent pas sans soin');
+  assert.ok(u.cheat.log.some((l) => l.kind === 'pv'), 'alerte enregistrée');
   // butins : seulement ceux des monstres tués (une seule fois), et de l'XP par monstre
   goTo(u, 5);
   mini.act(u, { action: 'sync', report: { ops: [['p', 'm0_0', 1]] } }, { now: T0 + 1e9 });
   assert.strictEqual(run.bag.filter((s) => s.t).length, 0, 'élite pas encore tuée');
   const xp0 = run.xp;
-  mini.act(u, { action: 'sync', report: { k: [0, 0, 77], ops: [['p', 'm0_0', 1], ['p', 'm0_0', 1]] } }, { now: T0 + 1e9, rnd: fixed(0.5) });
+  mini.act(u, { action: 'sync', report: { k: [0, 0, 77], ops: [['p', 'm0_0', 1], ['p', 'm0_0', 1]] } }, { now: T0 + 1e9 + 120e3, rnd: fixed(0.5) });
   assert.strictEqual(run.bag.filter((s) => s.t).length, 1, 'un seul ramassage par butin');
   assert.strictEqual(run.kills, 1);
   assert.ok(run.xp > xp0);
@@ -180,9 +181,9 @@ test('mini-jeux : « Rentrer » avec le seau / la charrette termine l’expédit
   assert.deepStrictEqual([1, 7, 13, 31, 80].map(X.startMobs), [3, 4, 5, 8, 8], 'plus nombreux en profondeur (8 au plus)');
   assert.deepStrictEqual([1, 13, 80].map(X.reinfAfter), [20, 24, 30], 'renforts un peu plus tard en profondeur');
   assert.throws(() => mini.act(u, { action: 'home' }, { now: T0 + 1e9 }), /Élimine d’abord/, 'pas de retour tant que les monstres de la salle vivent');
-  mini.act(u, { action: 'sync', report: { k: R.mobs.map((m) => m.i) } }, { now: T0 + 1e9 });
+  mini.act(u, { action: 'sync', report: { k: R.mobs.map((m) => m.i) } }, { now: T0 + 1e9 + 120e3 });
   run.xp = 50;
-  mini.act(u, { action: 'home' }, { now: T0 + 1e9, grantXp: (p, n) => { xp = n; return 0; } });
+  mini.act(u, { action: 'home' }, { now: T0 + 1e9 + 120e3, grantXp: (p, n) => { xp = n; return 0; } });
   assert.ok(run.over && !run.over.dead);
   assert.strictEqual(u.mini.res.baies, 27);
   assert.deepStrictEqual(u.mini.trophies, { plume: 1, braise: 1 });
@@ -211,7 +212,7 @@ test('mini-jeux : élite toutes les 5 salles, gardien toutes les 10 : récompens
   goTo(u, 10, T0 + 3e9);
   assert.strictEqual(run.type, 'gardien');
   run.cur.reward = 'todo';
-  mini.act(u, { action: 'sync', report: { k: [0] } }, { now: T0 + 3e9, rnd: fixed(0.5) });
+  mini.act(u, { action: 'sync', report: { k: [0] } }, { now: T0 + 3e9 + 300e3, rnd: fixed(0.5) });
   assert.ok(run.state === 'reward' && !run.rewards.includes('egg'));
   assert.throws(() => mini.act(u, { action: 'reward', id: 'potion' }), /inconnue/, 'seulement les 3 proposées');
   const max0 = run.max;
