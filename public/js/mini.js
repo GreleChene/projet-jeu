@@ -5,14 +5,14 @@
   const { api, $, el, toast, ask } = window.UI;
   const PT = GD.PETS;
   const W = 800, H = 340, G = 252; // scène : largeur, hauteur, ligne du sol
-  const HERO_X = 170, MOB_X0 = 470;
+  const HERO_X = 235, MOB_X0 = 470;
 
   let state = null, prev = null, target = 0, busy = false;
   const floaters = []; // nombres et textes flottants
   let heroAnim = 0, mobAnim = 0, shake = 0;
   let heroX = HERO_X;      // position du héros (il va jusqu'au butin pour le récolter)
   const petAnim = [0, 0], petHurt = [0, 0]; // élan d'attaque / secousse des familiers
-  const petX = (i) => heroX + (i === 0 ? -88 : 78);
+  const petX = (i) => heroX - (i === 0 ? 82 : 162); // les deux familiers suivent le héros, derrière lui
   let harvestFx = null;    // animation de récolte en cours { t, kind, amount, jackpot, sent }
   const parts = [];        // éclats (pierre, copeaux, baies) et étincelles
   const flyers = [];       // icônes de ressources qui s'envolent vers le compteur
@@ -225,7 +225,7 @@
   const IMPACT = { melee: 0.5, shot: 0.8, skill: 0.5, aoe: 0.55, defend: 0.3, potion: 0.5, heal: 0.5, skip: 0.2, dot: 0.15, unshield: 0.1 };
   const evKind = (e) => (e.skip ? 'skip' : e.a === 'dot' ? 'dot' : e.a === 'unshield' ? 'unshield' : e.k === 'skill' && e.proj ? 'shot' : e.k);
   const ease = (p) => p * p * (3 - 2 * p);
-  const petBaseY = (i) => G + (i === 0 ? 2 : 14);
+  const petBaseY = (i) => G + (i === 0 ? 10 : 4);
   const mobPos = (R, i) => ({ x: mobX(i, R.mobs.length), y: G + 6 });
   function actorPos(R, e) {
     if (e.a === 'hero') return { x: heroX, y: G + 6 };
@@ -607,14 +607,14 @@
     ctx.translate((Math.random() - 0.5) * shake, 0);
     drawScene(ctx, r.mode, r.decor, r.sub, t, r.room);
     const me = window.PlayerApp && window.PlayerApp.me();
-    // familiers (le premier derrière le héros, le second devant)
-    (r.pets || []).forEach((p, i) => {
+    // familiers : tous les deux derrière le héros (le plus éloigné dessiné en premier)
+    (r.pets || []).map((p, i) => [p, i]).reverse().forEach(([p, i]) => {
       petAnim[i] = Math.max(0, (petAnim[i] || 0) - 1 / 60); petHurt[i] = Math.max(0, (petHurt[i] || 0) - 1 / 60);
       const sh = petHurt[i] > 0 ? Math.sin(t * 80) * 4 : 0;
       const x = petX(i) + (off.pet[i] || 0) + sh, y = petBaseY(i);
       const lvl = ((state.pets || { list: [] }).list.find((q) => q.id === p.id) || {}).level || 1;
       A.drawPet(ctx, GD.petSprite(p.kind), x, y, { size: petSize(p.kind) * 1.5, maxH: 62, t: t + i, facing: 0, stage: GD.petStage(lvl), moving: Math.abs(heroX - HERO_X) > 2 || Math.abs(off.pet[i] || 0) > 2, attack: Math.max(petAnim[i], off.petAtk[i] || 0), ko: p.hp <= 0 });
-      if (p.hp > 0) { A.rrect(ctx, x - 22, G - 72 + (i === 0 ? 0 : 12), 44, 5, 2, '#2a1f22', 1.2); A.rrect(ctx, x - 21, G - 71 + (i === 0 ? 0 : 12), Math.max(0, 42 * p.hp / p.max), 3, 1, '#5cb84a', 0.01); }
+      if (p.hp > 0) { A.rrect(ctx, x - 22, y - 76, 44, 5, 2, '#2a1f22', 1.2); A.rrect(ctx, x - 21, y - 75, Math.max(0, 42 * p.hp / p.max), 3, 1, '#5cb84a', 0.01); }
     });
     // héros
     if (r.state === 'over' && r.over.dead) A.drawGrave(ctx, HERO_X, G + 6);
