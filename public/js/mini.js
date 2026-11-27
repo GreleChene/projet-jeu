@@ -596,7 +596,7 @@
       el('p', { class: 'small' }, 'Choisis une récompense (la sortie s’ouvre ensuite) :'),
       el('div', { class: 'mini-rewards' }, ...(r.rewards || []).map((k) => {
         const RW = M.ELITE_REWARDS[k];
-        return el('button', { class: 'mini-reward' + (k === 'egg' ? ' egg' : ''), onclick: (e) => pickReward(k, e.currentTarget) }, el('b', {}, `${RW.icon} ${RW.name}`), el('span', { class: 'small' }, RW.desc));
+        return el('button', { class: 'mini-reward' + (k === 'egg' ? ' egg' : ''), onclick: (e) => pickReward(k, e.currentTarget) }, el('b', {}, `${RW.icon} ${RW.name}`), el('span', { class: 'small' }, k === 'grelons' ? `+${GD.miniGrelons(r.room)} Grêlons tout de suite (gardés même en cas de mort)` : RW.desc));
       }))));
   }
   async function pickReward(k, btn) {

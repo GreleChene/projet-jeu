@@ -234,7 +234,7 @@ function act(u, body, opts = {}) {
     else if (k === 'res') { // tas de ressources à ramasser à l'entrée de la salle (toujours dégagée)
       const n = Math.round(20 + run.room * 4), E = roomOf(run).entry;
       run.cur.extra.push({ id: 'x' + run.cur.extra.length, res: MINI.MODES[run.mode].res, n, x: Math.round(E.x), y: Math.round(E.y) });
-    } else if (k === 'grelons') { const n = 15 + run.room * 2; run.grelons += n; u.gold = (u.gold || 0) + n; }
+    } else if (k === 'grelons') { const n = GD.miniGrelons(run.room); run.grelons += n; u.gold = (u.gold || 0) + n; }
     else if (k === 'potion') run.potions++;
     else if (k === 'egg') pets.addEgg(u, run.mode, Math.min(2, Math.floor((run.room - 1) / MINI.DECOR_ROOMS)), now);
     log(run, `Récompense : ${RW.icon} ${RW.name}${k === 'egg' ? ` (éclosion dans ${GD.PETS.INCUBATION_MIN} min)` : ''}`);

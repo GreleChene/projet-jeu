@@ -915,6 +915,7 @@
       // butin rare des élites et des gardiens (toutes les zones) : soigne entièrement un familier au camp, même K.-O.
       fiole: { name: 'Potion de familier', icon: '🧴', zone: null, rare: true, pet: true }
     },
+    GRELONS_REWARD: { base: 45, per: 6 }, // récompense « Bourse de Grêlons » (élite, gardien) : 45 + 6 × salle (75 à la 1re élite, salle 5)
     DROPS: { normal: 0.2, eliteCommons: 2, eliteRare: 0.25, bossCommons: 3, petPotion: { elite: 0.1, boss: 0.25 } }, // butins : 20 % par monstre ; élite 2 (+ rare 25 %) ; gardien : rare + 3 ; potion de familier : élite 10 %, gardien 25 %
     MODES: {
       mine: {
@@ -994,6 +995,8 @@
       harvest: { perRes: true, name: 'Récolteur', icon: '🧺', desc: '+10 % de récolte de cette ressource pour ton héros en défense de tour', cost: 150, growth: 1.5, max: 10 }
     }
   };
+  // Grêlons de la récompense « Bourse de Grêlons » dans la salle room
+  const miniGrelons = (room) => MINI.GRELONS_REWARD.base + MINI.GRELONS_REWARD.per * room;
   // Identifiant d'une amélioration de mini-jeu (luck_mine, potion, harvest…) et son coût au niveau lvl
   function miniUpgradeCost(id, lvl) {
     const [key, suf] = id.split('_');
@@ -1588,5 +1591,5 @@
   achSeries('divers', 'twitch', '📺', () => 'Lie ton compte Twitch', [[1, 'Connecté', 'Viewer fidèle']]);
   achSeries('divers', 'achCount', '🏅', (n) => `Débloque ${n} succès`, [[10, 'Chasseur de succès', 'Chasseur de succès'], [50, 'Complétionniste', 'Complétionniste']]);
 
-  return { BASTION, bastionCost, bastionCostText, bastionXp, bastionPlanZone, bastionPlanName, bastionPlanKeys, ACH_CATS, ACHIEVEMENTS, miniCostText, isTrophyCost, PETS, petPower, petMaxHp, petStage, petName, petSprite, petFxText, MINI, miniStats, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { BASTION, bastionCost, bastionCostText, bastionXp, bastionPlanZone, bastionPlanName, bastionPlanKeys, ACH_CATS, ACHIEVEMENTS, miniCostText, isTrophyCost, miniGrelons, PETS, petPower, petMaxHp, petStage, petName, petSprite, petFxText, MINI, miniStats, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });
