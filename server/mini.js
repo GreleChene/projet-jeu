@@ -213,6 +213,8 @@ function act(u, body, opts = {}) {
   }
   if (a === 'home') { // rentrer avec le seau / la charrette
     if (!cartHere(run)) fail(`Il faut ${cartName(run)} pour rentrer`);
+    const left = roomOf(run).mobs.filter((x) => !run.cur.killed.includes(x.i)).length;
+    if (left) fail(`Élimine d’abord les monstres de la salle pour rentrer (encore ${left})`);
     finish(u, m, run, false, opts.grantXp);
     return run;
   }

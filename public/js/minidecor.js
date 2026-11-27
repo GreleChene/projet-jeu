@@ -11,14 +11,14 @@
       { floor: ['#4a2a22', '#3a2018'], speck: '#2a140e', wall: '#1e0c0a', hi: '#3a1c18', kind: 'rock' }
     ],
     foret: [
-      { floor: ['#6fae4a', '#5f9e3f'], speck: '#4f8a35', wall: '#2f6b2a', hi: '#4ea845', kind: 'trees' },
-      { floor: ['#4f8a3f', '#3f7a35'], speck: '#2f6a2a', wall: '#1f4a22', hi: '#2f6b3a', kind: 'trees' },
+      { floor: ['#4f8a3a', '#447a33'], speck: '#33612a', wall: '#1f4a22', hi: '#2f6b2a', kind: 'trees' },
+      { floor: ['#3f6e34', '#355f2e'], speck: '#28502a', wall: '#14351a', hi: '#24522a', kind: 'trees' },
       { floor: ['#4a4a38', '#3a3a2c'], speck: '#2a2a20', wall: '#2a2228', hi: '#3a3030', kind: 'dead' }
     ],
     champ: [
-      { floor: ['#9fd26a', '#8cc85a'], speck: '#7ab84a', wall: '#3f8a3a', hi: '#5cb84a', kind: 'hedge' },
-      { floor: ['#7fbf5a', '#6aa848'], speck: '#5a9840', wall: '#4f7a3a', hi: '#6aa84a', kind: 'hedge' },
-      { floor: ['#8a8a4a', '#7a7a3e'], speck: '#6a6a34', wall: '#4a4a2a', hi: '#6a6a3a', kind: 'hedge', tint: 'rgba(255,140,80,.13)' }
+      { floor: ['#c4de72', '#b4d264'], speck: '#98bc4e', wall: '#5aa04a', hi: '#7cc45a', kind: 'fence' },
+      { floor: ['#a8d66c', '#98ca5e'], speck: '#7cb24c', wall: '#4f8a3a', hi: '#6ab84a', kind: 'fence' },
+      { floor: ['#b8a65e', '#a89650'], speck: '#8a7a40', wall: '#6a6a3a', hi: '#8a8a4a', kind: 'fence', tint: 'rgba(255,140,80,.13)' }
     ]
   };
   const pal = (mode, decor) => PAL[mode][Math.min(2, decor)];
@@ -124,9 +124,20 @@
     c.fillRect(0, 0, W, WL); c.fillRect(0, H - WL, W, WL); c.fillRect(0, 0, WL, H); c.fillRect(W - WL, 0, WL, H);
     const along = (step, fn) => { for (let x = 0; x <= W; x += step) { fn(x, WL - 6); fn(x, H - WL + 6); } for (let y = 0; y <= H; y += step) { fn(WL - 6, y); fn(W - WL + 6, y); } };
     if (P.kind === 'rock') along(34, (x, y) => rock(c, x + (R() - 0.5) * 10, y + (R() - 0.5) * 8, 16 + R() * 8, P.hi));
-    else if (P.kind === 'trees') along(40, (x, y) => canopy(c, x + (R() - 0.5) * 12, y + (R() - 0.5) * 10, 24 + R() * 8, R() < 0.5 ? P.hi : P.wall));
+    else if (P.kind === 'trees') {
+      const along2 = (step, off, fn) => { for (let x = 0; x <= W; x += step) { fn(x, WL - off); fn(x, H - WL + off); } for (let y = 0; y <= H; y += step) { fn(WL - off, y); fn(W - WL + off, y); } };
+      along2(46, 22, (x, y) => canopy(c, x + (R() - 0.5) * 14, y + (R() - 0.5) * 10, 32 + R() * 10, R() < 0.5 ? P.wall : A.shade(P.wall, -0.15)));
+      along2(38, 0, (x, y) => canopy(c, x + (R() - 0.5) * 12, y + (R() - 0.5) * 10, 22 + R() * 8, R() < 0.5 ? P.hi : P.wall));
+    }
     else if (P.kind === 'dead') along(46, (x, y) => { A.circle(c, x, y, 10, '#3a2a22', 2); for (let k = 0; k < 3; k++) { const a = R() * Math.PI * 2; A.line(c, x, y, x + Math.cos(a) * 26, y + Math.sin(a) * 26, '#3a2a22', 3); } });
-    else along(30, (x, y) => { A.circle(c, x, y, 18 + R() * 5, P.hi, 2); if (R() < 0.35) blob(c, x + (R() - 0.5) * 12, y + (R() - 0.5) * 12, 3, 3, R() < 0.5 ? '#ff9fd0' : '#5a4fd6'); });
+    else { // haie basse fleurie, puis clôture en bois (piquets et deux traverses) côté pré
+      along(26, (x, y) => { A.circle(c, x, y - 8, 15 + R() * 4, P.hi, 2); if (R() < 0.4) blob(c, x + (R() - 0.5) * 12, y - 8 + (R() - 0.5) * 10, 3, 3, ['#ff9fd0', '#ffffff', '#ffd23a'][Math.floor(R() * 3)]); });
+      const wood = '#b07a44', I = WL + 4;
+      for (const yy of [I, H - I]) { A.line(c, I, yy - 4, W - I, yy - 4, wood, 3); A.line(c, I, yy + 4, W - I, yy + 4, wood, 3); }
+      for (const xx of [I, W - I]) { A.line(c, xx - 4, I, xx - 4, H - I, wood, 3); A.line(c, xx + 4, I, xx + 4, H - I, wood, 3); }
+      for (let x = I; x <= W - I; x += 32) for (const yy of [I, H - I]) A.rrect(c, x - 4, yy - 10, 8, 18, 2, '#8a5e38', 1.8);
+      for (let y = I + 32; y < H - I; y += 32) for (const xx of [I, W - I]) A.rrect(c, xx - 4, y - 10, 8, 18, 2, '#8a5e38', 1.8);
+    }
   }
 
   // Fond d'une salle (mis en cache par la page) : room = résultat de Expedition.genRoom ; scale = finesse (écrans haute densité)
@@ -155,6 +166,16 @@
       for (let i = 0; i < 12; i++) { let p = anywhere(R); for (let k = 0; k < 9; k++) { px(p.x, p.y, dark); p = { x: p.x + (R() < 0.5 ? 3 : -3) * (R() < 0.7 ? 1 : 0) + 3, y: p.y + (R() < 0.5 ? 3 : 0) }; } }
       return;
     }
+    if (P.kind === 'fence') { // pré tondu : bandes alternées plus claires
+      c.fillStyle = 'rgba(255,255,220,.07)';
+      for (let x = WL; x < W - WL; x += 96) c.fillRect(x, WL, 48, H - 2 * WL);
+      for (let i = 0; i < 40; i++) { const p = anywhere(R); for (let k = 0; k < 4; k++) { px(p.x + k * 3, p.y - (k % 2) * 3, '#e8c46a'); px(p.x + k * 3, p.y - 6 - (k % 2) * 3, '#f5dc8a'); } } // touffes de blé
+    }
+    if (P.kind === 'trees') {
+      for (let i = 0; i < 26; i++) { const p = anywhere(R); for (let k = 0; k < 7; k++) px(p.x + (R() - 0.5) * 24, p.y + (R() - 0.5) * 16, A.shade(P.floor[1], -0.12)); } // mousse
+      for (let i = 0; i < 22; i++) { const p = anywhere(R), col = A.shade(P.hi, 0.1); for (let k = 0; k < 5; k++) { px(p.x - k * 3, p.y - k * 3, col); px(p.x + k * 3, p.y - k * 3, col); px(p.x - k * 3 - 3, p.y - k * 3 + 3, col); px(p.x + k * 3 + 3, p.y - k * 3 + 3, col); } } // fougères
+      for (let i = 0; i < 10; i++) { const p = anywhere(R); px(p.x, p.y + 3, '#efe6d6'); px(p.x - 3, p.y, '#e2504c'); px(p.x, p.y, '#e2504c'); px(p.x + 3, p.y, '#e2504c'); px(p.x, p.y - 3, '#ffffff'); } // champignons
+    }
     const grassD = A.shade(P.floor[1], -0.18), grassL = A.shade(P.floor[0], 0.18);
     for (let i = 0; i < 170; i++) { // touffes d'herbe
       const p = anywhere(R);
@@ -162,12 +183,12 @@
       px(p.x - 3, p.y - 3, grassD); px(p.x, p.y - 6, grassL); px(p.x + 3, p.y - 3, grassD);
     }
     if (P.kind === 'dead') { for (let i = 0; i < 60; i++) { const p = anywhere(R); px(p.x, p.y, '#5a4a40'); px(p.x + 3, p.y, '#3a2e28'); } return; }
-    const flowers = P.kind === 'hedge' ? ['#ffffff', '#ffd23a', '#ff9fd0', '#c9a0ff', '#e2504c'] : ['#ffffff', '#ffd23a', '#d9b07a'];
-    for (let i = 0; i < (P.kind === 'hedge' ? 90 : 45); i++) { // petites fleurs (croix de 4 pixels autour d'un cœur jaune)
+    const flowers = P.kind === 'fence' ? ['#ffffff', '#ffd23a', '#ff9fd0', '#c9a0ff', '#e2504c', '#5ab4f0'] : ['#ffffff', '#d9b07a'];
+    for (let i = 0; i < (P.kind === 'fence' ? 140 : 14); i++) { // petites fleurs (croix de 4 pixels autour d'un cœur jaune)
       const p = anywhere(R), col = flowers[Math.floor(R() * flowers.length)];
       px(p.x - 3, p.y, col); px(p.x + 3, p.y, col); px(p.x, p.y - 3, col); px(p.x, p.y + 3, col); px(p.x, p.y, '#ffb02e');
     }
-    if (P.kind === 'trees') for (let i = 0; i < 50; i++) { const p = anywhere(R), col = ['#c97b3a', '#e8a04a', '#8a5e38'][i % 3]; px(p.x, p.y, col); px(p.x + 3, p.y + 3, A.shade(col, -0.2)); }
+    if (P.kind === 'trees') for (let i = 0; i < 130; i++) { const p = anywhere(R), col = ['#c97b3a', '#e8a04a', '#8a5e38'][i % 3]; px(p.x, p.y, col); px(p.x + 3, p.y + 3, A.shade(col, -0.2)); }
   }
   // Profondeur des murs : face intérieure du mur du haut et ombres portées sur les quatre côtés
   function wallDepth(c, P) {
@@ -193,6 +214,12 @@
     const f = PROPS[room.mode][Math.min(2, room.decor)][room.sub];
     if (f) f(c, R, P);
     wallDepth(c, P);
+    if (P.kind === 'trees') {
+      for (let i = 0; i < 46; i++) { const p = edge(R, 40); blob(c, p.x, p.y, 40 + R() * 40, 26 + R() * 22, 'rgba(6,24,6,.2)'); }
+      c.save(); c.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 4; i++) { const x0 = 120 + R() * (W - 240); c.fillStyle = 'rgba(255,240,170,.05)'; c.beginPath(); c.moveTo(x0, WL); c.lineTo(x0 + 70, WL); c.lineTo(x0 + 230, H - WL); c.lineTo(x0 + 130, H - WL); c.fill(); }
+      c.restore();
+    }
     walls(c, P, R);
     if (P.tint) { c.fillStyle = P.tint; c.fillRect(0, 0, W, H); }
     return cv;
@@ -217,6 +244,17 @@
     if (e.side === 's') c.fillRect(e.x - hw, H - WL - 6, e.w, WL + 6);
     if (e.side === 'w') c.fillRect(0, e.y - hw, WL + 6, e.w);
     if (e.side === 'e') c.fillRect(W - WL - 6, e.y - hw, WL + 6, e.w);
+    const horiz = e.side === 'n' || e.side === 's';
+    if (P.kind === 'fence') { // portail ouvert : deux gros piquets et les battants rabattus
+      const ends = horiz ? [[e.x - hw, e.side === 'n' ? WL + 4 : H - WL - 4], [e.x + hw, e.side === 'n' ? WL + 4 : H - WL - 4]] : [[e.side === 'w' ? WL + 4 : W - WL - 4, e.y - hw], [e.side === 'w' ? WL + 4 : W - WL - 4, e.y + hw]];
+      for (const [x, y] of ends) A.rrect(c, x - 6, y - 14, 12, 24, 3, '#8a5e38', 2);
+      const [a0, a1] = ends;
+      A.line(c, a0[0], a0[1], a0[0] + (horiz ? 10 : 30) * (horiz ? 1 : (e.side === 'w' ? 1 : -1)), a0[1] + (horiz ? 30 * (e.side === 'n' ? 1 : -1) : 10), '#b07a44', 4);
+      A.line(c, a1[0], a1[1], a1[0] + (horiz ? -10 : 30 * (e.side === 'w' ? 1 : -1)), a1[1] + (horiz ? 30 * (e.side === 'n' ? 1 : -1) : -10), '#b07a44', 4);
+    } else if (P.kind === 'trees' || P.kind === 'dead') { // chemin de terre qui s'enfonce dans les arbres
+      c.fillStyle = '#8a6a44';
+      if (horiz) c.fillRect(e.x - 26, e.side === 'n' ? 0 : H - WL - 10, 52, WL + 10); else c.fillRect(e.side === 'w' ? 0 : W - WL - 10, e.y - 26, WL + 10, 52);
+    }
     // flèches qui montrent la sortie
     const dir = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0] }[e.side];
     const bx = e.side === 'w' ? WL + 20 : e.side === 'e' ? W - WL - 20 : e.x, by = e.side === 'n' ? WL + 20 : e.side === 's' ? H - WL - 20 : e.y;

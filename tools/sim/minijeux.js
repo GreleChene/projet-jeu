@@ -73,7 +73,7 @@ function expedition(mode, tier) {
     if (run.room !== roomNo) build();
     const h = s.hero, C = s.cart;
     // rentrer avec le seau (PV bas sans potion, ou salle visée atteinte)
-    if (C.here && ((h.hp < h.max * 0.3 && s.potions === 0) || run.room >= HOME_AT)) { act('home'); break; }
+    if (C.here && X.startMobsLeft(s) === 0 && ((h.hp < h.max * 0.3 && s.potions === 0) || run.room >= HOME_AT)) { act('home'); break; }
     // vider le sac dans le seau, renvoyer le seau presque plein
     if (X.nearCart(s) && s.bag.length >= s.bagCap - 1 && C.items.length < C.cap) { act('deposit', { slot: 'all' }); sync(); st.deposits++; }
     if (C.here && C.items.length >= C.cap - 1) { act('send'); sync(); st.sends++; }

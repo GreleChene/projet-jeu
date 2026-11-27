@@ -175,6 +175,11 @@ test('mini-jeux : « Rentrer » avec le seau / la charrette termine l’expédit
   run.cart.items = [{ r: 'baies', n: 12 }, { t: 'braise' }];
   let xp = -1;
   run.xp = 50;
+  const R = X.genRoom('champ', run.seed, 4, run.gen);
+  assert.strictEqual(R.mobs.length, M.START_MOBS, '3 monstres au départ');
+  assert.throws(() => mini.act(u, { action: 'home' }, { now: T0 + 1e9 }), /Élimine d’abord/, 'pas de retour tant que les monstres de la salle vivent');
+  mini.act(u, { action: 'sync', report: { k: R.mobs.map((m) => m.i) } }, { now: T0 + 1e9 });
+  run.xp = 50;
   mini.act(u, { action: 'home' }, { now: T0 + 1e9, grantXp: (p, n) => { xp = n; return 0; } });
   assert.ok(run.over && !run.over.dead);
   assert.strictEqual(u.mini.res.baies, 27);

@@ -116,8 +116,7 @@
     };
     if (type === 'gardien') add(M.bosses[tier].type, 'boss');
     if (type === 'elite') add(pool[Math.floor(R() * pool.length)], 'elite');
-    const nM = type === 'repos' ? 0 : type === 'riche' ? 1 + Math.floor(R() * 2) : type === 'gardien' ? 2 : type === 'elite' ? Math.min(3, 1 + Math.floor(room / 10))
-      : clamp(2 + Math.floor(room / 4) + Math.floor(R() * 2) - 1, 2, 7);
+    const nM = type === 'repos' ? 0 : type === 'gardien' ? 2 : type === 'elite' ? Math.min(3, 1 + Math.floor(room / 10)) : MINI.START_MOBS;
     for (let k = 0; k < nM; k++) add(pool[Math.floor(R() * pool.length)], '');
     const cp = free(30, 130), cart = { x: Math.round(cp.x), y: Math.round(cp.y) };
     return { mode, room, type, decor, sub, tier, seed, entry, exit, fountain, nodes, mobs, cart,
@@ -625,8 +624,10 @@
       if (done) { s.projs.splice(i, 1); ev(s, 'impact', { x: q.x, y: q.y, kind: q.kind }); }
     }
   }
+  // monstres présents au départ de la salle encore en vie (il faut les éliminer pour pouvoir rentrer)
+  const startMobsLeft = (s) => s.mobs.filter((m) => !m.dead && !m.reinf).length;
   const nearCart = (s) => !!(s.cart && s.cart.here && s.cart.x !== undefined && dist(s.hero, s.cart) < 80);
 
   return { roomType, sidesFor, genRoom, mobStats, bagCap, cartCap, hasPocket, carrySlots, addRes, resRoom, addTrophy, moveSlot, moveAll, totals, deathSplit,
-    heroStyle, createSim, stepSim, nearCart, openExit, SLOT, REINF0, reinfSpec, mobAt };
+    heroStyle, createSim, stepSim, nearCart, startMobsLeft, openExit, SLOT, REINF0, reinfSpec, mobAt };
 });

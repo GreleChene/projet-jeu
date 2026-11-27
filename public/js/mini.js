@@ -365,7 +365,7 @@
           el('li', {}, 'Commandes : ZQSD ou flèches pour bouger · clic gauche (maintenu) pour attaquer vers la souris ou récolter le point visé · clic droit (maintenu) pour le bouclier · E : compétence · A : potion · F ou Espace : seau / charrette · Échap : pause. Sur téléphone : joystick et boutons.'),
           el('li', {}, `Bouclier : il encaisse les coups avec ses points. Levé juste avant un coup (${Math.round(M.SHIELD.parryWindow * 1000)} ms), c’est une parade parfaite : aucun dégât et le coup est renvoyé (les projectiles repartent vers les monstres).`),
           el('li', {}, `Chaque salle contient des points de récolte et des monstres. La sortie apparaît au bout de ${M.ROOMS.normal.exit} s (une cavité dans la caverne, une ouverture sur un côté ailleurs) ; ${M.REINFORCE.after} s plus tard, des renforts arrivent. Salles riches (beaucoup de récolte, sortie à ${M.ROOMS.riche.exit} s), salles de repos (fontaine de soin), élite toutes les ${M.ELITE_EVERY} salles et gardien de zone toutes les ${M.BOSS_EVERY} : la sortie ne s’ouvre qu’une fois vaincus, avec une récompense au choix (${Math.round(PT.EGG_CHANCE * 100)} % de chances d’un œuf de familier).`),
-          el('li', {}, `Sac : ${M.BAG.base} cases (+${M.BAG.per} par niveau) ; une case = ${M.HARVEST.slot} ressources ou 1 butin de monstre. Vide-le dans le seau (caverne) ou la charrette (forêt, clairière) : ${M.CART.base} cases (+${M.CART.per} par niveau), il ou elle t’attend à un endroit différent de chaque salle (et te rejoint d’une salle à l’autre avec son contenu). « Renvoyer » met son contenu à l’abri à la base (retour ${M.CART.away} salles plus tard) ; « Rentrer » termine l’expédition avec tout.`),
+          el('li', {}, `Sac : ${M.BAG.base} cases (+${M.BAG.per} par niveau) ; une case = ${M.HARVEST.slot} ressources ou 1 butin de monstre. Vide-le dans le seau (caverne) ou la charrette (forêt, clairière) : ${M.CART.base} cases (+${M.CART.per} par niveau), il ou elle t’attend à un endroit différent de chaque salle (et te rejoint d’une salle à l’autre avec son contenu). « Renvoyer » met son contenu à l’abri à la base (retour ${M.CART.away} salles plus tard) ; « Rentrer » termine l’expédition avec tout, une fois les monstres de départ de la salle éliminés.`),
           el('li', {}, `Si ton héros tombe, tout ce qui n’a pas été renvoyé est perdu (butins compris), sauf ${Math.round(M.DEATH_KEEP * 100)} % des ressources du sac — et la poche sécurisée (sac au niveau max : ses ${M.BAG.pocket} cases les plus précieuses sont gardées).`),
           el('li', {}, 'Les ressources améliorent les statistiques d’expédition et ta récolte en défense de tour ; les butins des monstres agrandissent le sac et le seau / la charrette.'))));
   }
@@ -594,7 +594,7 @@
       el('div', { class: 'mini-panel-btns' },
         el('button', { class: 'primary', disabled: G.busy || !s.bag.length, onclick: () => depositSlot('all') }, '⬇️ Tout déposer'),
         el('button', { disabled: G.busy || !s.cart.items.length, title: `Le contenu est à l’abri ; retour ${M.CART.away} salles plus tard`, onclick: sendCart }, '🚚 Renvoyer'),
-        el('button', { disabled: G.busy, title: 'Termine l’expédition : le sac et son contenu sont mis à l’abri', onclick: goHome }, '🏠 Rentrer'),
+        el('button', { disabled: G.busy || X.startMobsLeft(s) > 0, title: X.startMobsLeft(s) ? `Élimine d’abord les monstres de la salle (encore ${X.startMobsLeft(s)})` : 'Termine l’expédition : le sac et son contenu sont mis à l’abri', onclick: goHome }, X.startMobsLeft(s) ? `🏠 Rentrer (${X.startMobsLeft(s)} 👹)` : '🏠 Rentrer'),
         el('span', { class: 'spacer' }),
         el('button', { onclick: () => closePanel() }, 'Fermer (F)'))));
   }
@@ -674,7 +674,7 @@
       el('ul', { class: 'small muted' },
         el('li', {}, `La sortie apparaît au bout de ${M.ROOMS.normal.exit} s : ${MD.exit === 'hole' ? 'une cavité dans le sol' : 'une ouverture sur un côté'}. ${M.REINFORCE.after} s plus tard, des renforts arrivent.`),
         el('li', {}, `Sac : 1 case = ${M.HARVEST.slot} ressources ou 1 butin de monstre. Vide-le dans ${cw.the}, posé${cw.the === 'le seau' ? '' : 'e'} à un endroit au hasard dans chaque salle.`),
-        el('li', {}, `« Renvoyer » met le contenu ${cw.of} à l’abri (retour ${M.CART.away} salles plus tard) ; « Rentrer » termine l’expédition.`),
+        el('li', {}, `« Renvoyer » met le contenu ${cw.of} à l’abri (retour ${M.CART.away} salles plus tard) ; « Rentrer » termine l’expédition, une fois les monstres de la salle éliminés.`),
         el('li', {}, `Si ton héros tombe : tout ce qui n’a pas été renvoyé est perdu, sauf ${Math.round(M.DEATH_KEEP * 100)} % des ressources du sac.`)),
       el('div', { class: 'mini-panel-btns' }, el('span', { class: 'spacer' }), el('button', { class: 'primary', onclick: () => closePanel() }, first ? 'C’est parti !' : 'Reprendre'))));
   }
@@ -938,8 +938,8 @@
   // obscurité aux bords (caverne : la torche du héros éclaire autour de lui) ; [opacité, couleur] par décor
   const LIGHT = {
     mine: [[0.45, '10,6,4'], [0.5, '10,6,26'], [0.42, '34,6,2']],
-    foret: [[0.16, '10,26,8'], [0.28, '6,20,12'], [0.45, '22,6,34']],
-    champ: [[0.1, '70,46,0'], [0.14, '30,44,10'], [0.32, '56,16,56']]
+    foret: [[0.34, '6,24,6'], [0.46, '4,18,10'], [0.5, '22,6,34']],
+    champ: [[0.05, '90,60,0'], [0.07, '40,50,10'], [0.28, '56,16,56']]
   };
   // vignette fixe des décors en plein air (dessinée une fois par salle)
   function makeVignette(mode, decor) {
@@ -955,13 +955,22 @@
     const h = G.sim.hero;
     if (G.vig) { ctx.drawImage(G.vig, 0, 0, AW, AH); return; }
     const [a, col] = LIGHT.mine[Math.min(2, G.room.decor)], fl = 1 + Math.sin(t * 9) * 0.025 + Math.sin(t * 23) * 0.015;
-    const g = ctx.createRadialGradient(h.x, h.y - 20, 80 * fl, h.x, h.y - 20, 380 * fl);
+    if (!G.dark) { G.dark = document.createElement('canvas'); G.dark.width = AW / 2; G.dark.height = AH / 2; }
+    const d = G.dark.getContext('2d');
+    d.setTransform(0.5, 0, 0, 0.5, 0, 0); d.globalCompositeOperation = 'source-over'; d.clearRect(0, 0, AW, AH);
+    const g = d.createRadialGradient(h.x, h.y - 20, 80 * fl, h.x, h.y - 20, 380 * fl);
     g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${a})`);
-    ctx.fillStyle = g; ctx.fillRect(0, 0, AW, AH);
+    d.fillStyle = g; d.fillRect(0, 0, AW, AH);
+    const hole = (x, y, r) => { const q = d.createRadialGradient(x, y, r * 0.2, x, y, r); q.addColorStop(0, 'rgba(0,0,0,1)'); q.addColorStop(1, 'rgba(0,0,0,0)'); d.fillStyle = q; d.fillRect(x - r, y - r, 2 * r, 2 * r); };
+    d.globalCompositeOperation = 'destination-out';
+    const C = G.sim.cart;
+    if (C && C.here && C.x !== undefined) hole(C.x + 30, C.y - 26, 130 * fl);
+    if (G.sim.exitOpen && G.room.exit.kind === 'hole') hole(G.room.exit.x, G.room.exit.y, 110);
+    ctx.drawImage(G.dark, 0, 0, AW, AH);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.07 * fl; glowAt(ctx, h.x, h.y - 24, '#ffb84a', 110); ctx.restore();
   }
   // particules : poussière, éclats de cristal, braises (caverne) ; feuilles, lucioles (forêt) ; pollen, papillons, lucioles (clairière)
-  const AMB = { mine: ['dust', 'sparkle', 'ember'], foret: ['leaf', 'leaf', 'firefly'], champ: ['pollen', 'butterfly', 'firefly'] };
+  const AMB = { mine: ['dust', 'sparkle', 'ember'], foret: ['leaf', 'leaf', 'firefly'], champ: ['butterfly', 'butterfly', 'firefly'] };
   function makeAmbient(mode, decor) {
     const kind = AMB[mode][Math.min(2, decor)], n = kind === 'butterfly' ? 8 : kind === 'leaf' ? 22 : 34;
     const cols = { leaf: ['#5cb84a', '#e8a04a', '#c97b3a', '#8fd06a'], butterfly: ['#ffd23a', '#ff9fd0', '#ffffff', '#9fd8ff'], sparkle: ['#c9e6ff', '#e0c8ff'] }[kind] || ['#ffffff'];
@@ -1111,12 +1120,23 @@
   }
   function drawCartU(ctx, t) {
     const s = G.sim, C = s.cart, run = state.run;
+    drawTorch(ctx, C.x + 30, C.y - 2, t);
     A.drawCart(ctx, C.x, C.y, { skin: C.skin, fill: C.items.length / Math.max(1, run.cartCap), res: M.MODES[run.mode].res, t, moving: C.moving });
     if (X.nearCart(s) && !G.panel) {
       const y = C.y - 52 + Math.sin(t * 4) * 2;
       ctx.fillStyle = '#fff8e8'; rr(ctx, C.x - 13, y - 12, 26, 22, 6); ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = OL; ctx.stroke();
       txt(ctx, G.touchMode ? '🛒' : 'F', C.x, y, 14, '#120c0a', 'center', 0);
     }
+  }
+  // petite torche plantée à côté du seau / de la charrette (pour le repérer de loin)
+  function drawTorch(ctx, x, y, t) {
+    const f = Math.sin(t * 13) * 1.5 + Math.sin(t * 7.3) * 1;
+    ctx.save(); ctx.globalAlpha = 0.55 + 0.1 * Math.sin(t * 9); glowAt(ctx, x, y - 26, '#ffb84a', 30 + f * 2); ctx.restore();
+    A.shadow(ctx, x, y + 1, 5, 2);
+    A.line(ctx, x, y, x, y - 20, '#6b4424', 3);
+    A.rrect(ctx, x - 4, y - 24, 8, 6, 2, '#4a3828', 1.5);
+    A.poly(ctx, [x - 5, y - 26, x, y - 40 - f, x + 5, y - 26], '#ff8a2a', 1.5);
+    A.poly(ctx, [x - 2.5, y - 27, x, y - 34 - f * 0.6, x + 2.5, y - 27], '#ffe27a', 0.01);
   }
   function drawLeaving(ctx, t) {
     const L = G.leaving, run = state.run;

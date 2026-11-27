@@ -889,7 +889,8 @@
     BAG: { base: 5, per: 5, pocket: 5 },     // sac : 5 cases (+5 par niveau) ; au niveau max, poche sécurisée de 5 cases
     CART: { base: 10, per: 10, away: 2 },    // seau / charrette : 10 cases (+10 par niveau) ; renvoyé(e), revient 2 salles plus tard
     DEATH_KEEP: 0.25,       // mort : on ne garde que 25 % des ressources du sac (rien du reste non renvoyé)
-    REINFORCE: { after: 25, every: 5, count: 2 }, // 25 s après l'ouverture de la sortie, des renforts arrivent toutes les 5 s (ils peuvent lâcher des butins)
+    REINFORCE: { after: 15, every: 5, count: 2 }, // 15 s après l'ouverture de la sortie, des renforts arrivent toutes les 5 s (jamais de butin)
+    START_MOBS: 3,          // monstres présents au départ d'une salle normale ou riche (à éliminer avant de pouvoir rentrer)
     FOUNTAIN: { hps: 10, time: 3 },  // fontaine des salles de repos : 10 PV/s pendant 3 s au total
     ROOMS: {
       normal: { name: 'Salle', icon: '🗡️', exit: 10, nodes: [3, 4], mobs: true },
