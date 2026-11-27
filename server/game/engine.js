@@ -1403,7 +1403,8 @@ class Game {
       upgrades: r.upgrades, towerSpec: r.towerSpec, heroes: this.heroes.size, mobs: this.mobs.length + r.queue.length + r.bossPending.length,
       canJoin: this.canJoin(), joinEndsAt: Number.isFinite(r.joinUntil) ? r.joinUntil : null,
       voting: !!r.vote, nextVote: this.nextVoteWave(), voteEvery: this.voteEvery(),
-      pact: r.pactActive ? 'active' : r.pactNext ? 'next' : null, era: GD.eraFor(r.mode, Math.max(1, r.wave)).name, ...this.modeInfo()
+      pact: r.pactActive ? 'active' : r.pactNext ? 'next' : null, era: GD.eraFor(r.mode, Math.max(1, r.wave)).name, ...this.modeInfo(),
+      daily: this.settings.dailyStart ? this.settings.dailyTime : null // lancement automatique quotidien (heure de Paris)
     };
   }
 

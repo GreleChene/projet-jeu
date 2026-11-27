@@ -149,10 +149,28 @@
 
   const PHASES = { lobby: 'En attente du lancement', intermission: 'Entracte', wave: 'Combat en cours', gameover: 'Défaite', victory: 'Victoire !' };
 
+  // Planning (en haut de la page) : bataille en cours, ou prochain lancement automatique (heure de Paris)
+  const PARIS_HM = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false });
+  function renderPlan(r) {
+    const chip = $('#hdrPlan');
+    if (!chip || !r) return;
+    const t = r.daily ? r.daily.replace(':', ' h ').replace(' h 00', ' h') : null;
+    let txt;
+    if (r.phase === 'intermission' || r.phase === 'wave') txt = `⚔️ Bataille en cours${r.wave ? ` · manche ${r.wave}` : ''}${r.canJoin ? ' · inscriptions ouvertes' : ''}`;
+    else if (!t) txt = '🗓️ Bataille lancée par l’admin';
+    else {
+      const [h, m] = PARIS_HM.format(new Date()).split(':').map(Number), [dh, dm] = r.daily.split(':').map(Number);
+      const today = h * 60 + m < dh * 60 + dm;
+      txt = `🗓️ Prochaine bataille : ${today ? (dh >= 18 ? 'ce soir' : 'aujourd’hui') : 'demain'} à ${t}`;
+    }
+    chip.textContent = txt;
+  }
+
   let lastVoteSig = '';
   function renderLive() {
     if (!live || !me) return;
     const r = live.run, h = live.hero;
+    renderPlan(r);
     if (live.profile) renderXp(live.profile);
     // infos de partie
     const info = $('#runInfo');
@@ -1110,7 +1128,7 @@
 
   /* ---------- Liaison Twitch ---------- */
   let twitchChannel = 'hyoneko_';
-  fetch('/api/info').then((r) => r.json()).then((d) => { if (d.twitch) { twitchChannel = d.twitch; if (me) renderTwitch(); } renderSubRewards(d); }).catch(() => {});
+  fetch('/api/info').then((r) => r.json()).then((d) => { if (d.twitch) { twitchChannel = d.twitch; if (me) renderTwitch(); } renderSubRewards(d); renderPlan(d.run); }).catch(() => {});
   // Onglet Compte : ce que rapportent les abonnements Twitch
   function renderSubRewards(d) {
     const sub = d.subGrelons || 0, gift = d.giftGrelons || 0;
