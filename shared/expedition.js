@@ -119,18 +119,18 @@
     const nM = type === 'repos' ? 0 : type === 'riche' ? 1 + Math.floor(R() * 2) : type === 'gardien' ? 2 : type === 'elite' ? Math.min(3, 1 + Math.floor(room / 10))
       : clamp(2 + Math.floor(room / 4) + Math.floor(R() * 2) - 1, 2, 7);
     for (let k = 0; k < nM; k++) add(pool[Math.floor(R() * pool.length)], '');
-    return { mode, room, type, decor, sub, tier, seed, entry, exit, fountain, nodes, mobs,
+    const cp = free(30, 130), cart = { x: Math.round(cp.x), y: Math.round(cp.y) };
+    return { mode, room, type, decor, sub, tier, seed, entry, exit, fountain, nodes, mobs, cart,
       exitDelay: RT.exit, boss: type === 'gardien' || type === 'elite' ? 0 : -1 };
   }
 
-  // Renforts (et invocations des gardiens) : déterministes, numérotés à partir de REINF0 ; ils peuvent lâcher un butin
+  // Renforts (et invocations des gardiens) : déterministes, numérotés à partir de REINF0 ; ils ne lâchent jamais de butin
   const REINF0 = 100;
   function reinfSpec(mode, seed, room, tier, idx) {
     const R = rngFor(seed, room, 1000 + idx), M = MINI.MODES[mode], pool = M.mobs[tier], T3 = M.trophies;
     const type = pool[Math.floor(R() * pool.length)];
     const p = sidePoint(SIDES[Math.floor(R() * 4)], (R() - 0.5) * 300, A.WALL + 30);
-    const drops = R() < MINI.DROPS.normal ? [T3.common[Math.floor(R() * T3.common.length)]] : [];
-    return { i: REINF0 + idx, ...mobStats(type, room, ''), xp: 0, drops, reinf: true, x: Math.round(p.x), y: Math.round(p.y), abil: null };
+    return { i: REINF0 + idx, ...mobStats(type, room, ''), xp: 0, drops: [], reinf: true, x: Math.round(p.x), y: Math.round(p.y), abil: null };
   }
   // monstre d'une salle par son numéro (renforts compris)
   const mobAt = (R, i) => (i >= REINF0 ? reinfSpec(R.mode, R.seed, R.room, R.tier, i - REINF0) : R.mobs[i]);
@@ -201,7 +201,7 @@
     const s = {
       t: 0, room: R, mode: R.mode, style: st.style, proj: st.proj, timeScale: 1,
       hero: { x: R.entry.x, y: R.entry.y, r: H.radius, hp: o.hp, max: o.max, dmg: o.dmg, crit: o.crit, armor: o.armor, buff: o.buff || { dmg: 0, crit: 0 },
-        shieldMax: o.shield, shield: o.shield, shieldUp: false, shieldAt: -9, broken: 0, idle: 9, atkCd: 0.3, skillCd: 0, face: 0, aimX: R.entry.x + 1, aimY: R.entry.y,
+        speed: o.speed || H.speed, haste: o.haste || 0, shieldMax: o.shield, shield: o.shield, shieldUp: false, shieldAt: -9, broken: 0, idle: 9, atkCd: 0.3, skillCd: 0, face: 0, aimX: R.entry.x + 1, aimY: R.entry.y,
         iframes: 0, swing: 0, hurt: 0, moving: false, dead: false, guardUsed: false, lootFrac: 0 },
       mobs: R.mobs.map((m) => ({ ...m, home: { x: m.x, y: m.y }, aggro: false, wake: 0.6 + m.i * 0.25, cdT: 0.5 + Math.random() * 0.6, wind: 0, target: -1, retarget: 0, frozen: 0, stun: 0,
         mark: 0, markT: 0, weak: 0, weakT: 0, pdot: null, dead: killed.has(m.i), hit: 0, wander: Math.random() * 6, abilT: {}, act: null })),
@@ -227,7 +227,7 @@
         atkCd: 1 + i * 0.4, healT: 4, aoeT: 3, harvT: 2, hurt: 0, swing: 0 });
     });
     // seau / charrette (s'il est là)
-    if (s.cart && s.cart.here) { s.cart.x = R.entry.x - 60; s.cart.y = R.entry.y + 30; }
+    if (s.cart) { const cp = R.cart || { x: R.entry.x - 60, y: R.entry.y + 30 }; s.cart.x = cp.x; s.cart.y = cp.y; s.cart.moving = false; }
     if (s.exitAt <= 0) openExit(s);
     return s;
   }
@@ -307,6 +307,11 @@
   // garde les corps dans l'arène et hors des points de récolte
   function keepIn(s, u, r) {
     u.x = clamp(u.x, IN.x0 + r - 18, IN.x1 - r + 18); u.y = clamp(u.y, IN.y0 + r - 18, IN.y1 - r + 18);
+    const C = s.cart;
+    if (C && C.here && C.x !== undefined && u !== C) {
+      const dx = u.x - C.x, dy = u.y - C.y, d = Math.hypot(dx, dy), m = 20 + r - 4;
+      if (d < m && d > 0.01) { u.x = C.x + (dx / d) * m; u.y = C.y + (dy / d) * m; }
+    }
     for (const n of s.nodes) {
       if (n.left <= 0) continue;
       const dx = u.x - n.x, dy = u.y - n.y, d = Math.hypot(dx, dy), m = n.r + r - 4;
@@ -344,7 +349,7 @@
     let mx = inp.mx || 0, my = inp.my || 0;
     const ml = Math.hypot(mx, my);
     if (ml > 1) { mx /= ml; my /= ml; }
-    const sp = H.speed * (h.shieldUp ? MINI.SHIELD.slow : 1);
+    const sp = h.speed * (h.shieldUp ? MINI.SHIELD.slow : 1);
     h.x += mx * sp * dt; h.y += my * sp * dt; h.moving = ml > 0.1;
     // la sortie (ouverture d'un côté) permet de franchir le mur
     const ex = s.room.exit;
@@ -391,8 +396,6 @@
       }
     }
     /* --- seau / charrette : suit le héros --- */
-    const C = s.cart;
-    if (C && C.here) { const back = { x: h.x - Math.cos(h.face) * 56, y: h.y - Math.sin(h.face) * 56 + 10 }; C.moving = moveToward(C, back.x, back.y, 150, dt, 30); keepIn(s, C, 16); }
     /* --- monstres --- */
     for (const m of s.mobs) if (!m.dead) stepMob(s, m, dt);
     // les monstres ne s'empilent pas
@@ -433,7 +436,7 @@
   }
   function harvest(s, n) {
     const h = s.hero, res = GD.RES_IDS[n.k];
-    h.atkCd = H.atkCd; h.swing = 0.22;
+    h.atkCd = H.atkCd / (1 + h.haste); h.swing = 0.22;
     h.lootFrac += MINI.HARVEST.perHit * (1 + fxSum(s, 'loot'));
     const want = Math.min(n.left, Math.floor(h.lootFrac));
     if (want <= 0) return;
@@ -447,7 +450,7 @@
   function attack(s) {
     const h = s.hero, crit = Math.random() < h.crit + (h.buff.crit || 0), dmg = heroDmg(s) * (crit ? 2 : 1);
     if (s.style === 'melee') {
-      h.atkCd = H.atkCd; h.swing = 0.22;
+      h.atkCd = H.atkCd / (1 + h.haste); h.swing = 0.22;
       ev(s, 'swing', { x: h.x, y: h.y, a: h.face });
       for (const m of s.mobs) {
         if (m.dead) continue;
@@ -455,7 +458,7 @@
         if (d <= H.meleeRange + m.r && (da <= H.meleeArc || d < m.r + h.r + 6)) damageMob(s, m, dmg, { crit });
       }
     } else {
-      h.atkCd = H.shotCd; h.swing = 0.18;
+      h.atkCd = H.shotCd / (1 + h.haste); h.swing = 0.18;
       ev(s, 'shoot', { x: h.x, y: h.y });
       shoot(s, 'hero', h.x + Math.cos(h.face) * 16, h.y - 18 + Math.sin(h.face) * 16, h.aimX, h.aimY - 18, { speed: H.shotSpeed, range: H.shotRange, dmg: dmg * H.shotDmg, kind: s.proj, crit });
     }

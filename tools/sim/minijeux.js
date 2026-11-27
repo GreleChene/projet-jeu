@@ -48,7 +48,7 @@ function expedition(mode, tier) {
   // salle simulée à partir de l'état du serveur (comme la page)
   function build() {
     const room = X.genRoom(run.mode, run.seed, run.room, run.gen);
-    s = X.createSim({ room, cls: CLS, hp: run.hp, max: run.max, dmg: run.dmg, crit: run.crit, armor: run.armor, shield: run.shield,
+    s = X.createSim({ room, cls: CLS, hp: run.hp, max: run.max, dmg: run.dmg, crit: run.crit, armor: run.armor, shield: run.shield, speed: run.speed, haste: run.haste,
       buff: { dmg: run.buff.dmg, crit: run.buff.crit }, pets: clone(run.pets), potions: run.potions, bag: clone(run.bag), bagCap: X.bagCap(u.mini.up, run.pets),
       cart: { items: clone(run.cart.items), cap: X.cartCap(u.mini.up), here: !run.cart.back, skin: run.cart.skin },
       killed: run.cur.killed, harv: run.cur.harv, picked: run.cur.picked, extra: run.cur.extra, rewardDone: run.cur.reward === 'done' });

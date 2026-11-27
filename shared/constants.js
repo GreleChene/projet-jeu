@@ -878,7 +878,7 @@
     POTIONS: 2,             // potions de soin par expédition (touche A : 35 % des PV)
     POTION_HEAL: 0.35,
     // Statistiques d'expédition (propres aux mini-jeux, améliorées avec les ressources du compte)
-    BASE: { hp: 100, dmg: 10, armor: 0, crit: 0.05, shield: 20 },
+    BASE: { hp: 100, dmg: 10, armor: 0, crit: 0.05, shield: 20, speed: 175, haste: 0 }, // speed : px/s ; haste : vitesse d'attaque en plus
     // Arène vue du dessus (une salle = un écran)
     ARENA: { W: 960, H: 600, WALL: 40 },
     // shotDmg : les tirs et sorts (classes à distance) font 60 % des dégâts d'un coup d'arme, en échange de la sécurité
@@ -965,6 +965,11 @@
       armure: { stat: 'armor', per: 0.03, name: 'Armure', icon: '🛡️', desc: '+3 % de réduction des dégâts en expédition', res: 'pierre', cost: 90, growth: 1.2, max: 15 },
       precision: { stat: 'crit', per: 0.02, name: 'Précision', icon: '🎯', desc: '+2 % de chances de critique en expédition', res: 'bois', cost: 90, growth: 1.22, max: 10 },
       bouclier: { stat: 'shield', per: 10, name: 'Bouclier', icon: '🔰', desc: '+10 points de bouclier (parade au clic droit)', res: 'pierre', cost: 90, growth: 1.22, max: 10 },
+      // vitesse de déplacement et vitesse d'attaque : payées avec les butins des monstres (costs[niveau actuel])
+      vitesse: { stat: 'speed', per: 10, trophy: true, name: 'Vitesse', icon: '👟', desc: '+10 de vitesse de déplacement en expédition', max: 5,
+        costs: [{ plume: 4, peau: 4 }, { plume: 7, croc: 7 }, { ecaille: 10, os: 10 }, { plume: 14, cristal: 14, braise: 1 }, { peau: 18, ecaille: 18, crane: 1, obsidienne: 1 }] },
+      cadence: { stat: 'haste', per: 0.08, trophy: true, name: 'Vitesse d’attaque', icon: '⚡', desc: '+8 % de vitesse d’attaque (et de récolte) en expédition', max: 5,
+        costs: [{ croc: 4, cristal: 4 }, { os: 7, ecaille: 7 }, { croc: 10, plume: 10 }, { cristal: 14, peau: 14, obsidienne: 1 }, { os: 18, croc: 18, braise: 1, crane: 1 }] },
       // sac et seau / charrette : payés avec les butins des monstres (costs[niveau actuel])
       sac: { trophy: true, name: 'Sac', icon: '🎒', desc: '+5 cases de sac ; au niveau max, poche sécurisée (5 cases jamais perdues)', max: 5,
         costs: [{ os: 5, peau: 5 }, { plume: 8, cristal: 8 }, { croc: 12, ecaille: 12 }, { os: 16, peau: 16, obsidienne: 1 }, { plume: 20, cristal: 20, crane: 1, braise: 1 }] },

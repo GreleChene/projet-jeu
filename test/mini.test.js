@@ -335,17 +335,40 @@ test('mini-jeux (simulation) : fontaine 10 PV/s pendant 3 s ; monstres qui fonce
   assert.deepStrictEqual(X.reinfSpec('mine', 1, 1, 0, 3), X.reinfSpec('mine', 1, 1, 0, 3), 'déterministes');
 });
 
-test('mini-jeux : les renforts tués comptent et leurs butins se ramassent (dans la limite du temps passé)', () => {
+test('mini-jeux : les renforts tués comptent mais ne lâchent jamais de butin', () => {
   const u = user();
   const run = mini.start(u, 'foret', {}, { now: T0, rnd: fixed(0.3) });
-  const R = X.genRoom('foret', run.seed, 1, run.gen);
-  let idx = 0;
-  while (!X.reinfSpec('foret', run.seed, 1, 0, idx).drops.length) idx++;
-  const id = X.REINF0 + idx, spec = X.mobAt(R, id);
+  for (let i = 0; i < 200; i++) assert.deepStrictEqual(X.reinfSpec('foret', run.seed, 1, 0, i).drops, []);
   // trop tôt : impossible d'avoir déjà vu autant de renforts
   mini.act(u, { action: 'sync', report: { k: [X.REINF0 + 500], ops: [] } }, { now: T0 + 2000 });
   assert.strictEqual(run.kills, 0);
-  mini.act(u, { action: 'sync', report: { k: [id], ops: [['p', `m${id}_0`, 1]] } }, { now: T0 + 60000 + idx * 3000 });
+  const id = X.REINF0 + 3;
+  mini.act(u, { action: 'sync', report: { k: [id], ops: [['p', `m${id}_0`, 1]] } }, { now: T0 + 60000 });
   assert.strictEqual(run.kills, 1);
-  assert.deepStrictEqual(run.bag, [{ t: spec.drops[0] }]);
+  assert.deepStrictEqual(run.bag, [], 'rien à ramasser');
+});
+
+test('mini-jeux : vitesse et vitesse d’attaque (butins des monstres) ; seau posé à un endroit fixe de chaque salle', () => {
+  const u = user();
+  mini.ensure(u);
+  assert.throws(() => mini.buyUpgrade(u, 'vitesse'), /butins/);
+  u.mini.trophies = { ...GD.miniUpgradeCost('vitesse', 0), ...GD.miniUpgradeCost('cadence', 0) };
+  mini.buyUpgrade(u, 'vitesse'); mini.buyUpgrade(u, 'cadence');
+  const run = mini.start(u, 'mine', {}, { now: T0 });
+  assert.strictEqual(run.speed, M.BASE.speed + M.UPGRADES.vitesse.per);
+  assert.strictEqual(run.haste, M.UPGRADES.cadence.per);
+  // le héros va plus vite et frappe plus souvent
+  const fast = arena([], null, { speed: 250 }), slow = arena([]);
+  for (let i = 0; i < 10; i++) { X.stepSim(fast, 0.05, { mx: 1 }); X.stepSim(slow, 0.05, { mx: 1 }); }
+  assert.ok(fast.hero.x - 480 > (slow.hero.x - 480) * 1.3);
+  const quick = arena([], null, { haste: 0.4 });
+  for (let i = 0; i < 20; i++) X.stepSim(quick, 0.05, { attack: true, ax: 600, ay: 300 });
+  assert.ok(quick.hero.atkCd <= M.HERO.atkCd / 1.4 + 1e-9);
+  // seau : toujours au même endroit de la salle (tiré au hasard), il ne suit pas le héros
+  const R = X.genRoom('mine', 31, 4, {});
+  assert.deepStrictEqual(R.cart, X.genRoom('mine', 31, 4, {}).cart);
+  assert.notDeepStrictEqual(R.cart, X.genRoom('mine', 31, 6, {}).cart);
+  const s = X.createSim({ room: { ...R, mobs: [] }, cls: 'paladin', hp: 99, max: 99, dmg: 10, crit: 0, armor: 0, shield: 20, pets: [], potions: 0, bag: [], bagCap: 5, cart: { items: [], cap: 10, here: true, skin: 'seau' } });
+  for (let i = 0; i < 40; i++) X.stepSim(s, 0.05, { mx: 1, my: 0.3 });
+  assert.deepStrictEqual({ x: s.cart.x, y: s.cart.y }, R.cart);
 });
