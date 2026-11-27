@@ -53,6 +53,7 @@
       <nav class="tabs" id="tabs">
         <button data-tab="battle" class="active">⚔️ Bataille</button>
         <button data-tab="mini">🎲 Mini-jeux</button>
+        <button data-tab="bastion">🏰 Bastion</button>
         <button data-tab="hero">🧬 Classe & compétences <span class="badge" id="skillBadge"></span></button>
         <button data-tab="stats">📊 Statistiques <span class="badge hidden" id="ptsBadge"></span></button>
         <button data-tab="equip">🎒 Équipement <span class="badge hidden" id="iceBadge"></span></button>
@@ -252,6 +253,7 @@
 
       <!-- Mini-jeux (expéditions solo) -->
       <div data-view="mini" class="hidden"><div id="miniRoot"><div class="panel">Chargement…</div></div></div>
+      <div data-view="bastion" class="hidden"><div id="bastionRoot"><div class="panel">Chargement…</div></div></div>
 
       <!-- Succès et titres -->
       <div data-view="ach" class="hidden"><div id="achRoot"></div></div>
@@ -304,6 +306,7 @@
   <script src="/shared/constants.js"></script>
   <script src="/shared/terrain.js"></script>
   <script src="/shared/expedition.js"></script>
+  <script src="/shared/bastion.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/sprites.js"></script>
   <script src="/js/art.js"></script>
@@ -311,5 +314,7 @@
   <script src="/js/player.js"></script>
   <script src="/js/minidecor.js"></script>
   <script src="/js/mini.js"></script>
+  <script src="/js/bastionart.js"></script>
+  <script src="/js/bastion.js"></script>
 </body>
 </html>

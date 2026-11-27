@@ -171,9 +171,41 @@ Trois expéditions solo **en temps réel, vues du dessus** : on dirige son héro
   - Pas de vente ni d'échange de familiers. L'admin peut donner un œuf pour tester (onglet Joueurs, bouton « 🥚 Œuf » : prêt à éclore tout de suite, ou avec l'incubation en ajoutant « :incuber »).
 - **Fonctionnement** : la salle est générée à l'identique côté serveur et côté page à partir d'une graine ; la page simule la salle en temps réel (`shared/expedition.js`) et envoie des rapports (monstres tués, récoltes, ramassages, PV) que le serveur **valide** (ce que la salle contient, la place dans le sac) ; le serveur garde l'inventaire, le seau et ce qui est à l'abri. On peut fermer la page et reprendre l'expédition plus tard (au début de la salle en cours). Les anciennes expéditions au tour par tour en cours sont abandonnées et leur énergie rendue. Équilibrage : `npm run sim:minijeux` (un bot joue des expéditions complètes).
 
+### Bastion (onglet 🏰)
+
+Un **tower defense solo** : une carte de 16 × 9 cases **générée au hasard à chaque partie** (un chemin sinueux de l'entrée, à gauche, jusqu'à la **tour principale**, 2 × 2 cases à droite), des vagues de monstres, et entre deux vagues **tout le temps qu'il faut** pour construire.
+
+- **Prix** : une partie coûte **50 Grêlons** ; **atteindre la manche 30** (survivre aux 29 premières) les **rembourse**. Survivre à la manche 30, c'est la **victoire** : la zone suivante se débloque, puis on choisit de **continuer en mode infini** (pour le record) ou de terminer.
+- **Zones** (une carte au hasard à chaque partie, débloquées dans l'ordre) :
+
+| Zone | Monstres (+ PV) | Gardiens (manches 10, 20, 30) | Décor |
+|---|---|---|---|
+| ⛏️ Caverne | blindés, séparateurs (gelées), volants (esprits), camouflés | Araignée reine, Golem de givre ancien, Golem d'obsidienne | pierre claire, rochers à cristaux, champignons géants |
+| 🌲 Forêt (+20 %) | rapides (meutes), soigneurs (arbres), camouflés (renards) — **aucun volant** | Loup alpha, Tréant colossal, Abomination | sapins serrés |
+| 🫐 Clairière (+40 %) | volants (corbeaux, feux follets), rapides, soigneurs (crapauds), séparateurs | Crapaud-roi, Salamandre ancienne, Phénix noir (volant, renaît une fois) | prés fleuris |
+
+- **Types de monstres** : normal, **rapide**, **blindé** (−45 % des dégâts physiques ; la magie et les tirs perforants l'ignorent), **volant** (droit vers la tour, au-dessus du chemin, des barricades et des soldats ; les catapultes ne le touchent pas), **séparateur** (2 petits à sa mort), **soigneur**, **camouflé** (invisible sauf dans la zone d'un phare ou de la tour principale). Chaque monstre qui atteint la tour lui retire des PV (beaucoup pour un gardien). L'aperçu de la prochaine vague est affiché à côté du bouton « Lancer la manche ».
+- **Ressources de la partie** : 🪙 or (monstres vaincus, fin de chaque vague, bâtiments de richesse), 🪵 bois et 🪨 pierre (production). Elles disparaissent à la fin de la partie : **le Bastion ne rapporte aucune ressource des mini-jeux**.
+- **Construire** : clic sur une case de son **territoire** → liste des bâtiments possibles (coût, nombre de synergies 🔗), puis la fiche (statistiques, **zone d'attaque** affichée sur la carte, synergies reçues et données) et « Construire » (un 2e clic sur le même bâtiment construit aussi). Un bâtiment a **3 niveaux puis une spécialisation au choix parmi 2** (niveau 4). Vente : remboursée **en entier** tant que la vague suivante n'a pas commencé, **70 %** ensuite.
+- **Défricher** un arbre (ou champignon géant) ou un rocher **coûte de l'or** (25 / 35) et rapporte un peu de bois ou de pierre ; mais un arbre qui touche une scierie (un rocher qui touche une carrière) augmente sa production.
+- **Bâtiments** (★ = disponible dès le départ, sinon à débloquer avec des plans) :
+
+| Catégorie | Bâtiments |
+|---|---|
+| ⚔️ Attaque (zone d'attaque) | ★ Tour d'archers (rapide, sol et airs) · Catapulte (zone d'impact, sol seulement) · Tour de mage (magique, ignore l'armure) · Caserne (soldats qui bloquent le chemin le plus proche) |
+| 🛡️ Support | ★ Phare (révèle les camouflés) · ★ Barricade (sur le chemin, à PV, réparée de 30 % après chaque vague ; 4 au plus) · Totem de givre (ralentit) · Bannière (dégâts des voisins) · Sanctuaire (soins des soldats, barricades et de la tour) |
+| 🪓 Production (après chaque vague) | ★ Scierie (bois) · ★ Carrière (pierre) · Ferme (soigne la tour principale) |
+| 💰 Richesse | ★ Marché (or) · Banque (intérêts sur l'or gardé, plafonnés) · Taverne (prime par monstre vaincu dans sa zone) · Mine d'or (seulement sur un filon d'or) |
+
+- **Synergies** : deux bâtiments qui **partagent un côté** se renforcent (la diagonale ne compte pas) ; les liens actifs sont dessinés sur la carte. Bannière → +15 / 22 / 30 % de dégâts aux bâtiments d'attaque voisins · Phare → +0,4 / 0,6 / 0,8 case de zone · tour d'archers + tour d'archers → garnison (+10 % de vitesse) · scierie → flèches (+15 % de dégâts des archers) · carrière → munitions (+20 % pour la catapulte) · totem de givre → +20 % pour la tour de mage · mages voisins → +0,3 case · ferme / taverne / sanctuaire → PV, dégâts et retour des soldats de la caserne · marché entouré de production ou de richesse → +15 % par voisin · marché → banque (+50 % de plafond) · fermes voisines → +20 % de soins · arbres → scierie, rochers → carrière · bâtiment d'attaque collé à la tour principale → +10 % de dégâts. Certaines spécialisations renforcent ou ajoutent des synergies (Étendard de guerre, Tambours, Vigie, Fête, Écuries).
+- **Tour principale** (5 niveaux, clic dessus) : PV 100 → 280, tir de plus en plus fort (révèle les camouflés), **territoire** constructible de 5 → 7 → 9 → 12 cases autour d'elle puis toute la carte, **niveau max des bâtiments** (2, 3, puis spécialisations au niveau 3) et **capacités** à lancer pendant les vagues, rechargées à chaque vague : 🏹 Pluie de flèches (niv. 2), ❄️ Gel (niv. 3), 🔨 Réparation d'urgence (niv. 4, une fois par vague), ☄️ Colère du bastion (niv. 5). On peut aussi la réparer entre deux vagues (pierre).
+- **Récompenses** : **XP** du héros à chaque manche gagnée (15 + 6 × manche, ×1,2 en forêt, ×1,4 en clairière ; versée en fin de partie) ; à chaque **gardien vaincu** : des **plans** (1, 2 dans la clairière) et **15 % de chances d'un œuf de familier** de la zone ; **3 plans** pour la première victoire dans une zone. Les plans se dépensent dans l'**atelier** (à l'accueil du Bastion, ou bouton 📜 pendant une partie) : 1 à 2 plans par bâtiment, 1 par spécialisation ; un déblocage vaut pour toutes les parties, même celle en cours.
+- **Commandes** : clic sur une case · Espace : lancer la vague (pendant une vague : pause) · 1, 2, 3 : vitesse ×1, ×2, ×3 · Z : toutes les zones d'attaque · Échap : annuler · clic droit : annuler une capacité visée. L'onglet caché, la partie se met en pause ; on peut fermer la page et reprendre plus tard (une vague en cours reprend là où elle en était).
+- **Fonctionnement** : tout est **déterministe** (`shared/bastion.js`) : même graine + mêmes actions = même partie. La page joue et envoie ses actions de construction au fil de l'eau (le serveur applique les mêmes) ; à la fin de chaque vague, le **serveur la rejoue entièrement** à partir de son propre état, avec les capacités utilisées et leur instant : **son résultat fait foi**. Une vague ne peut pas se terminer plus vite que la vitesse ×3 ne le permet. Classement : meilleure manche survécue par zone (accueil du Bastion). Succès : catégorie 🧱 Bastion. L'admin peut donner des plans pour tester (onglet Joueurs, bouton « 📜 Plans »). Équilibrage : `npm run sim:bastion` (un bot joue des parties complètes, avec ou sans plans).
+
 ### Succès et titres (onglet 🏅)
 
-**78 succès** répartis en 6 catégories, chacun débloque un **titre** que le joueur peut **équiper** (un seul à la fois) : il s'affiche en doré au-dessus de son héros **sur le stream**, dans le **classement** et en haut de sa page.
+**95 succès** répartis en 7 catégories, chacun débloque un **titre** que le joueur peut **équiper** (un seul à la fois) : il s'affiche en doré au-dessus de son héros **sur le stream**, dans le **classement** et en haut de sa page.
 
 | Catégorie | Exemples (objectif → titre) |
 |---|---|
@@ -182,6 +214,7 @@ Trois expéditions solo **en temps réel, vues du dessus** : on dirige son héro
 | 🏪 Place marchande | ventes, achats, échanges, cadeaux, 10 000 Grêlons possédés → Riche comme Crésus |
 | 🎲 Mini-jeux | expéditions, salles 10 / 25 / 50, salle 20 de chaque mini-jeu (Mineur de fond, Garde forestier, Gardien des moissons), gardiens, élites, monstres, ressources mises à l'abri, butins rapportés, parades parfaites, roulades, chutes |
 | 🐾 Familiers | familiers possédés, œufs éclos, familier niveau 10 / 20, familier légendaire |
+| 🧱 Bastion | 1 / 10 / 50 parties → Bâtisseur, Maître d'œuvre, Architecte · 10 / 20 / 30 / 50 manches survécues → Sentinelle, Gardien des murailles, Inébranlable, Forteresse vivante · victoires → Châtelain, Seigneur du bastion · les trois zones gagnées → Seigneur des trois terres · bâtiments construits, monstres vaincus, plans gagnés · 12 synergies à la fois → Urbaniste |
 | 🎉 Divers | compte Twitch lié, 10 / 50 succès débloqués → Chasseur de succès, Complétionniste |
 
 - L'onglet affiche la **progression** de chaque succès (barre et compteur), la date de déblocage, et permet de filtrer (tous / débloqués / à débloquer) ; une pastille signale les nouveaux succès.
@@ -190,7 +223,7 @@ Trois expéditions solo **en temps réel, vues du dessus** : on dirige son héro
 
 ### Anti-triche (onglet admin « 🛡️ Anti-triche »)
 
-La **défense de tour** est entièrement calculée par le serveur : les joueurs ne font que rejoindre et voter (une voix par joueur, au plus un événement toutes les 250 ms). Les **mini-jeux**, eux, sont simulés par la page : le serveur vérifie donc chaque rapport et **refuse ce qui est impossible**, en enregistrant une alerte :
+La **défense de tour** est entièrement calculée par le serveur : les joueurs ne font que rejoindre et voter (une voix par joueur, au plus un événement toutes les 250 ms). Le **Bastion** aussi, en pratique : le serveur rejoue chaque vague lui-même (une action impossible, une capacité à un instant impossible ou une vague terminée trop vite sont refusées et signalées). Les **mini-jeux**, eux, sont simulés par la page : le serveur vérifie donc chaque rapport et **refuse ce qui est impossible**, en enregistrant une alerte :
 
 | Contrôle | Ce qui est refusé |
 |---|---|
@@ -243,6 +276,7 @@ server/             Node.js (Express + Socket.IO)
   db.js             stockage JSON (écriture atomique)
   anticheat.js      anti-triche : limites des expéditions, débit, comptes liés (IP hachées), alertes
   achievements.js   succès et titres
+  bastion.js        Bastion : parties, actions validées, vagues rejouées, récompenses, atelier, classement
   game/engine.js    boucle de jeu autoritaire (20 Hz), manches, votes, réseau
   game/heroes.js    IA des héros, passifs, ultimes, invocations
   game/mobs.js      vagues, IA des monstres, capacités des boss
@@ -250,11 +284,13 @@ shared/             partagé serveur ↔ navigateur
   constants.js      classes, armures, monstres, boss, palette graphique
   terrain.js        génération déterministe du terrain et des biomes
   expedition.js     mini-jeux : salles (graine), sac / seau, simulation temps réel (page + bot)
+  bastion.js        Bastion : carte aléatoire, bâtiments, synergies, simulation déterministe des vagues (page + serveur + bot)
 public/
   js/art.js         toute la direction artistique (un seul module de dessin)
   js/sprites.js     sprites pixel art des monstres (GÉNÉRÉ par tools/pixelart)
   js/stream.js      écran du stream    js/player.js  page joueur    js/admin.js  admin
   js/mini.js        onglet Mini-jeux (jeu vu du dessus, commandes, panneaux)   js/minidecor.js  décors des salles
+  js/bastion.js     onglet Bastion (carte, menus, vagues, atelier)   js/bastionart.js  sprites pixel art du Bastion
 test/               tests du moteur (npm test)
 tools/pixelart/     sources des sprites pixel art des monstres (Python + Pillow)
 tools/sim/          simulations sans serveur (durée des parties, économie, équilibrage des classes, invocations)
@@ -264,7 +300,7 @@ tools/captures.js   captures d'écran automatiques du stream et de la page joueu
 ### Graphismes
 
 - **Rendu** (`/stream`) : **héros en pixel art** assemblés à la volée (visage personnalisé, équipement selon le style et la rareté, arme de classe, marche et attaque), tour en pierre avec bannières et torches, habitations en vue 3/4, **monstres en pixel art** dessinés pixel par pixel. Les monstres, la tour et les bâtiments sont pré-rendus en cache par étape d'animation, ce qui garde le stream fluide même avec des centaines de monstres.
-- **Vérifier un changement** : `npm run sim:duree` (durée des parties), `npm run sim:economie` (ressources), `npm run sim:minijeux` (expéditions), `npm run sim:classes` (équilibrage), `npm run sim:invocations` ; `npm run captures -- stream` ou `npm run captures -- joueur --onglet=hero` produit des captures dans `captures/` (Playwright requis).
+- **Vérifier un changement** : `npm run sim:duree` (durée des parties), `npm run sim:economie` (ressources), `npm run sim:minijeux` (expéditions), `npm run sim:bastion` (Bastion), `npm run sim:classes` (équilibrage), `npm run sim:invocations` ; `npm run captures -- stream` ou `npm run captures -- joueur --onglet=hero` produit des captures dans `captures/` (Playwright requis).
 - **Modifier un monstre** : les sprites sont décrits dans `tools/pixelart/` (`gob.py`, `s_beasts.py`, `s_giants.py`, `s_corrupt.py`, `s_inferno.py`, `s_casters.py`). `python3 build.py wolf,golem apercu.png` produit une planche d'aperçu, `python3 export.py` régénère `public/js/sprites.js`. Les variantes de couleur (loup des neiges, golem d'obsidienne…) sont des palettes dans les mêmes fichiers.
 
 **Cohérence graphique.** Toutes les couleurs viennent de `GameData.PALETTE`, et tous les dessins passent par `public/js/art.js`. Le style est le même partout : aplats, contour sombre unique, ombre portée et proportions « chibi ». Le stream, les aperçus de la page joueur et la boutique utilisent les mêmes fonctions de dessin.

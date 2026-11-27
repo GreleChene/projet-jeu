@@ -119,6 +119,7 @@
     if (b.dataset.tab === 'ach') { markAchSeen(); renderAch(); }
     if (b.dataset.tab === 'market') loadMarket();
     if (b.dataset.tab === 'mini' && window.MiniGames) window.MiniGames.open();
+    if (b.dataset.tab === 'bastion' && window.BastionGame) window.BastionGame.open();
   }));
 
   function renderAll() {
@@ -1036,6 +1037,12 @@
         `Sac : ${GD.MINI.BAG.base} cases (1 case = ${GD.MINI.HARVEST.slot} ressources ou 1 butin de monstre). Vide-le dans le seau (caverne) ou la charrette (forêt, clairière), posé à un endroit au hasard de chaque salle ; « Renvoyer » met son contenu à l’abri (retour ${GD.MINI.CART.away} salles plus tard), « Rentrer » termine l’expédition (une fois les monstres de départ de la salle éliminés). Mort : tout le non-renvoyé est perdu, sauf ${Math.round(GD.MINI.DEATH_KEEP * 100)} % des ressources du sac.`,
         'Statistiques propres aux mini-jeux (PV, dégâts, armure, critique, bouclier ; vitesse et vitesse d’attaque avec les butins des monstres), améliorées avec les ressources ; le sac et le seau / la charrette s’agrandissent avec les butins des monstres. Une amélioration « Récolteur » par ressource augmente aussi ta récolte en défense de tour.',
         `🐾 Familiers : jusqu’à ${GD.PETS.ACTIVE_MAX} te suivent et se battent seuls. Adopte-les au chenil (${GD.PETS.KENNEL_PRICE} Grêlons) ou trouve un œuf (${Math.round(GD.PETS.EGG_CHANCE * 100)} % des récompenses d’élite et de gardien) : un monstre de la zone, avec une rareté. Leurs PV remontent avec le temps ; K.-O., ils se reposent jusqu’à ${Math.round(GD.PETS.REST_PCT * 100)} %. Niveau ${GD.PETS.MAIN_LEVEL} : ton familier principal te suit sur le stream.`])),
+      sec('🏰 Bastion', ul([
+        `Tower defense solo : une carte en cases générée au hasard à chaque partie, des vagues de monstres, et entre deux vagues tout le temps qu’il faut pour construire. Une partie coûte ${GD.BASTION.PRICE} Grêlons, remboursés si tu atteins la manche ${GD.BASTION.REFUND_WAVE} ; survivre à la manche ${GD.BASTION.WIN_WAVE} = victoire (zone suivante débloquée, puis mode infini au choix).`,
+        `Zones : ${Object.values(GD.BASTION.ZONES).map((z) => `${z.icon} ${z.name}`).join(', ')} (chacune débloquée par une victoire dans la précédente), un gardien toutes les 10 manches.`,
+        'Bâtiments d’attaque (avec leur zone d’attaque), de support, de production (bois, pierre) et de richesse (or) : 3 niveaux, puis une spécialisation au choix. Défricher un arbre ou un rocher coûte de l’or. La tour principale s’améliore : PV, tir, territoire constructible, niveau des bâtiments et capacités à lancer pendant les vagues.',
+        'Synergies : deux bâtiments qui partagent un côté se renforcent (bannière ou phare et tours, scierie et arbres, carrière et rochers, marché entouré de commerces…).',
+        `Récompenses : XP à chaque manche gagnée (versée en fin de partie), des plans et ${Math.round(GD.BASTION.EGG_CHANCE * 100)} % de chances d’un œuf de familier à chaque gardien vaincu. Les plans débloquent bâtiments et spécialisations dans l’atelier. Le Bastion ne rapporte pas de ressources des mini-jeux.`])),
       sec('🏅 Succès et titres', ul([
         `${GD.ACHIEVEMENTS.length} succès en ${Object.keys(GD.ACH_CATS).length} catégories : ${Object.values(GD.ACH_CATS).map((c) => `${c.icon} ${c.name.toLowerCase()}`).join(', ')}.`,
         'Chaque succès débloque un titre (par exemple « Mangeur de glaçons » pour 500 glaçons ouverts). Équipe-le dans l’onglet Succès : il s’affiche au-dessus de ton héros sur le stream, dans le classement et en haut de ta page.',

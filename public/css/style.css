@@ -466,3 +466,70 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 .cheat-score.bloque { background: var(--danger); color: #fff; }
 .cheat-log { margin: 0; padding-left: 16px; }
 .cheat-log li { margin: 1px 0; }
+
+/* Bastion (défense de tour solo) */
+.bs-head { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
+.bs-card h3 { margin: 8px 0 4px; color: var(--gold); font-family: var(--font-title); }
+.bs-card.locked { opacity: .72; }
+.bs-card.locked .bs-thumb { filter: grayscale(.6) brightness(.85); }
+.bs-thumb { width: 100%; height: auto; border-radius: 8px; border: 2px solid var(--outline); display: block; image-rendering: pixelated; }
+.bs-lock { color: var(--muted); }
+.bs-atelier { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; margin-top: 10px; }
+.bs-atelier-item { border: 2px solid var(--outline); border-radius: 10px; padding: 10px; background: rgba(255,255,255,.03); display: grid; gap: 6px; }
+.bs-atelier-item.locked { background: rgba(0,0,0,.15); }
+.bs-atelier-top { display: flex; align-items: center; gap: 10px; }
+.bs-atelier-top canvas { image-rendering: pixelated; flex: none; }
+.bs-atelier-txt { flex: 1; min-width: 0; }
+.bs-spec { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .88rem; padding: 4px 6px; border-radius: 8px; background: rgba(0,0,0,.12); }
+.bs-spec.on { box-shadow: inset 0 0 0 1.5px var(--ok); }
+.bs-spec button { white-space: nowrap; padding: 3px 10px; }
+.chip.ok { color: var(--ok); }
+.bs-wrap { padding: 10px; }
+.bs-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-bottom: 8px; }
+.bs-top button { padding: 5px 10px; }
+.bs-zone { font-family: var(--font-title); color: var(--gold); }
+.bs-hp { display: flex; align-items: center; gap: 6px; min-width: 190px; flex: 1; max-width: 260px; }
+.bs-hp .bar { flex: 1; height: 20px; margin: 0; }
+.bs-hp .bar .label { font-size: .78rem; line-height: 16px; font-weight: 800; }
+.bs-stage { position: relative; user-select: none; -webkit-user-select: none; }
+.bs-canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 10px; border: 3px solid var(--outline); background: #120c0a; image-rendering: pixelated; cursor: pointer; touch-action: manipulation; }
+.bs-panel { position: absolute; top: 8px; right: 8px; width: 330px; max-height: calc(100% - 16px); overflow: auto; background: rgba(34,27,45,.95); border: 3px solid var(--outline); border-radius: 12px; padding: 12px 12px 10px; box-shadow: inset 0 0 0 1.5px var(--border), 0 6px 0 rgba(0,0,0,.35); z-index: 2; }
+.bs-panel.left { right: auto; left: 8px; }
+.bs-panel h3 { margin: 0 24px 4px 0; color: var(--gold); font-family: var(--font-title); font-size: 1.05rem; }
+.bs-panel h4 { margin: 8px 0 4px; font-size: .9rem; color: var(--gold); }
+.bs-panel p { margin: 4px 0; }
+.bs-close { position: absolute; top: 6px; right: 6px; padding: 2px 8px !important; }
+.bs-ph { display: flex; gap: 10px; align-items: center; }
+.bs-ph canvas { image-rendering: pixelated; flex: none; }
+.bs-stats, .bs-syn { margin: 4px 0; padding-left: 0; list-style: none; font-size: .86rem; }
+.bs-stats li, .bs-syn li { margin: 2px 0; }
+.bs-syn li { color: #b4e58a; }
+.bs-act { display: grid; gap: 4px; margin-top: 8px; }
+.bs-act button { justify-self: start; }
+.bs-err { color: #ff9a8a; }
+.bs-cost .bad { color: #ff9a8a; }
+.bs-opts { display: grid; gap: 4px; margin-top: 4px; }
+.bs-cat { margin-top: 6px; color: var(--muted); }
+.bs-opt { display: flex; align-items: center; gap: 8px; padding: 4px 8px; text-align: left; font-size: .88rem; }
+.bs-opt canvas { image-rendering: pixelated; flex: none; }
+.bs-opt.dim { opacity: .6; }
+.bs-opt-name { flex: 1; }
+.bs-syn-n { color: #b4e58a; font-size: .8rem; }
+.bs-detail { margin-top: 10px; padding: 8px; border-radius: 10px; background: rgba(0,0,0,.2); display: grid; gap: 4px; }
+.bs-detail button { justify-self: start; }
+.bs-bottom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; }
+.bs-launch { font-size: 1.05rem; }
+.bs-preview { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.bs-pmob { display: inline-flex; align-items: center; gap: 2px; padding: 0 6px 0 0; border-radius: 8px; background: rgba(255,255,255,.06); border: 2px solid var(--outline); }
+.bs-pmob canvas { image-rendering: pixelated; }
+.bs-pmob.boss { box-shadow: inset 0 0 0 2px #ff5a6a; }
+.bs-abils, .bs-speeds { display: flex; flex-wrap: wrap; gap: 6px; }
+.bs-speeds { margin-left: auto; }
+.bs-ab { position: relative; }
+.bs-ab.cooling { filter: grayscale(.7) brightness(.8); }
+.bs-ab .cd { margin-left: 4px; font-size: .8rem; color: var(--gold); }
+.mini-panel.bs-wide { max-width: 980px; }
+@media (max-width: 760px) {
+  .bs-panel, .bs-panel.left { position: relative; top: auto; left: auto; right: auto; width: auto; max-height: none; margin-top: 8px; }
+  .bs-speeds { margin-left: 0; }
+}

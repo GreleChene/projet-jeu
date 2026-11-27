@@ -10,6 +10,7 @@ const config = require('./config');
 const db = require('./db');
 const Game = require('./game/engine');
 const mini = require('./mini');
+const bastion = require('./bastion');
 const pets = require('./pets');
 const ach = require('./achievements');
 const AC = require('./anticheat');
@@ -227,6 +228,36 @@ app.post('/api/pets/hatch', auth, (req, res) => {
 app.post('/api/pets/heal', auth, (req, res) => miniReply(res, req.user, () => pets.heal(req.user, String((req.body || {}).id))));
 app.post('/api/pets/main', auth, (req, res) => miniReply(res, req.user, () => { pets.setMain(req.user, (req.body || {}).id ? String(req.body.id) : null); afterProfileChange(req.user); }));
 app.post('/api/mini/upgrade', auth, (req, res) => miniReply(res, req.user, () => { mini.buyUpgrade(req.user, String((req.body || {}).id)); afterProfileChange(req.user); }));
+
+/* ============================== Bastion (défense de tour solo) ============================== */
+// La page joue ; le serveur applique les mêmes actions et rejoue chaque vague (shared/bastion.js)
+function bastionReply(res, u, fn, light) {
+  try {
+    const out = fn() || {};
+    db.markDirty();
+    if (out.wait) return res.status(409).json({ wait: out.wait });
+    // actions fréquentes (construction, capacités) : réponse courte
+    if (light) { const run = u.bastion && u.bastion.run; return res.json({ ok: true, nops: run ? run.nops : 0 }); }
+    res.json({ bastion: bastion.publicState(u), user: publicUser(u) });
+  } catch (e) {
+    if (e instanceof bastion.BastionError) { db.markDirty(); return res.status(400).json({ error: e.message, bastion: bastion.publicState(u) }); }
+    throw e;
+  }
+}
+app.get('/api/bastion', auth, (req, res) => res.json({ bastion: bastion.publicState(req.user) }));
+app.get('/api/bastion/ladder', auth, (req, res) => res.json({ ladder: bastion.ladder(db.allUsers()) }));
+app.post('/api/bastion/start', auth, (req, res) => bastionReply(res, req.user, () => { bastion.start(req.user, String((req.body || {}).zone)); }));
+app.post('/api/bastion/unlock', auth, (req, res) => bastionReply(res, req.user, () => { bastion.unlock(req.user, String((req.body || {}).key)); }));
+app.post('/api/bastion/act', auth, (req, res) => {
+  const u = req.user, b = req.body || {}, a = String(b.action || '');
+  if (!AC.allow('bastion:' + u.id, 8, 30)) { AC.flag(u, 'debit', 'actions du Bastion'); return res.status(429).json({ error: 'Trop d’actions : ralentis un peu.' }); }
+  const opts = { grantXp: (pu, xp) => game.grantXp(pu, xp) };
+  if (a === 'ops') return bastionReply(res, u, () => { bastion.applyOps(u, Number(b.from), b.ops); }, true);
+  if (a === 'ability') return bastionReply(res, u, () => { bastion.ability(u, b.a); }, true);
+  if (a === 'launch') return bastionReply(res, u, () => { bastion.applyOps(u, Number(b.from), Array.isArray(b.ops) ? b.ops : []); bastion.launch(u); }, true);
+  if (a === 'end') return bastionReply(res, u, () => bastion.endWave(u, opts));
+  bastionReply(res, u, () => { bastion.act(u, a, opts); });
+});
 
 /* ============================== Améliorations d'habitation ============================== */
 app.post('/api/me/house', auth, (req, res) => {
@@ -734,6 +765,7 @@ app.post('/api/admin/users/:id', admin, async (req, res) => {
     afterProfileChange(u);
     return res.json({ ok: true, text: `œuf ${GD.MINI.MODES[mode].name.toLowerCase()} ${wait ? `en incubation (${GD.PETS.INCUBATION_MIN} min)` : 'prêt à éclore'} : onglet Mini-jeux → Familiers` });
   }
+  if (b.addPlans !== undefined) { const S = bastion.ensure(u); const n = Math.max(-S.plans, Math.min(200, Math.floor(Number(b.addPlans) || 0))); S.plans += n; if (n > 0) S.plansTotal += n; }
   if (b.addXp !== undefined) {
     const n = Math.floor(Number(b.addXp) || 0);
     if (n <= 0 || n > 10_000_000) return res.status(400).json({ error: 'Quantité d’XP invalide.' });

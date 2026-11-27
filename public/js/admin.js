@@ -158,6 +158,7 @@
           el('button', { class: 'small', onclick: () => giveIce(u) }, '+ Glaçons'),
           el('button', { class: 'small', onclick: () => giveEnergy(u) }, '+ Énergie ⚡'),
           el('button', { class: 'small', onclick: () => giveEgg(u) }, '🥚 Œuf'),
+          el('button', { class: 'small', onclick: () => givePlans(u) }, '📜 Plans'),
           el('button', { class: 'small', onclick: async () => { const g = await askText(`Fixer les Grêlons de ${u.pseudo} à :`, u.gold, { title: 'Grêlons', type: 'number' }); if (g !== null) editUser(u, { gold: Number(g) }); } }, 'Fixer Grêlons'),
           el('button', { class: 'small', onclick: async () => { const l = await askText(`Niveau de ${u.pseudo} :`, u.level, { title: 'Niveau', type: 'number' }); if (l !== null) editUser(u, { level: Number(l) }); } }, 'Niveau'),
           el('button', { class: 'small', onclick: async () => { if (await ask(`Remettre la classe de ${u.pseudo} à « Paysan » ?`, { title: 'Reset de classe', ok: 'Remettre', danger: true })) editUser(u, { resetClass: true }); } }, 'Reset classe'),
@@ -200,6 +201,10 @@
     if (!z) return;
     try { const r = await api('/api/admin/users/' + u.id, { body: { giveEgg: z.trim() } }); toast('🥚 ' + r.text); loadUsers(); }
     catch (e) { toast(e.message); }
+  }
+  async function givePlans(u) {
+    const n = await askText(`Combien de plans 📜 (atelier du Bastion) donner à ${u.pseudo} ? (négatif pour retirer)`, '5', { title: '+ Plans du Bastion', type: 'number' });
+    if (n !== null && Number(n)) editUser(u, { addPlans: Number(n) });
   }
   async function giveEnergy(u) {
     const n = await askText(`Combien d’énergie ⚡ (mini-jeux) donner à ${u.pseudo} ? (négatif pour retirer ; ${GD.MINI.ENERGY_MAX} max en temps normal, 99 pour les tests)`, '3', { title: '+ Énergie', type: 'number' });

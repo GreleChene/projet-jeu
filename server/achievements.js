@@ -49,6 +49,8 @@ function value(u, stat) {
     case 'petRarity': return list.length ? Math.max(...list.map((p) => p.rarity || 0)) : -1;
     case 'twitch': return u.twitchName ? 1 : 0;
     case 'achCount': return Object.keys(ensure(u).done).length;
+    case 'bastionBest': return Math.max(0, ...Object.values((u.bastion && u.bastion.best) || {}));
+    case 'bastionZones': return Object.values((u.bastion && u.bastion.wins) || {}).filter((n) => n > 0).length;
     case 'fullSet': return Math.max(c.fullSet || 0, fullSetNow(u));
     case 'goldMax': return Math.max(c.goldMax || 0, Math.floor(u.gold || 0));
     default: return c[stat] || 0;

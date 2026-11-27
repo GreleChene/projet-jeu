@@ -23,7 +23,8 @@ const KINDS = {
   compteurs: { name: 'Parades ou roulades impossibles', w: 1 },
   rapport: { name: 'Rapport invalide', w: 1 },
   debit: { name: 'Trop de requêtes', w: 0.5 },
-  transfert: { name: 'Transfert entre comptes liés', w: 2 }
+  transfert: { name: 'Transfert entre comptes liés', w: 2 },
+  bastion: { name: 'Bastion : action ou vague impossible', w: 0.5 }
 };
 const DECAY_PER_DAY = 2;   // le score baisse de 2 points par jour sans nouvelle alerte
 const SUSPECT = 10;        // affiché « suspect » chez l'admin
