@@ -1,7 +1,7 @@
 /* Onglet « Mini-jeux » : expéditions solo en temps réel, vues du dessus (caverne, forêt, clairière).
  * La salle est simulée dans la page (shared/expedition.js) ; le serveur valide les rapports et garde l'inventaire.
  * Commandes : ZQSD / flèches, clic gauche = attaquer ou récolter vers la souris, clic droit = bouclier (parade),
- * E = compétence, A = potion, F / Espace = seau ou charrette, Échap = pause. Sur téléphone : joystick et boutons. */
+ * Maj = sprint, Espace = roulade (invulnérable 2 s), E = compétence, A = potion, F = seau ou charrette, Échap = pause. Sur téléphone : joystick et boutons. */
 (function () {
   'use strict';
   const GD = window.GameData, M = GD.MINI, A = window.Art, X = window.Expedition, D = window.MiniDecor;
@@ -74,6 +74,7 @@
       hit: (c, w) => { const p = r(); noise(c, 0.08, 0.4, w, 1400 * p, 'lowpass'); tone(c, 160 * p, 0.1, 'square', 0.12, w, -60); },
       crit: (c, w) => { noise(c, 0.1, 0.5, w, 2200, 'bandpass'); tone(c, 880, 0.12, 'square', 0.1, w); tone(c, 1320, 0.16, 'triangle', 0.1, (w || 0) + 0.05); },
       skill: (c) => { tone(c, 330, 0.35, 'sawtooth', 0.08, 0, 660); noise(c, 0.25, 0.25, 0.05, 1200, 'bandpass'); tone(c, 990, 0.2, 'triangle', 0.1, 0.18); },
+      roll: (c) => { noise(c, 0.24, 0.3, 0, 700, 'bandpass'); tone(c, 200, 0.2, 'sine', 0.14, 0, 240); tone(c, 1046, 0.3, 'triangle', 0.05, 0.12); tone(c, 1568, 0.3, 'sine', 0.035, 0.18); },
       block: (c) => { noise(c, 0.07, 0.3, 0, 2400, 'bandpass'); tone(c, 330, 0.1, 'triangle', 0.1); },
       parry: (c) => { tone(c, 1568, 0.18, 'triangle', 0.16); tone(c, 2093, 0.3, 'sine', 0.1, 0.05); noise(c, 0.08, 0.3, 0, 5000, 'highpass'); },
       breakShield: (c) => { noise(c, 0.3, 0.4, 0, 1800, 'bandpass'); [660, 440, 300].forEach((f, i) => tone(c, f, 0.15, 'square', 0.06, i * 0.06)); },
@@ -362,7 +363,7 @@
       el('div', { class: 'panel small' }, el('h2', {}, 'Comment ça marche'),
         el('ul', {},
           el('li', {}, `Une expédition coûte 1 ⚡ (1 énergie toutes les ${M.ENERGY_HOURS} h, ${M.ENERGY_MAX} au plus). Tu diriges ton héros en temps réel, vu du dessus, avec ses statistiques d’expédition (et jusqu’à ${PT.ACTIVE_MAX} familiers).`),
-          el('li', {}, 'Commandes : ZQSD ou flèches pour bouger (Maj pour sprinter) · clic gauche (maintenu) pour attaquer vers la souris ou récolter le point visé · clic droit (maintenu) pour le bouclier · E : compétence · A : potion · F ou Espace : seau / charrette · Échap : pause. Sur téléphone : joystick et boutons.'),
+          el('li', {}, `Commandes : ZQSD ou flèches pour bouger (Maj pour sprinter) · clic gauche (maintenu) pour attaquer vers la souris ou récolter le point visé · clic droit (maintenu) pour le bouclier · E : compétence · A : potion · Maj : sprint · Espace : roulade (un bond, puis ${M.ROLL.invuln} s d’invulnérabilité, ${M.ROLL.cost} d’endurance) · F : seau / charrette · Échap : pause. Sur téléphone : joystick et boutons.`),
           el('li', {}, `Bouclier : il encaisse les coups avec ses points. Levé juste avant un coup (${Math.round(M.SHIELD.parryWindow * 1000)} ms), c’est une parade parfaite : aucun dégât et le coup est renvoyé (les projectiles repartent vers les monstres).`),
           el('li', {}, `Chaque salle contient des points de récolte et des monstres. La sortie apparaît au bout de ${M.ROOMS.normal.exit} s (une cavité dans la caverne, une ouverture sur un côté ailleurs) ; ${M.REINFORCE.after} s après ton entrée (un peu plus en profondeur), des renforts arrivent toutes les ${M.REINFORCE.every} s, sauf dans les salles d’élite et de gardien. Salles riches (beaucoup de récolte, sortie à ${M.ROOMS.riche.exit} s), salles de repos (fontaine de soin), élite toutes les ${M.ELITE_EVERY} salles et gardien de zone toutes les ${M.BOSS_EVERY} : la sortie ne s’ouvre qu’une fois vaincus, avec une récompense au choix (${Math.round(PT.EGG_CHANCE * 100)} % de chances d’un œuf de familier).`),
           el('li', {}, `Sac : ${M.BAG.base} cases (+${M.BAG.per} par niveau) ; une case = ${M.HARVEST.slot} ressources ou 1 butin de monstre. Vide-le dans le seau (caverne) ou la charrette (forêt, clairière) : ${M.CART.base} cases (+${M.CART.per} par niveau), il ou elle t’attend à un endroit différent de chaque salle (et te rejoint d’une salle à l’autre avec son contenu). « Renvoyer » met son contenu à l’abri à la base (retour ${M.CART.away} salles plus tard) ; « Rentrer » termine l’expédition avec tout, une fois les monstres de départ de la salle éliminés.`),
@@ -495,7 +496,7 @@
     const touch = isTouch();
     G = { key: runKey(run), mode: run.mode, cv, ctx: cv.getContext('2d'), k, overlay: el('div', { class: 'mini-overlay hidden' }), t: 0, roomT: 0,
       keys: {}, touch: {}, joy: { x: 0, y: 0 }, mouse: { x: AW / 2, y: AH / 2, in: false }, lastDir: 0, hover: null,
-      fx: [], parts: [], floats: [], banner: null, shake: 0, flash: 0, fade: 1, panel: null, busy: false,
+      fx: [], parts: [], floats: [], trail: [], banner: null, shake: 0, flash: 0, fade: 1, panel: null, busy: false,
       lastSync: 0, sentKills: 0, prevBest: (state.best || {})[run.mode] || 0, touchMode: touch, sim: null };
     G.wrap = el('div', { class: 'mini-game' + (touch ? ' touch' : '') }, cv, G.overlay, touchControls());
     bindCanvas(cv);
@@ -518,7 +519,7 @@
     if (room.boss < 0) { sim.exitAt = Math.max(0, room.exitDelay - (run.roomAge || 0) / 1000); if (sim.exitAt <= 0) X.openExit(sim); }
     sim.events.length = 0;
     Object.assign(G, { room, sim, roomNo: run.room, bg: D.drawRoomBg(room, G.k), amb: makeAmbient(run.mode, room.decor), vig: makeVignette(run.mode, room.decor), roomT: 0, fade: 1, fadeOut: 0, exitCalled: false, deadAt: 0, dieCalled: false,
-      fx: [], parts: [], floats: [], leaving: null, sentKills: sim.killed.size, lastSync: G.t, retryAt: 0 });
+      fx: [], parts: [], floats: [], trail: [], leaving: null, sentKills: sim.killed.size, lastSync: G.t, retryAt: 0 });
     const RT = M.ROOMS[room.type], dec = M.MODES[run.mode].decors[room.decor];
     banner(`Salle ${run.room}`, `${RT.icon} ${RT.name} · ${dec.name} — ${dec.subs[room.sub]}`, 2.4);
     if (wasAway && sim.cart.here) floatTxt(sim.cart.x, sim.cart.y - 50, `${cartWord(run.cart.skin).icon} De retour !`, '#b8ffb0', 17, 2);
@@ -670,7 +671,8 @@
         li('Clic droit (maintenu)', 'bouclier ; levé juste avant un coup, c’est une parade parfaite : les dégâts sont renvoyés'),
         li('E', 'compétence de classe'),
         li('A', `potion de soin (${Math.round(M.POTION_HEAL * 100)} % des PV)`),
-        li('F / Espace', `ouvrir ${cw.the} quand tu es à côté (le temps ralentit)`),
+        li('Espace', `roulade : un bond rapide, puis ${M.ROLL.invuln} s d’invulnérabilité (coûte ${M.ROLL.cost} d’endurance, qui ne remonte pas pendant ce temps)`),
+        li('F', `ouvrir ${cw.the} quand tu es à côté (le temps ralentit)`),
         li('Échap', 'pause'),
         G.touchMode ? li('Téléphone', `joystick pour bouger, touche la scène ou ⚔️ pour attaquer, 🔰 bouclier, ✨ compétence, 🧪 potion, ${cw.icon} ${cw.the}`) : ''),
       el('ul', { class: 'small muted' },
@@ -719,7 +721,8 @@
     if (document.querySelector('.game-dialog-overlay')) return;
     const k = e.key.toLowerCase();
     if (k === 'escape' || k === 'p') { e.preventDefault(); if (G.panel === 'cart' || G.panel === 'help') closePanel(); else if (!G.panel) openHelp(false); return; }
-    if (k === 'f' || k === ' ') { e.preventDefault(); if (!e.repeat) toggleCart(); return; }
+    if (k === 'f') { e.preventDefault(); if (!e.repeat) toggleCart(); return; }
+    if (k === ' ') { e.preventDefault(); if (!e.repeat && !G.panel) G.keys.roll = true; return; }
     if (G.panel) return;
     if (k === 'shift') { G.keys.sprint = true; return; }
     if (KEYMAP[k]) { G.keys[KEYMAP[k]] = true; e.preventDefault(); return; }
@@ -783,7 +786,7 @@
       el('div', { class: 'mini-tbtns' },
         hold('⚔️', 'attack', 'Attaquer / récolter (cible la plus proche)'), hold('🔰', 'shield', 'Bouclier (maintenir)'), hold('🏃', 'sprint', 'Sprint (maintenir)'),
         tap('✨', () => { if (!G.panel) G.keys.skill = true; }, 'Compétence'), tap('🧪', () => { if (!G.panel) G.keys.potion = true; }, 'Potion'),
-        tap('🛒', toggleCart, 'Seau / charrette'), tap('⏸️', () => { if (G.panel === 'help') closePanel(); else if (!G.panel) openHelp(false); }, 'Pause')));
+        tap('🤸', () => { if (!G.panel) G.keys.roll = true; }, 'Roulade'), tap('🛒', toggleCart, 'Seau / charrette'), tap('⏸️', () => { if (G.panel === 'help') closePanel(); else if (!G.panel) openHelp(false); }, 'Pause')));
   }
   // cible survolée par la souris : un monstre ou un point de récolte (on vise ses pieds)
   function hoverTarget() {
@@ -822,7 +825,7 @@
     const mx = (K.right ? 1 : 0) - (K.left ? 1 : 0) + G.joy.x, my = (K.down ? 1 : 0) - (K.up ? 1 : 0) + G.joy.y;
     if (Math.hypot(mx, my) > 0.2) G.lastDir = Math.atan2(my, mx);
     G.hover = hoverTarget();
-    const o = { mx, my, attack: !!(K.attack || T.attack), shield: !!(K.shield || T.shield), sprint: !!(K.sprint || T.sprint), skill: !!K.skill, potion: !!K.potion };
+    const o = { mx, my, attack: !!(K.attack || T.attack), shield: !!(K.shield || T.shield), sprint: !!(K.sprint || T.sprint), roll: !!K.roll, skill: !!K.skill, potion: !!K.potion };
     if (T.attack || (G.touchMode && (K.skill || T.shield) && !K.attack)) { const p = autoAim(); o.ax = p.x; o.ay = p.y; }
     else if (G.mouse.in) { o.ax = G.hover ? G.hover.x : G.mouse.x; o.ay = G.hover ? G.hover.y : G.mouse.y; }
     return o;
@@ -850,9 +853,14 @@
     if (!frozen && !s.dead && !s.exitReached) {
       s.timeScale = G.panel === 'cart' ? 0.2 : 1;
       X.stepSim(s, dt, G.panel ? {} : input());
-      G.keys.skill = false; G.keys.potion = false;
+      G.keys.skill = false; G.keys.potion = false; G.keys.roll = false;
+      // traînée de silhouettes pendant le bond d'une roulade
+      const hh = s.hero;
+      if (hh.rollT > 0) { G.trail.push({ x: hh.x, y: hh.y, face: hh.face, rot: (1 - hh.rollT / M.ROLL.dash) * TAU * (hh.rollDx >= 0 ? 1 : -1), a: 0.42 }); if (G.trail.length > 6) G.trail.shift(); }
     }
     for (const n of s.nodes) if (n.shake > 0) n.shake = Math.max(0, n.shake - dt);
+    for (const g of G.trail) g.a -= dt * 2.4;
+    G.trail = G.trail.filter((g) => g.a > 0);
     for (const p of s.pets) { // mouvement et orientation des familiers (pour le dessin)
       const dx = p.x - (p._px === undefined ? p.x : p._px), dy = p.y - (p._py === undefined ? p.y : p._py);
       p._mv = Math.hypot(dx, dy) > 0.15; if (dx > 0.15) p._face = 0; else if (dx < -0.15) p._face = Math.PI;
@@ -913,6 +921,8 @@
         case 'shieldBreak': floatTxt(e.x, e.y - 74, 'Bouclier brisé !', '#c8d8e8', 16); Sound.play('breakShield'); break;
         case 'guard': floatTxt(e.x, e.y - 62, '🛡️ ' + e.n, '#e8f0b0', 14); break;
         case 'death': Sound.play('death'); puff(e.x, e.y - 20, '#b0a8b8', 20); break;
+        case 'roll': for (let i = 0; i < 9; i++) G.parts.push({ x: e.x, y: e.y, z: 2, vx: -Math.cos(e.a) * (40 + Math.random() * 70) + (Math.random() - 0.5) * 50, vy: -Math.sin(e.a) * 30 + (Math.random() - 0.5) * 30, vz: 40 + Math.random() * 60, life: 0.5, t: 0, c: '#e8dcc0', s: 4 + Math.random() * 3, round: true, soft: true }); Sound.play('roll'); break;
+        case 'tired': floatTxt(e.x, e.y - 74, 'Pas assez d’endurance', '#ffd0a0', 15, 0.9); Sound.play('full', 0.5); break;
         case 'swing': G.fx.push({ k: 'slash', x: e.x, y: e.y - 18, a: e.a, t: 0, life: 0.18 }); Sound.play('swing', 0.05); break;
         case 'shoot': Sound.play('shoot', e.pet ? 0.25 : 0.06); break;
         case 'mobShoot': Sound.play('shoot', 0.18); break;
@@ -1170,11 +1180,25 @@
     const s = G.sim, h = s.hero, me = window.PlayerApp && window.PlayerApp.me();
     if (h.dead) { A.drawGrave(ctx, h.x, h.y, t); return; }
     const perfect = h.shieldUp && s.t - h.shieldAt <= M.SHIELD.parryWindow;
+    const look = me ? { cls: me.cls, look: me.look, gear: window.PlayerApp.myGear(), t, scale: 1.2 } : null;
+    const spin = (x, y, rot, sq) => { const cy = y - 26; ctx.translate(x, cy); ctx.rotate(rot); ctx.scale(1, sq); ctx.translate(-x, -cy); };
+    // invulnérabilité (roulade) : lueur et anneau au sol qui se vide avec le temps restant
+    if (h.invT > 0) {
+      const k = h.invT / M.ROLL.invuln;
+      ctx.save(); ctx.globalAlpha = 0.28 + 0.14 * Math.sin(t * 12); glowAt(ctx, h.x, h.y - 26, '#9fe8ff', 36); ctx.restore();
+      ctx.save(); ctx.lineCap = 'round';
+      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(18,12,10,.45)'; ctx.beginPath(); ctx.ellipse(h.x, h.y + 3, 24, 10, 0, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke();
+      ctx.lineWidth = 3; ctx.strokeStyle = '#bff0ff'; ctx.stroke(); ctx.restore();
+    }
+    // silhouettes laissées par le bond
+    if (look) for (const g of G.trail) { ctx.save(); ctx.globalAlpha = g.a; spin(g.x, g.y, g.rot, 0.85); A.drawHero(ctx, g.x, g.y, { ...look, facing: g.face, moving: true }); ctx.restore(); }
     ctx.save();
     if (h.iframes > 0 && Math.floor(t * 30) % 2) ctx.globalAlpha = 0.55;
-    if (me) A.drawHero(ctx, h.x, h.y, { cls: me.cls, look: me.look, gear: window.PlayerApp.myGear(), t, scale: 1.2, facing: h.face, moving: h.moving, attack: h.swing > 0 ? 0.3 : 0 });
+    if (h.rollT > 0) { const k = 1 - h.rollT / M.ROLL.dash; spin(h.x, h.y, k * TAU * (h.rollDx >= 0 ? 1 : -1), 0.8 + 0.2 * Math.cos(k * TAU)); }
+    if (look) A.drawHero(ctx, h.x, h.y, { ...look, facing: h.rollT > 0 ? Math.atan2(h.rollDy, h.rollDx) : h.face, moving: h.moving, attack: h.swing > 0 ? 0.3 : 0 });
     else A.circle(ctx, h.x, h.y - 20, 14, '#f2c14e', 2);
     ctx.restore();
+    if (h.invT > 0) for (let i = 0; i < 3; i++) { const a = t * 5 + (i * TAU) / 3, sx = h.x + Math.cos(a) * 20, sy = h.y - 30 + Math.sin(a) * 26; ctx.fillStyle = '#ffffff'; ctx.fillRect(sx - 1, sy - 4, 2, 8); ctx.fillRect(sx - 4, sy - 1, 8, 2); }
     // bouclier levé : arc devant le héros (doré pendant la fenêtre de parade parfaite)
     if (h.shieldUp) {
       const k = h.shield / Math.max(1, h.shieldMax), cy = h.y - 22;
@@ -1240,14 +1264,17 @@
     const s = G.sim, h = s.hero, room = G.room, RT = M.ROOMS[room.type], run = state.run;
     if (!run) return;
     // en haut à gauche : salle (numéro + type), PV, bouclier, potions, compétence, sac
-    box(ctx, 10, 10, 300, 122);
+    box(ctx, 10, 10, 300, 112);
     txt(ctx, `Salle ${G.roomNo}`, 22, 29, 19, '#f2c14e', 'left');
     txt(ctx, `${RT.icon} ${RT.name}`, 30 + textW(ctx, `Salle ${G.roomNo}`, 19), 29, 15, room.type === 'gardien' ? '#ff9a8a' : room.type === 'elite' ? '#f2c14e' : room.type === 'riche' ? '#ffe9a0' : room.type === 'repos' ? '#9fffd6' : '#ffffff', 'left');
     bar(ctx, 20, 42, 280, 18, h.hp / h.max, h.hp / h.max > 0.4 ? '#5cb84a' : '#e2504c', `${Math.ceil(h.hp)} / ${h.max} PV`);
-    bar(ctx, 20, 116, 280, 10, h.stamina / h.staminaMax, h.sprinting ? '#ffe27a' : '#e8c46a', `Endurance (Maj) ${Math.round(h.stamina)} / ${h.staminaMax}`);
     bar(ctx, 20, 64, 280, 14, h.broken > 0 ? 0 : h.shield / Math.max(1, h.shieldMax), h.shieldUp ? '#bfe8ff' : '#5ab4f0', h.broken > 0 ? `Bouclier brisé (${Math.ceil(h.broken)} s)` : `Bouclier ${Math.round(h.shield)} / ${h.shieldMax}`);
+    bar(ctx, 20, 81, 280, 11, h.stamina / h.staminaMax, h.sprinting ? '#ffe27a' : h.stamina >= M.ROLL.cost ? '#e8c46a' : '#a8884a');
+    const rx = 22 + 276 * Math.min(1, M.ROLL.cost / h.staminaMax); // repère : endurance d'une roulade
+    ctx.fillStyle = OL; ctx.fillRect(rx - 1.5, 80, 3, 13); ctx.fillStyle = '#ffffff'; ctx.fillRect(rx - 0.5, 82, 1, 9);
+    txt(ctx, `Endurance ${Math.round(h.stamina)} / ${h.staminaMax}`, 294, 87, 9, '#ffffff', 'right', 2.5);
     let x = 22;
-    const item = (s1, col) => { txt(ctx, s1, x, 97, 14, col, 'left'); x += textW(ctx, s1, 14) + 16; };
+    const item = (s1, col) => { txt(ctx, s1, x, 108, 14, col, 'left'); x += textW(ctx, s1, 14) + 16; };
     item(`🧪 ${s.potions} (A)`, s.potions ? '#ffffff' : '#9a90a8');
     item(`✨ ${h.skillCd > 0 ? Math.ceil(h.skillCd) + ' s' : 'prêt (E)'}`, h.skillCd > 0 ? '#b8b0c8' : '#ffe9a0');
     item(`🎒 ${s.bag.length} / ${s.bagCap}`, s.bag.length >= s.bagCap ? '#ff9a8a' : '#ffffff');
@@ -1271,7 +1298,7 @@
     const bh = 54 + pets.length * 20;
     box(ctx, AW - 250, 10, 240, bh);
     txt(ctx, `${cw.icon} ${cw.name} ${C ? C.items.length : 0} / ${run.cartCap}`, AW - 238, 29, 15, '#ffffff', 'left');
-    const sub = C && C.here ? (X.nearCart(s) ? (G.touchMode ? '🛒 : ouvrir' : 'F / Espace : ouvrir') : 'quelque part dans la salle') : `parti${run.cart.skin === 'seau' ? '' : 'e'} · retour salle ${run.cart.back}`;
+    const sub = C && C.here ? (X.nearCart(s) ? (G.touchMode ? '🛒 : ouvrir' : 'F : ouvrir') : 'quelque part dans la salle') : `parti${run.cart.skin === 'seau' ? '' : 'e'} · retour salle ${run.cart.back}`;
     txt(ctx, sub, AW - 238, 49, 12, C && C.here ? '#c8c0d8' : '#ffd0a0', 'left');
     pets.forEach((p, i) => {
       const y = 70 + i * 20;
@@ -1282,7 +1309,7 @@
     // aide des commandes au début de la première salle
     if (G.roomNo === 1 && G.roomT < 15 && !G.panel) {
       const hint = G.touchMode ? 'Joystick : bouger · touche la scène ou ⚔️ : attaquer / récolter · 🔰 : bouclier · ✨ : compétence · 🧪 : potion'
-        : 'ZQSD : bouger · Maj : sprint · clic gauche : attaquer / récolter · clic droit : bouclier · E : compétence · A : potion · F : seau';
+        : 'ZQSD : bouger · Maj : sprint · Espace : roulade · clic gauche : attaquer / récolter · clic droit : bouclier · E : compétence · A : potion · F : seau';
       ctx.save(); ctx.globalAlpha = Math.min(1, (15 - G.roomT) / 2);
       const w2 = textW(ctx, hint, 13) + 24;
       box(ctx, AW / 2 - w2 / 2, AH - 44, w2, 28); txt(ctx, hint, AW / 2, AH - 30, 13, '#ffffff');

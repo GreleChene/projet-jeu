@@ -399,3 +399,29 @@ test('mini-jeux (simulation) : sprint (Maj) ×1,5 avec une jauge d’endurance q
   assert.strictEqual(GD.miniStats({ endurance: 2 }).stamina, M.BASE.stamina + 2 * M.UPGRADES.endurance.per);
   assert.strictEqual(arena([], null, { stamina: 150 }).hero.staminaMax, 150);
 });
+
+test('mini-jeux (simulation) : roulade (Espace) — bond, 2 s d’invulnérabilité, 50 d’endurance', () => {
+  const s = arena([]);
+  X.stepSim(s, 0.05, { mx: 1, roll: true });
+  assert.strictEqual(s.hero.stamina, M.BASE.stamina - M.ROLL.cost);
+  assert.ok(s.events.some((e) => e.k === 'roll'));
+  for (let i = 0; i < 6; i++) X.stepSim(s, 0.05, {});
+  assert.ok(s.hero.x - 480 > M.ROLL.speed * M.ROLL.dash * 0.8, 'le héros bondit');
+  // invulnérable : une flèche qui l'atteint ne fait rien
+  const shoot = () => s.projs.push({ owner: 'mob', x: s.hero.x + 40, y: s.hero.y - 16, vx: -300, vy: 0, life: 2, dmg: 30, kind: 'arrow', r: 8, scale: 1 });
+  shoot();
+  for (let i = 0; i < 8; i++) X.stepSim(s, 0.05, {});
+  assert.strictEqual(s.hero.hp, 100, 'invulnérable');
+  assert.strictEqual(s.hero.stamina, M.BASE.stamina - M.ROLL.cost, 'pas de récupération pendant l’invulnérabilité');
+  // pas assez d'endurance pour une deuxième roulade de suite ? si : 50 restants ; une troisième, non
+  X.stepSim(s, 0.05, { roll: true });
+  for (let i = 0; i < 10; i++) X.stepSim(s, 0.05, {});
+  X.stepSim(s, 0.05, { roll: true });
+  assert.ok(s.events.some((e) => e.k === 'tired'), 'plus assez d’endurance');
+  // après 2 s, il redevient vulnérable
+  for (let i = 0; i < 50; i++) X.stepSim(s, 0.05, {});
+  assert.strictEqual(s.hero.invT, 0);
+  shoot();
+  for (let i = 0; i < 8; i++) X.stepSim(s, 0.05, {});
+  assert.ok(s.hero.hp < 100, 'touché après l’invulnérabilité');
+});

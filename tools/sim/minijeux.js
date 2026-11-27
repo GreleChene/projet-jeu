@@ -4,7 +4,8 @@
  * et mesure la salle atteinte, les morts, ce qui est rapporté (ressources, butins) et la durée.
  *   node tools/sim/minijeux.js [--mode=mine|foret|champ|tous] [--n=30] [--classe=paladin] [--parade=0.4]
  *                              [--familiers=k_loup,araignee:3] [--rentrer=15]
- * Le bot : se bat contre le monstre le plus proche (compétence dès qu'elle est prête), lève le bouclier au bon moment
+ * Le bot : se bat contre le monstre le plus proche (compétence dès qu'elle est prête), lève le bouclier au bon moment,
+ * roule (Espace) pour esquiver les attaques annoncées des gardiens ou quand ses PV sont bas,
  * avec une probabilité --parade (habileté du joueur), récolte tant que le sac n'est pas plein, vide le sac dans le seau,
  * renvoie le seau quand il est presque plein, prend la sortie quand il n'y a plus rien à faire (ou avant les renforts),
  * boit une potion sous 35 % de PV et rentre avec le seau quand ses PV sont bas sans potion (ou à la salle --rentrer).
@@ -100,13 +101,17 @@ function decide(s) {
   }
   for (const q of s.projs) if (q.owner === 'mob' && Math.hypot(q.x - h.x, q.y - h.y + 16) < 55 && (q._p === undefined ? (q._p = Math.random() < PARRY) : q._p)) inp.shield = true;
   if (h.hp < h.max * 0.35 && s.potions > 0) inp.potion = true;
+  if (h.hp < h.max * 0.4 && h.stamina >= M.ROLL.cost && h.invT <= 0) {
+    const th = mobs.find((m) => m.wind > 0 && m.wind < 0.15 && dist(m, h) < m.r + h.r + 50);
+    if (th) { const a = Math.atan2(h.y - th.y, h.x - th.x); inp.mx = Math.cos(a); inp.my = Math.sin(a); inp.roll = true; return inp; }
+  }
   // esquive des capacités annoncées des gardiens (onde de choc, charge)
   for (const m of mobs) {
     const c = m.cast;
-    if (c && c.kind === 'slam' && Math.hypot(h.x - c.x, h.y - c.y) < c.r + 24) { const a = Math.atan2(h.y - c.y, h.x - c.x); inp.mx = Math.cos(a); inp.my = Math.sin(a); return inp; }
+    if (c && c.kind === 'slam' && Math.hypot(h.x - c.x, h.y - c.y) < c.r + 24) { const a = Math.atan2(h.y - c.y, h.x - c.x); inp.mx = Math.cos(a); inp.my = Math.sin(a); if (c.t < 0.35 && h.stamina >= M.ROLL.cost) inp.roll = true; return inp; }
     if (c && c.kind === 'charge' && c.phase === 0) {
       const px = -Math.sin(c.a), py = Math.cos(c.a), side = (h.x - m.x) * px + (h.y - m.y) * py, along = (h.x - m.x) * Math.cos(c.a) + (h.y - m.y) * Math.sin(c.a);
-      if (along > 0 && Math.abs(side) < m.r + h.r + 20) { const k = side >= 0 ? 1 : -1; inp.mx = px * k; inp.my = py * k; return inp; }
+      if (along > 0 && Math.abs(side) < m.r + h.r + 20) { const k = side >= 0 ? 1 : -1; inp.mx = px * k; inp.my = py * k; if (c.t < 0.25 && h.stamina >= M.ROLL.cost) inp.roll = true; return inp; }
     }
   }
   const exitOpen = s.exitOpen, reinf = s.room.boss < 0 ? X.reinfAfter(s.room.room) : Infinity, since = s.t + 25 - reinf; // since > 25 - n : renforts dans n s

@@ -206,7 +206,7 @@
     const s = {
       t: 0, room: R, mode: R.mode, style: st.style, proj: st.proj, timeScale: 1,
       hero: { x: R.entry.x, y: R.entry.y, r: H.radius, hp: o.hp, max: o.max, dmg: o.dmg, crit: o.crit, armor: o.armor, buff: o.buff || { dmg: 0, crit: 0 },
-        speed: o.speed || MINI.BASE.speed, haste: o.haste || 0, staminaMax: o.stamina || MINI.BASE.stamina, stamina: o.stamina || MINI.BASE.stamina, sprinting: false, restT: 9, shieldMax: o.shield, shield: o.shield, shieldUp: false, shieldAt: -9, broken: 0, idle: 9, atkCd: 0.3, skillCd: 0, face: 0, aimX: R.entry.x + 1, aimY: R.entry.y,
+        speed: o.speed || MINI.BASE.speed, haste: o.haste || 0, staminaMax: o.stamina || MINI.BASE.stamina, stamina: o.stamina || MINI.BASE.stamina, sprinting: false, restT: 9, rollT: 0, invT: 0, rollDx: 1, rollDy: 0, shieldMax: o.shield, shield: o.shield, shieldUp: false, shieldAt: -9, broken: 0, idle: 9, atkCd: 0.3, skillCd: 0, face: 0, aimX: R.entry.x + 1, aimY: R.entry.y,
         iframes: 0, swing: 0, hurt: 0, moving: false, dead: false, guardUsed: false, lootFrac: 0 },
       mobs: R.mobs.map((m) => ({ ...m, home: { x: m.x, y: m.y }, aggro: false, wake: 0.6 + m.i * 0.25, cdT: 0.5 + Math.random() * 0.6, wind: 0, target: -1, retarget: 0, frozen: 0, stun: 0,
         mark: 0, markT: 0, weak: 0, weakT: 0, pdot: null, dead: killed.has(m.i), hit: 0, wander: Math.random() * 6, abilT: {}, act: null })),
@@ -259,7 +259,7 @@
   // Coup reçu par le héros (src : { mob } ou { proj })
   function hurtHero(s, raw, src) {
     const h = s.hero;
-    if (h.dead || h.iframes > 0) return 'none';
+    if (h.dead || h.iframes > 0 || h.invT > 0) return 'none'; // roulade : invulnérable
     if (h.shieldUp) {
       if (s.t - h.shieldAt <= MINI.SHIELD.parryWindow) { // parade parfaite : aucun dégât, coup renvoyé
         ev(s, 'parry', { x: h.x, y: h.y });
@@ -345,22 +345,39 @@
     /* --- héros --- */
     h.iframes = Math.max(0, h.iframes - dt); h.hurt = Math.max(0, h.hurt - dt); h.swing = Math.max(0, h.swing - dt);
     h.atkCd -= dt; h.skillCd -= dt; h.broken = Math.max(0, h.broken - dt);
-    if (h.dot) { h.dot.t -= dt; h.hp -= h.dot.dps * dt; if (h.dot.t <= 0) h.dot = null; if (h.hp <= 0) { h.hp = 0; h.dead = true; s.dead = true; ev(s, 'death', { x: h.x, y: h.y }); return; } }
-    // bouclier (clic droit maintenu) : parade parfaite si un coup arrive juste après l'avoir levé
-    if (inp.shield && h.broken <= 0 && h.shield > 0) { if (!h.shieldUp) { h.shieldUp = true; h.shieldAt = s.t; ev(s, 'raise'); } }
-    else h.shieldUp = false;
-    if (!h.shieldUp) { h.idle += dt; if (h.idle > MINI.SHIELD.regenDelay) h.shield = Math.min(h.shieldMax, h.shield + h.shieldMax * MINI.SHIELD.regen * dt); }
-    // déplacement
+    h.rollT = Math.max(0, h.rollT - dt); h.invT = Math.max(0, h.invT - dt);
+    if (h.dot) { h.dot.t -= dt; if (h.invT <= 0) h.hp -= h.dot.dps * dt; if (h.dot.t <= 0) h.dot = null; if (h.hp <= 0) { h.hp = 0; h.dead = true; s.dead = true; ev(s, 'death', { x: h.x, y: h.y }); return; } }
+    // déplacement demandé
     let mx = inp.mx || 0, my = inp.my || 0;
     const ml = Math.hypot(mx, my);
     if (ml > 1) { mx /= ml; my /= ml; }
-    // sprint (Maj) : ×1,5 tant qu'il reste de l'endurance ; elle remonte après une courte pause
+    // roulade (Espace) : bond dans la direction du déplacement (ou vers la visée), puis invulnérable
+    const RO = MINI.ROLL;
+    if (inp.roll && h.rollT <= 0) {
+      if (h.stamina >= RO.cost) {
+        let dx = mx, dy = my;
+        if (ml < 0.1) { dx = Math.cos(h.face); dy = Math.sin(h.face); }
+        const dl = Math.hypot(dx, dy) || 1;
+        h.rollDx = dx / dl; h.rollDy = dy / dl; h.rollT = RO.dash; h.invT = RO.invuln;
+        h.stamina -= RO.cost; h.restT = 0; h.shieldUp = false; h.sprinting = false;
+        ev(s, 'roll', { x: h.x, y: h.y, a: Math.atan2(h.rollDy, h.rollDx) });
+      } else ev(s, 'tired', { x: h.x, y: h.y });
+    }
+    const rolling = h.rollT > 0;
+    // bouclier (clic droit maintenu) : parade parfaite si un coup arrive juste après l'avoir levé
+    if (inp.shield && h.broken <= 0 && h.shield > 0 && !rolling) { if (!h.shieldUp) { h.shieldUp = true; h.shieldAt = s.t; ev(s, 'raise'); } }
+    else h.shieldUp = false;
+    if (!h.shieldUp) { h.idle += dt; if (h.idle > MINI.SHIELD.regenDelay) h.shield = Math.min(h.shieldMax, h.shield + h.shieldMax * MINI.SHIELD.regen * dt); }
+    // sprint (Maj) : ×1,5 tant qu'il reste de l'endurance ; elle remonte après une courte pause (pas pendant l'invulnérabilité d'une roulade)
     const SP = MINI.SPRINT;
-    h.sprinting = !!inp.sprint && ml > 0.1 && !h.shieldUp && h.stamina > (h.sprinting ? 0 : SP.min);
-    if (h.sprinting) { h.stamina = Math.max(0, h.stamina - SP.drain * dt); h.restT = 0; }
+    h.sprinting = !rolling && !!inp.sprint && ml > 0.1 && !h.shieldUp && h.stamina > (h.sprinting ? 0 : SP.min);
+    if (h.sprinting || h.invT > 0) { if (h.sprinting) h.stamina = Math.max(0, h.stamina - SP.drain * dt); h.restT = 0; }
     else { h.restT += dt; if (h.restT > SP.delay) h.stamina = Math.min(h.staminaMax, h.stamina + SP.regen * dt); }
-    const sp = h.speed * (h.shieldUp ? MINI.SHIELD.slow : 1) * (h.sprinting ? SP.mult : 1);
-    h.x += mx * sp * dt; h.y += my * sp * dt; h.moving = ml > 0.1;
+    if (rolling) { h.x += h.rollDx * RO.speed * dt; h.y += h.rollDy * RO.speed * dt; h.moving = true; }
+    else {
+      const sp = h.speed * (h.shieldUp ? MINI.SHIELD.slow : 1) * (h.sprinting ? SP.mult : 1);
+      h.x += mx * sp * dt; h.y += my * sp * dt; h.moving = ml > 0.1;
+    }
     // la sortie (ouverture d'un côté) permet de franchir le mur
     const ex = s.room.exit;
     if (s.exitOpen && ex.kind === 'side') {
@@ -373,13 +390,13 @@
     if (inp.ax !== undefined) { h.aimX = inp.ax; h.aimY = inp.ay; }
     h.face = Math.atan2(h.aimY - h.y, h.aimX - h.x);
     // attaque / récolte (même bouton)
-    if (inp.attack && h.atkCd <= 0 && !h.shieldUp) {
+    if (inp.attack && h.atkCd <= 0 && !h.shieldUp && !rolling) {
       const node = harvestTarget(s);
       if (node) harvest(s, node);
       else attack(s);
     }
     // compétence (E)
-    if (inp.skill && h.skillCd <= 0 && !h.shieldUp) skill(s);
+    if (inp.skill && h.skillCd <= 0 && !h.shieldUp && !rolling) skill(s);
     // potion (A)
     if (inp.potion && s.potions > 0 && h.hp < h.max) {
       s.potions--; h.hp = Math.min(h.max, h.hp + Math.round(h.max * MINI.POTION_HEAL)); s.ops.push(['pot']);
