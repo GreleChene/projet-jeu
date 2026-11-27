@@ -208,7 +208,6 @@
   function animate(a, b, action) {
     if (!a || !b) return;
     if (b.state === 'over' && a.state !== 'over') Sound.play(b.over && b.over.dead ? 'death' : 'victory');
-    if (b.hatch && JSON.stringify(b.hatch) !== JSON.stringify(a.hatch)) showHatch(b.hatch);
     if (a.room !== b.room) { Sound.play((b.mobs || []).some((m) => m.elite) ? 'elite' : 'room'); return; }
     (b.pets || []).forEach((p, i) => {
       const o = (a.pets || [])[i];
@@ -282,6 +281,41 @@
     requestAnimationFrame(() => { const x = c.getContext('2d'); A.drawPet(x, GD.petSprite(kind), w / 2, h - 10, { size: petSize(kind) * 1.4, maxH: h - 22, t: 0.3, facing: 0, stage, moving: false }); });
     return c;
   }
+  // Œuf (couleur selon le mini-jeu) ; il tremble quand il est prêt à éclore
+  const EGG_COL = { mine: ['#d8d2c4', '#8a8f96'], foret: ['#e8f0d8', '#5aa04a'], champ: ['#efe6f5', '#7a4fd6'] };
+  function eggCanvas(e) {
+    const c = el('canvas', { class: 'pet-thumb', width: 96, height: 72, 'data-egg': e.id });
+    const [base, spot] = EGG_COL[e.mode] || EGG_COL.mine;
+    let t = Math.random() * 5;
+    (function loop() {
+      if (!c.isConnected && t > 6) return;
+      t += 1 / 60;
+      const x = c.getContext('2d'); x.clearRect(0, 0, 96, 72);
+      const ready = c.dataset.ready === '1';
+      x.save(); x.translate(48, 62);
+      A.shadow(x, 0, 2, 18, 5);
+      x.rotate(ready ? Math.sin(t * 14) * 0.12 * (Math.sin(t * 2) > 0.3 ? 1 : 0.2) : Math.sin(t * 1.5) * 0.03);
+      x.beginPath(); x.ellipse(0, -24, 17, 23, 0, 0, Math.PI * 2); x.fillStyle = base; x.fill(); x.lineWidth = 2.5; x.strokeStyle = '#120c0a'; x.stroke();
+      x.fillStyle = spot; for (const [sx, sy, r] of [[-7, -32, 4], [6, -20, 5], [-4, -12, 3], [8, -36, 3]]) { x.beginPath(); x.arc(sx, sy, r, 0, Math.PI * 2); x.fill(); }
+      x.fillStyle = 'rgba(255,255,255,.5)'; x.beginPath(); x.ellipse(-7, -34, 3, 6, -0.4, 0, Math.PI * 2); x.fill();
+      if (ready) { x.strokeStyle = '#120c0a'; x.lineWidth = 2; x.beginPath(); x.moveTo(-12, -26); x.lineTo(-5, -21); x.lineTo(1, -27); x.lineTo(7, -21); x.lineTo(13, -26); x.stroke(); }
+      x.restore();
+      if (ready) { x.save(); x.translate(48, 38); x.globalAlpha = 0.35 + 0.2 * Math.sin(t * 4); A.glow(x, '#ffd23a', 30); x.restore(); }
+      requestAnimationFrame(loop);
+    })();
+    return c;
+  }
+  async function hatchEgg(id) {
+    if (busy) return;
+    busy = true;
+    try {
+      const r = await api('/api/pets/hatch', { body: { id } });
+      state = r.mini;
+      if (r.user && window.PlayerApp) window.PlayerApp.setUser(r.user);
+      busy = false; render(); showHatch(r.hatch);
+    } catch (e) { busy = false; toast(e.message); render(); }
+  }
+  const fmtMs = (ms) => { const s = Math.ceil(ms / 1000), m = Math.floor(s / 60); return m ? `${m} min ${String(s % 60).padStart(2, '0')}` : `${s} s`; };
   const fmtH = (ms) => { const m = Math.ceil(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
   function petsPanel() {
     const P = state.pets || { list: [], active: [] }, me = window.PlayerApp && window.PlayerApp.me();
@@ -318,11 +352,22 @@
     });
     return el('div', { class: 'panel' }, el('h2', {}, '🐾 Familiers'),
       el('p', { class: 'small muted' }, `Jusqu’à ${PT.ACTIVE_MAX} familiers t’accompagnent en expédition et agissent seuls après toi. Les monstres ont ${Math.round(PT.HIT_CHANCE * 100)} % de chances de les viser. Leurs PV ne remontent qu’avec le temps (${Math.round(PT.REGEN_PER_HOUR * 100)} % par heure) ; un familier K.-O. se repose jusqu’à ${Math.round(PT.REST_PCT * 100)} % de ses PV. Ils gagnent de l’XP à chaque expédition et évoluent (en apparence) aux niveaux ${PT.EVOLVE.join(' et ')}.`),
+      (P.eggs || []).length ? el('h3', { class: 'mini-sub' }, '🥚 Œufs en incubation') : '',
+      (P.eggs || []).length ? el('div', { class: 'pet-grid' }, ...P.eggs.map((e) => {
+        const M2 = M.MODES[e.mode], dec = M2.decors[e.tier] || M2.decors[0], ready = e.readyIn <= 0, cv = eggCanvas(e);
+        cv.dataset.ready = ready ? '1' : '0';
+        return el('div', { class: 'pet-card egg' },
+          cv,
+          el('div', { class: 'pet-name' }, el('b', {}, 'Œuf mystérieux')),
+          el('div', { class: 'small muted' }, `${M2.icon} ${M2.name} — ${dec.name}`),
+          el('div', { class: 'small', 'data-egg-timer': e.id }, ready ? 'Prêt à éclore !' : `Éclosion dans ${fmtMs(e.readyIn)}`),
+          el('button', { class: 'primary', 'data-egg-btn': e.id, disabled: !ready || busy, onclick: () => hatchEgg(e.id) }, '🐣 Faire éclore'));
+      })) : '',
       el('h3', { class: 'mini-sub' }, `Mes familiers (${P.active.length}/${PT.ACTIVE_MAX} actifs)`),
       P.list.length ? el('div', { class: 'pet-grid' }, ...mine) : el('p', { class: 'small' }, 'Aucun familier pour l’instant : adopte-en un au chenil, ou trouve un œuf !'),
       el('h3', { class: 'mini-sub' }, '🏠 Chenil'),
       el('div', { class: 'pet-grid' }, ...kennel),
-      el('p', { class: 'small muted' }, `🥚 Œufs : très rarement (${Math.round(PT.EGG_CHANCE * 100)} %), une élite propose un « Œuf mystérieux ». Il contient un monstre de la zone, avec une rareté (commune = puissance du chenil, puis de plus en plus fort). En double, il devient une meilleure rareté de ton familier, ou des ressources de la zone (${PT.DUP_RES.join(' / ')} selon la rareté).`));
+      el('p', { class: 'small muted' }, `🥚 Œufs : très rarement (${Math.round(PT.EGG_CHANCE * 100)} %), une élite propose un « Œuf mystérieux ». Il éclot ${PT.INCUBATION_MIN} minutes plus tard (gardé même si tu tombes) et contient un monstre de la zone, avec une rareté (commune = puissance du chenil, puis de plus en plus fort). En double, il devient une meilleure rareté de ton familier, ou des ressources de la zone (${PT.DUP_RES.join(' / ')} selon la rareté).`));
   }
 
   // Éclosion d'un œuf : fenêtre avec le familier obtenu
@@ -525,6 +570,23 @@
     if (target >= (r.mobs || []).length || (r.mobs[target] && r.mobs[target].hp <= 0)) target = Math.max(0, (r.mobs || []).findIndex((m) => m.hp > 0));
   }
   requestAnimationFrame(frame);
+
+  // Minuteur des œufs en incubation
+  setInterval(() => {
+    const eggs = state && state.pets && state.pets.eggs;
+    if (!eggs || !eggs.length) return;
+    for (const e of eggs) {
+      if (e.readyIn <= 0) continue;
+      e.readyIn = Math.max(0, e.readyIn - 1000);
+      const tm = document.querySelector(`[data-egg-timer="${e.id}"]`);
+      if (tm) tm.textContent = e.readyIn > 0 ? `Éclosion dans ${fmtMs(e.readyIn)}` : 'Prêt à éclore !';
+      if (e.readyIn <= 0) {
+        const bt = document.querySelector(`[data-egg-btn="${e.id}"]`); if (bt) bt.disabled = false;
+        const cv = document.querySelector(`[data-egg="${e.id}"]`); if (cv) cv.dataset.ready = '1';
+        Sound.play('gain');
+      }
+    }
+  }, 1000);
 
   // Minuteur d'énergie
   setInterval(() => {

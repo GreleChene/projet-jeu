@@ -410,3 +410,4 @@ body.bg-aurore .panel { background: rgba(26, 24, 46, .9); backdrop-filter: blur(
 .pet-btns button, .pet-card.shop button { padding: 5px 10px; font-size: .9rem; }
 .mini-pets { display: flex; gap: 6px; flex-wrap: wrap; }
 .pet-hatch { display: block; margin: 0 auto; }
+.pet-card.egg { border-style: dashed; }

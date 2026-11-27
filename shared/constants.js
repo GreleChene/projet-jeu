@@ -691,6 +691,8 @@
     golem_glace: { name: 'Golem de glace', era: 1, from: 11, shape: 'golem', color: '#9fd3ff', hp: 170, dmg: 14, speed: 40, range: 30, cd: 1.6, size: 22, xp: 18, gold: 5, w: 3 },
     esprit_givre: { name: 'Esprit du givre', era: 1, from: 16, shape: 'wisp', color: '#bfe6ff', hp: 38, dmg: 7, speed: 70, range: 220, cd: 1.8, size: 12, ranged: 'frost', onHit: { slow: 0.3, dur: 1.5 }, xp: 9, gold: 2, w: 4 },
     treant: { name: 'Arbre déraciné', era: 1, from: 999, shape: 'treant', color: '#2f6b4a', hp: 130, dmg: 12, speed: 46, range: 30, cd: 1.4, size: 20, xp: 14, gold: 4, w: 0 },
+    // mini-jeux uniquement (champ de baies) : jamais en défense de tour
+    corbeau: { name: 'Corbeau', era: 1, from: 999, shape: 'bird', color: '#2c2c38', hp: 28, dmg: 5, speed: 120, range: 20, cd: 0.9, size: 11, xp: 5, gold: 1, w: 0 },
 
     // Ère 2 — corruption verte
     rampant: { name: 'Rampant putride', era: 2, from: 31, shape: 'crawler', color: '#7fd13b', hp: 80, dmg: 8, speed: 70, range: 22, cd: 1, size: 14, onHit: { poison: 3, dur: 4 }, xp: 10, gold: 3, w: 9 },
@@ -881,7 +883,7 @@
           { name: 'Cavernes de cristal', subs: ['Grotte d’améthyste', 'Lac souterrain', 'Forêt de stalagmites', 'Géode géante', 'Pont de pierre', 'Veines bleues'] },
           { name: 'Profondeurs de magma', subs: ['Rivière de lave', 'Forge naine en ruine', 'Salle d’obsidienne', 'Cheminée volcanique', 'Trône du roi nain', 'Gouffre ardent'] }
         ],
-        mobs: [['gobelin', 'araignee', 'gobelin_archer'], ['golem_glace', 'esprit_givre', 'araignee'], ['diablotin', 'chien_infernal', 'salamandre', 'elementaire']],
+        mobs: [['gobelin', 'araignee'], ['golem_glace', 'esprit_givre'], ['chien_infernal', 'elementaire']], // chaque monstre n'existe que dans une zone
         loot: 'Filon de pierre'
       },
       foret: {
@@ -892,7 +894,7 @@
           { name: 'Forêt profonde', subs: ['Chênes centenaires', 'Brume matinale', 'Marais', 'Racines géantes', 'Ruines oubliées', 'Cercle de pierres'] },
           { name: 'Bois maudit', subs: ['Arbres morts', 'Toiles d’araignée', 'Feux follets', 'Cimetière oublié', 'Tronc creux', 'Cœur de la forêt'] }
         ],
-        mobs: [['loup', 'sanglier', 'gobelin'], ['loup_neige', 'rampant', 'treant'], ['araignee', 'mutant', 'crapaud', 'champignon']],
+        mobs: [['loup', 'sanglier'], ['loup_neige', 'treant'], ['mutant', 'champignon']],
         loot: 'Bois tombé'
       },
       champ: {
@@ -903,7 +905,7 @@
           { name: 'Collines sauvages', subs: ['Buissons épineux', 'Rochers moussus', 'Prairie fleurie', 'Pont de bois', 'Ferme abandonnée', 'Vieux puits'] },
           { name: 'Vallée crépusculaire', subs: ['Coucher de soleil', 'Champ de citrouilles', 'Buissons géants', 'Tour en ruine', 'Lucioles', 'Autel des récoltes'] }
         ],
-        mobs: [['gobelin', 'gobelin_archer', 'sanglier'], ['crapaud', 'champignon', 'rampant'], ['diablotin', 'salamandre', 'mutant']],
+        mobs: [['corbeau', 'gobelin_archer'], ['crapaud', 'rampant'], ['diablotin', 'salamandre']],
         loot: 'Buisson chargé'
       }
     },
@@ -916,7 +918,7 @@
       res: { name: 'Trésor de l’élite', icon: '💰', desc: 'Un gros tas de la ressource du mode' },
       grelons: { name: 'Bourse de Grêlons', icon: '🌨️', desc: 'Des Grêlons tout de suite (gardés même en cas de mort)' },
       potion: { name: 'Fiole', icon: '🧪', desc: '+1 potion de soin' },
-      egg: { name: 'Œuf mystérieux', icon: '🥚', desc: 'Un œuf de familier : un monstre de cette zone, rareté au hasard (très rare)' }
+      egg: { name: 'Œuf mystérieux', icon: '🥚', desc: 'Un œuf de familier (monstre de cette zone, rareté au hasard) : il éclot 30 min plus tard, même si tu tombes' }
     },
     // Améliorations achetées avec les ressources du compte
     // mode : amélioration d'un mini-jeu (payée avec sa ressource) ; all : payée avec les trois ressources
@@ -958,6 +960,7 @@
     REGEN_PER_HOUR: 0.1,      // hors expédition : +10 % des PV max par heure
     KENNEL_PRICE: GLACONS.PRICE * 10, // prix d'un animal du chenil : 10 glaçons
     EGG_CHANCE: 0.01,         // chance que « Œuf mystérieux » fasse partie des récompenses d'élite
+    INCUBATION_MIN: 30,       // un œuf éclot 30 minutes après avoir été trouvé
     DUP_RES: [5, 8, 12, 17, 23, 30], // œuf en double : ressources de la zone selon la rareté (30 au plus)
     MAX_LEVEL: 20,
     EVOLVE: [10, 20],         // évolutions (purement esthétiques)
@@ -999,7 +1002,8 @@
       treant: { hp: 140, fx: { heal: 0.03, taunt: 0.1 } },
       mutant: { hp: 170, fx: { taunt: 0.25 } },
       crapaud: { hp: 60, fx: { weaken: 0.12 } },
-      champignon: { hp: 45, fx: { aoe: 0.08, weaken: 0.05 } }
+      champignon: { hp: 45, fx: { aoe: 0.08, weaken: 0.05 } },
+      corbeau: { hp: 40, fx: { mark: 0.1, loot: 0.06, ranged: 1 } }
     }
   };
   const PET_CAPS = { freeze: 0.4, stun: 0.4, taunt: 0.5, guard: 1, heal: 0.08, carry: 0.3, loot: 0.5, mark: 0.5, weaken: 0.5, rally: 0.3 };

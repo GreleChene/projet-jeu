@@ -166,7 +166,7 @@
     if (n !== null && Number(n) > 0) editUser(u, { addXp: Number(n) });
   }
   async function giveEgg(u) {
-    const z = await askText(`Faire éclore un œuf de familier pour ${u.pseudo}.\nZone : mine, foret ou champ, suivie du décor 0, 1 ou 2 (ex. « foret:1 »).`, 'mine:0', { title: '🥚 Œuf (test)' });
+    const z = await askText(`Donner un œuf de familier à ${u.pseudo} (prêt à éclore).\nZone : mine, foret ou champ, suivie du décor 0, 1 ou 2 (ex. « foret:1 »). Ajoute « :incuber » pour garder les ${GD.PETS.INCUBATION_MIN} min d’incubation.`, 'mine:0', { title: '🥚 Œuf (test)' });
     if (!z) return;
     try { const r = await api('/api/admin/users/' + u.id, { body: { giveEgg: z.trim() } }); toast('🥚 ' + r.text); loadUsers(); }
     catch (e) { toast(e.message); }

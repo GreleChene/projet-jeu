@@ -187,6 +187,16 @@ app.post('/api/mini/act', auth, (req, res) => {
 // Familiers : chenil (Grêlons), familiers actifs (2 au plus), familier principal (stream, niveau 10+)
 app.post('/api/pets/buy', auth, (req, res) => miniReply(res, req.user, () => pets.buy(req.user, String((req.body || {}).kind))));
 app.post('/api/pets/active', auth, (req, res) => miniReply(res, req.user, () => pets.setActive(req.user, Array.isArray((req.body || {}).ids) ? req.body.ids : [])));
+app.post('/api/pets/hatch', auth, (req, res) => {
+  try {
+    const hatch = pets.hatchEgg(req.user, String((req.body || {}).id));
+    db.markDirty();
+    res.json({ hatch, mini: mini.publicState(req.user), user: publicUser(req.user) });
+  } catch (e) {
+    if (e instanceof pets.PetError) return res.status(400).json({ error: e.message });
+    throw e;
+  }
+});
 app.post('/api/pets/main', auth, (req, res) => miniReply(res, req.user, () => { pets.setMain(req.user, (req.body || {}).id ? String(req.body.id) : null); afterProfileChange(req.user); }));
 app.post('/api/mini/upgrade', auth, (req, res) => miniReply(res, req.user, () => { mini.buyUpgrade(req.user, String((req.body || {}).id)); afterProfileChange(req.user); }));
 
@@ -664,9 +674,11 @@ app.post('/api/admin/users/:id', admin, async (req, res) => {
     const [mode, tier] = String(b.giveEgg).split(':');
     if (!GD.MINI.MODES[mode]) return res.status(400).json({ error: 'Mini-jeu inconnu' });
     mini.ensure(u);
-    const h = pets.hatch(u, mode, Math.max(0, Math.min(2, Number(tier) || 0)));
+    // l'œuf de test est prêt à éclore tout de suite (sans les 30 min d'incubation) ; « :incuber » pour garder l'attente
+    const wait = String(b.giveEgg).includes('incub');
+    pets.addEgg(u, mode, Math.max(0, Math.min(2, Number(tier) || 0)), Date.now(), wait ? undefined : 0);
     afterProfileChange(u);
-    return res.json({ ok: true, egg: h, text: `${GD.petName(h.kind)} (${GD.RARITIES[h.rarity].name}) : ${h.result === 'new' ? 'nouveau familier' : h.result === 'upgrade' ? 'rareté améliorée' : `doublon → ${h.amount} ${GD.RESOURCES[h.res].name.toLowerCase()}`}` });
+    return res.json({ ok: true, text: `œuf ${GD.MINI.MODES[mode].name.toLowerCase()} ${wait ? `en incubation (${GD.PETS.INCUBATION_MIN} min)` : 'prêt à éclore'} : onglet Mini-jeux → Familiers` });
   }
   if (b.addXp !== undefined) {
     const n = Math.floor(Number(b.addXp) || 0);

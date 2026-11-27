@@ -79,3 +79,23 @@ test('familiers : 20 % des coups visent un familier ; morsure ; principal seulem
   pets.setMain(u, u.pets.list[0].id);
   assert.deepStrictEqual(pets.streamLook(u), ['ally_wolf', 1]);
 });
+
+test('familiers : l’œuf éclot après 30 min d’incubation', () => {
+  const u = user(), t0 = 1e12;
+  const egg = pets.addEgg(u, 'champ', 1, t0);
+  assert.strictEqual(egg.hatchAt - t0, 30 * 60e3);
+  assert.throws(() => pets.hatchEgg(u, egg.id, Math.random, t0 + 29 * 60e3), /pas encore prêt/);
+  const h = pets.hatchEgg(u, egg.id, () => 0.5, t0 + 30 * 60e3);
+  assert.ok(GD.MINI.MODES.champ.mobs[1].includes(h.kind), 'monstre de la zone de l’œuf');
+  assert.strictEqual(u.pets.eggs.length, 0);
+  assert.throws(() => pets.hatchEgg(u, egg.id), /introuvable/);
+});
+
+test('mini-jeux : chaque monstre n’existe que dans une seule zone, et chacun peut sortir d’un œuf', () => {
+  const seen = {};
+  for (const [m, M] of Object.entries(GD.MINI.MODES)) M.mobs.forEach((tier, i) => {
+    assert.ok(tier.length >= 2, `${m} décor ${i} : au moins 2 monstres`);
+    for (const k of tier) { assert.ok(!seen[k], `${k} en double (${seen[k]} et ${m}${i})`); seen[k] = m + i; assert.ok(GD.PETS.KINDS[k], `${k} : familier défini`); assert.ok(GD.MOBS[k], `${k} : monstre défini`); }
+  });
+  assert.ok(!GD.MOBS.corbeau.w, 'le corbeau n’apparaît pas en défense de tour');
+});

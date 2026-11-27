@@ -306,11 +306,9 @@ function act(u, body, opts = {}) {
     else if (k === 'grelons') { const n = 15 + run.room * 2; run.grelons += n; u.gold = (u.gold || 0) + n; }
     else if (k === 'potion') run.potions++;
     else if (k === 'egg') {
-      const h = run.hatch = pets.hatch(u, run.mode, run.decor, rnd);
-      const R = GD.RARITIES[h.rarity];
-      log(run, h.result === 'new' ? `🥚 L’œuf éclot : ${GD.petName(h.kind)} (${R.name}) rejoint tes familiers !`
-        : h.result === 'upgrade' ? `🥚 L’œuf éclot : ton ${GD.petName(h.kind)} devient ${R.name} !`
-          : `🥚 L’œuf éclot : un ${GD.petName(h.kind)} en double, converti en ${h.amount} ${GD.RESOURCES[h.res].icon}`);
+      // l'œuf est mis à l'abri tout de suite (gardé même si le héros tombe) et éclot après l'incubation
+      pets.addEgg(u, run.mode, run.decor, opts.now || Date.now());
+      log(run, `🥚 Tu ramasses un œuf mystérieux : il éclora dans ${GD.PETS.INCUBATION_MIN} min (onglet Familiers)`);
     }
     log(run, `Récompense : ${R.icon} ${R.name}`);
     run.rewardTaken = true;

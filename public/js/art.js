@@ -536,7 +536,7 @@
     araignee: 'spider', araignee_reine: 'spider:queen', diablotin: 'imp', seigneur_diablotin: 'imp:lord', salamandre: 'salamander', salamandre_ancienne: 'salamander:ancient',
     chien_infernal: 'hound', cerbere: 'cerberus', elementaire: 'elemental', geant_magma: 'elemental:magma', mere_spore: 'mother', ally_skeleton: 'skeleton',
     pet_turtle: 'turtle', pet_rabbit: 'rabbit', pet_squirrel: 'squirrel',
-    ally_rat: 'rat', ally_slime: 'slime', ally_zombie: 'zombie', ally_skelarcher: 'skeleton_archer', ally_falcon: 'bird', ally_pigeon: 'bird:pigeon', ally_eagle: 'bird:eagle'
+    ally_rat: 'rat', ally_slime: 'slime', ally_zombie: 'zombie', ally_skelarcher: 'skeleton_archer', ally_falcon: 'bird', ally_pigeon: 'bird:pigeon', ally_eagle: 'bird:eagle', corbeau: 'bird:crow'
   };
   const PX_CACHE = new Map();
   function pixelSprite(type) {

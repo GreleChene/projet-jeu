@@ -1,7 +1,7 @@
 'use strict';
 /*
  * Familiers des mini-jeux (état dans u.pets = { list, active, main }) :
- *   - achetés au chenil avec des Grêlons, ou éclos d'un œuf (récompense d'élite rare) avec une rareté ;
+ *   - achetés au chenil avec des Grêlons, ou éclos d'un œuf (récompense d'élite rare, 30 min d'incubation) avec une rareté ;
  *   - 2 actifs par expédition ; leurs PV ne sont pas remis à neuf entre deux expéditions :
  *     ils remontent avec le temps (10 %/h). Un familier K.-O. se repose jusqu'à 50 % de ses PV ;
  *   - XP à chaque expédition, évolutions esthétiques aux niveaux 10 et 20 ;
@@ -22,7 +22,7 @@ function inRun(u, id) {
 function ensure(u, now = Date.now()) {
   u.pets ||= {};
   const P = u.pets;
-  P.list ||= []; P.active ||= []; if (P.main === undefined) P.main = null;
+  P.list ||= []; P.active ||= []; P.eggs ||= []; if (P.main === undefined) P.main = null;
   for (const p of P.list) {
     const max = GD.petMaxHp(p.kind, p.rarity);
     if (p.hp === undefined) p.hp = max;
@@ -103,6 +103,25 @@ function hatch(u, mode, tier, rnd = Math.random) {
   return out;
 }
 
+// Œuf trouvé (récompense d'élite) : il éclot après INCUBATION_MIN minutes (delay en ms pour les tests / l'admin)
+function addEgg(u, mode, tier, now = Date.now(), delay = PETS.INCUBATION_MIN * 60e3) {
+  const P = ensure(u, now);
+  const egg = { id: 'e' + now.toString(36) + Math.floor(Math.random() * 1e6).toString(36), mode, tier: Math.min(2, tier || 0), at: now, hatchAt: now + delay };
+  P.eggs.push(egg);
+  return egg;
+}
+
+// Éclosion d'un œuf prêt
+function hatchEgg(u, id, rnd = Math.random, now = Date.now()) {
+  const P = ensure(u, now);
+  const egg = P.eggs.find((e) => e.id === id);
+  if (!egg) fail('Œuf introuvable');
+  if (now < egg.hatchAt) fail('Cet œuf n’est pas encore prêt à éclore');
+  P.eggs = P.eggs.filter((e) => e !== egg);
+  u.mini ||= {}; u.mini.res ||= { pierre: 0, bois: 0, baies: 0 };
+  return hatch(u, egg.mode, egg.tier, rnd);
+}
+
 // Familiers engagés dans une expédition (copie de combat)
 function forRun(u) {
   const P = ensure(u);
@@ -134,6 +153,7 @@ function publicState(u, now = Date.now()) {
   const P = ensure(u, now);
   return {
     active: P.active, main: P.main, price: PETS.KENNEL_PRICE,
+    eggs: P.eggs.map((e) => ({ ...e, readyIn: Math.max(0, e.hatchAt - now) })),
     list: P.list.map((p) => ({ ...p, hp: Math.floor(p.hp), max: GD.petMaxHp(p.kind, p.rarity), stage: GD.petStage(p.level), xpNext: PETS.xpForLevel(p.level),
       readyIn: p.ko ? Math.ceil(((GD.petMaxHp(p.kind, p.rarity) * PETS.REST_PCT - p.hp) / (GD.petMaxHp(p.kind, p.rarity) * PETS.REGEN_PER_HOUR)) * 3.6e6) : 0 }))
   };
@@ -147,4 +167,4 @@ function streamLook(u) {
   return p && p.level >= PETS.MAIN_LEVEL ? [GD.petSprite(p.kind), GD.petStage(p.level)] : null;
 }
 
-module.exports = { PetError, ensure, buy, setActive, setMain, hatch, forRun, afterRun, publicState, streamLook };
+module.exports = { PetError, ensure, buy, setActive, setMain, hatch, addEgg, hatchEgg, forRun, afterRun, publicState, streamLook };
