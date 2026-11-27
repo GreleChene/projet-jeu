@@ -27,46 +27,9 @@
    * gardien : basse grondante en plus. Bruitages pour chaque action et chaque événement de la vague.
    * Deux volumes réglables (musique, effets) + coupure générale, retenus dans le navigateur. */
   const Sound = (() => {
-    let ac = null, master = null, sfxBus = null, musBus = null;
-    const prefs = { music: 0.5, sfx: 0.8, muted: false };
+    // sorties, réglages et séquenceur communs à tout le site (public/js/audio.js : bouton 🔊 du haut de page)
+    const GA = window.GameAudio, prefs = GA.prefs, { tone, noise } = GA;
     const last = {};
-    try { Object.assign(prefs, JSON.parse(localStorage.getItem('bastionSound') || '{}')); } catch (e) { /* stockage indisponible */ }
-    const save = () => { try { localStorage.setItem('bastionSound', JSON.stringify(prefs)); } catch (e) { /* */ } };
-    function audio() {
-      if (!ac) {
-        const Ctor = window.AudioContext || window.webkitAudioContext;
-        if (!Ctor) return null;
-        ac = new Ctor();
-        master = ac.createGain(); master.connect(ac.destination);
-        sfxBus = ac.createGain(); sfxBus.connect(master);
-        musBus = ac.createGain(); musBus.connect(master);
-        applyVolumes();
-      }
-      if (ac.state === 'suspended') ac.resume();
-      return ac;
-    }
-    function applyVolumes() {
-      if (!ac) return;
-      master.gain.value = prefs.muted ? 0 : 1;
-      sfxBus.gain.value = prefs.sfx;
-      musBus.gain.value = prefs.music * 0.42;
-    }
-    // note : fréquence, durée, forme, volume, décalage, glissement de fréquence, sortie
-    function tone(c, f, dur, type, vol, when, slide, out) {
-      const o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + Math.max(0, when || 0);
-      o.type = type || 'sine'; o.frequency.setValueAtTime(f, t0);
-      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t0 + dur);
-      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-      o.connect(g).connect(out || sfxBus); o.start(t0); o.stop(t0 + dur + 0.02);
-    }
-    // bruit filtré (chocs, souffles, percussions)
-    function noise(c, dur, vol, when, freq, type, out) {
-      const n = Math.max(1, Math.floor(c.sampleRate * dur)), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
-      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
-      const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(), t0 = c.currentTime + Math.max(0, when || 0);
-      s.buffer = buf; f.type = type || 'bandpass'; f.frequency.value = freq || 1000; g.gain.value = vol;
-      s.connect(f).connect(g).connect(out || sfxBus); s.start(t0);
-    }
     const r = () => 0.92 + Math.random() * 0.16; // petite variation de hauteur
     const chord = (c, notes, dur, type, vol, gap) => notes.forEach((f, i) => tone(c, f, dur, type, vol, i * (gap || 0)));
     const SFX = {
@@ -146,33 +109,12 @@
           bas: [33, 33, 45, 33, 34, 34, 46, 34, 33, 33, 45, 33, 28, 28, 40, 31] }
       }
     };
-    let music = null; // { key, step, next, timer }
+    // musique de la zone (remplace l'ambiance du site pendant la partie)
     function startMusic(zone, mood, boss) {
-      const key = zone + ':' + mood + (boss ? ':boss' : '');
-      if (music && music.key === key) return;
-      stopMusic();
-      const c = audio(), Tz = THEMES[zone];
-      if (!c || !Tz) return;
-      const T = Tz[mood] || Tz.build, step = 60 / T.bpm / 2;
-      music = { key, step: 0, next: c.currentTime + 0.12 };
-      music.timer = setInterval(() => {
-        while (music && music.next < c.currentTime + 0.25) {
-          const i = music.step, w = music.next - c.currentTime, k = i % 16;
-          const m = T.mel[i % T.mel.length], b = T.bas[i % T.bas.length];
-          if (m) { tone(c, N(m), step * 1.7, T.lead, T.leadVol, w, 0, musBus); if (T.bell && i % 4 === 0) tone(c, N(m + 24), step * 3, 'sine', T.bell, w + step * 0.5, 0, musBus); }
-          // contre-chant : la tierce au-dessus, une note sur quatre
-          if (m && i % 4 === 2) tone(c, N(m + 4), step * 1.2, 'sine', T.leadVol * 0.5, w, 0, musBus);
-          if (b) tone(c, N(b), step * 3.2, T.bass, T.bassVol, w, 0, musBus);
-          if (T.kick[k] === 'x') tone(c, 110, 0.13, 'sine', 0.2, w, -70, musBus);
-          if (T.snare && T.snare[k] === 'x') noise(c, 0.1, 0.12, w, 1800, 'bandpass', musBus);
-          if (T.hat && i % 2 === 1) noise(c, 0.035, T.hat, w, 7000, 'highpass', musBus);
-          // gardien : grondement grave en plus
-          if (boss && k % 8 === 0) tone(c, N(b || T.bas[0]) / 2, step * 6, 'sawtooth', 0.05, w, 0, musBus);
-          music.step++; music.next += step;
-        }
-      }, 60);
+      const Tz = THEMES[zone];
+      if (Tz) GA.playMusic(`bastion:${zone}:${mood}${boss ? ':boss' : ''}`, Tz[mood] || Tz.build, boss);
     }
-    function stopMusic() { if (music) { clearInterval(music.timer); music = null; } }
+    function stopMusic() { GA.stopMusic('bastion:'); }
     return {
       // gap : délai minimal (s) entre deux déclenchements du même effet
       play(name, gap) {
@@ -180,24 +122,16 @@
         if (last[name] && now - last[name] < (gap || 0.045)) return;
         last[name] = now;
         if (prefs.muted) return;
-        const c = audio();
+        const c = GA.ctx();
         if (c && SFX[name]) try { SFX[name](c); } catch (e) { /* audio indisponible */ }
       },
-      startMusic, stopMusic, musicKey: () => (music ? music.key : null),
-      prefs,
-      set(key, v) { prefs[key] = v; save(); applyVolumes(); },
-      toggle() { prefs.muted = !prefs.muted; save(); applyVolumes(); return prefs.muted; },
-      get muted() { return prefs.muted; }
+      startMusic, stopMusic, musicKey: () => GA.musicKey(),
+      get muted() { return GA.muted(); }
     };
   })();
-  // Réglages du son : coupure + volumes de la musique et des effets
-  function soundControls() {
-    const slider = (key, label) => el('label', { class: 'mini-vol small' }, label,
-      el('input', { type: 'range', min: 0, max: 100, value: Math.round(Sound.prefs[key] * 100), oninput: (e) => { Sound.set(key, e.target.value / 100); if (key === 'sfx') Sound.play('arrow'); } }));
-    return el('div', { class: 'mini-sound' },
-      el('button', { class: 'mini-mute', title: 'Activer / couper tous les sons', onclick: (e) => { e.currentTarget.textContent = Sound.toggle() ? '🔇' : '🔊'; renderBars(); } }, Sound.muted ? '🔇' : '🔊'),
-      slider('music', '🎵 Musique'), slider('sfx', '💥 Effets'));
-  }
+  // Réglages du son : les mêmes que le bouton 🔊 du haut de la page
+  const soundControls = () => window.GameAudio.controls();
+  window.GameAudio.onChange(() => { const mb = document.getElementById('bsMute'); if (mb) mb.textContent = window.GameAudio.icon(); });
 
   /* ============================== Chargement et synchronisation ============================== */
   async function load() {
@@ -298,8 +232,10 @@
     return c;
   }
 
+  // Grêlons du joueur : les mêmes que pour acheter des glaçons (valeur à jour de la page, sinon celle du serveur)
+  const myGold = () => { const me = window.PlayerApp && window.PlayerApp.me(); return me && Number.isFinite(me.gold) ? me.gold : S.gold || 0; };
   function lobby() {
-    const hail = '🌨️';
+    const hail = '🌨️', gold = myGold();
     const cards = Object.entries(B.ZONES).map(([k, Z]) => {
       const open = S.open[k], best = S.best[k] || 0, wins = S.wins[k] || 0;
       const roles = Object.keys(Z.roster).map((r) => B.ROLES[r].icon + ' ' + B.ROLES[r].name.toLowerCase()).join(', ');
@@ -309,15 +245,14 @@
         el('p', { class: 'small' }, Z.desc),
         el('p', { class: 'small muted' }, `Monstres : ${roles}. Gardiens aux manches 10, 20 et 30.`),
         el('p', { class: 'small' }, `🏆 Record : ${best ? `${best} manche${best > 1 ? 's' : ''}` : '—'} · victoires : ${wins}${Z.xp > 1 ? ` · XP ×${String(Z.xp).replace('.', ',')}` : ''} · 📜 plans : ${planCount(k)}`),
-        open ? el('button', { class: 'primary', disabled: busy || (S.gold || 0) < B.PRICE, onclick: () => startGame(k) }, `Lancer une partie (${B.PRICE} ${hail})`)
+        open ? el('button', { class: 'primary', disabled: busy || gold < B.PRICE, title: gold < B.PRICE ? `Il faut ${B.PRICE} Grêlons (les mêmes que pour acheter des glaçons)` : '', onclick: () => startGame(k) }, `Lancer une partie (${B.PRICE} ${hail})`)
           : el('p', { class: 'small bs-lock' }, `🔒 Gagne une partie dans la zone « ${B.ZONES[Z.unlock].name} » pour débloquer cette zone.`));
     });
     return el('div', {},
       el('div', { class: 'panel bs-head' },
         el('div', {}, el('h2', { style: 'margin:0' }, '🏰 Bastion'), el('p', { class: 'small muted', style: 'margin:4px 0 0' }, 'Défense de tour solo : une carte différente à chaque partie, des bâtiments à placer, améliorer et combiner entre les vagues.')),
-        soundControls(),
         el('div', { class: 'mini-res' },
-          el('span', { class: 'chip gold' }, `${hail} ${S.gold} Grêlons`),
+          el('span', { class: 'chip gold' }, `${hail} ${gold} Grêlons`),
           el('span', { class: 'chip' }, `📜 ${S.unlocked.length} / ${GD.bastionPlanKeys().length} plans`),
           el('span', { class: 'chip' }, `🎮 ${S.games} partie${S.games > 1 ? 's' : ''}`))),
       el('div', { class: 'grid three' }, ...cards),
@@ -1242,5 +1177,7 @@
     const fx = (((c + 0.5) * CELL - V.cam.x) * V.cam.z) / MW, fy = (((r + 0.5) * CELL - V.cam.y) * V.cam.z) / MH;
     return rot ? { x: R.right - fy * R.width, y: R.top + fx * R.height } : { x: R.left + fx * R.width, y: R.top + fy * R.height };
   }
-  window.BastionGame = { open: load, debug: () => V, cellToClient, music: () => Sound.musicKey() };
+  // les Grêlons ont changé ailleurs sur la page (glaçons, marché, admin…) : l'accueil se met à jour
+  function userChanged() { const root = $('#bastionRoot'); if (S && !S.run && !busy && root && visible()) root.replaceChildren(lobby()); }
+  window.BastionGame = { open: load, debug: () => V, cellToClient, music: () => Sound.musicKey(), userChanged };
 })();

@@ -44,6 +44,7 @@ Pages : `/` (joueur), `/stream` (OBS, 1920×1080), `/admin` (compte `admin` / `1
 - `public/js/stream.js` — rendu du stream (caméra, dézoom + brume pendant les vagues, effets, HUD, votes).
 - `public/js/mini.js` — onglet Mini-jeux : camp (améliorations, familiers, œufs) et jeu vu du dessus (boucle `stepSim`, commandes clavier / souris / tactiles, HUD, panneaux du seau, des récompenses, de pause et de fin, sons) ; rapports envoyés au serveur (`call`, ops rejouées sur l'inventaire renvoyé). `public/js/minidecor.js` — décors vus du dessus (3 × 3 × 6), sorties, fontaine.
 - `public/js/bastion.js` — onglet Bastion (accueil, collection de plans, carte avec caméra zoom / déplacement, plein écran paysage sur téléphone, panneaux, vagues animées, envois dans l'ordre via `enqueue`) ; `public/js/bastionart.js` — sprites pixel art du Bastion (bâtiments, tour principale, obstacles, sol), dessinés sur une grille de pixels avec contour automatique.
+- `public/js/audio.js` — son de tout le site (`window.GameAudio`) : réglages communs (bouton 🔊 du haut de page), ambiance « chill » sur tous les onglets, séquenceur de musique unique (`playMusic(clé, thème)` / `stopMusic(préfixe)`) utilisé par les mini-jeux et le Bastion, bruitages d'interface.
 - `public/js/player.js` — page joueur (arbre de compétences en étoile, équipement, glaçons, IA, compte).
 
 ## Règles de conception (demandées par le propriétaire)

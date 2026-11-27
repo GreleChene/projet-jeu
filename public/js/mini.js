@@ -17,30 +17,11 @@
    * Deux volumes réglables (musique, effets) + coupure générale, retenus dans le navigateur.
    * Chaque mini-jeu a sa petite musique en boucle (caverne : mineur et lente ; forêt : flûte folk ; clairière : gaie). */
   const Sound = (() => {
-    let ac = null, master = null, sfxBus = null, musBus = null;
-    const prefs = { music: 0.5, sfx: 0.8, muted: false };
+    // sorties et réglages communs à tout le site (public/js/audio.js : bouton 🔊 du haut de page)
+    const GA = window.GameAudio, prefs = GA.prefs;
+    let sfxBus = null;
     const last = {}; // dernier déclenchement de chaque effet (pour ne pas saturer)
-    try { Object.assign(prefs, JSON.parse(localStorage.getItem('miniSound') || '{}')); } catch (e) { /* stockage indisponible */ }
-    const save = () => { try { localStorage.setItem('miniSound', JSON.stringify(prefs)); } catch (e) { /* */ } };
-    function audio() {
-      if (!ac) {
-        const C = window.AudioContext || window.webkitAudioContext;
-        if (!C) return null;
-        ac = new C();
-        master = ac.createGain(); master.connect(ac.destination);
-        sfxBus = ac.createGain(); sfxBus.connect(master);
-        musBus = ac.createGain(); musBus.connect(master);
-        applyVolumes();
-      }
-      if (ac.state === 'suspended') ac.resume();
-      return ac;
-    }
-    function applyVolumes() {
-      if (!ac) return;
-      master.gain.value = prefs.muted ? 0 : 1;
-      sfxBus.gain.value = prefs.sfx;
-      musBus.gain.value = prefs.music * 0.45;
-    }
+    function audio() { const c = GA.ctx(); if (c) sfxBus = GA.sfxOut(); return c; }
     // note : fréquence, durée, forme, volume, décalage, glissement de fréquence, sortie
     function tone(c, f, dur, type, vol, when, slide, out) {
       const o = c.createOscillator(), g = c.createGain(), t0 = c.currentTime + (when || 0);
@@ -107,28 +88,10 @@
         mel: [72, _, 76, _, 79, _, 76, _, 81, 79, 76, _, 74, _, 72, _, 74, _, 77, _, 81, _, 79, 77, 76, _, 74, _, 72, _, _, _],
         bas: [48, _, 55, _, 53, _, 55, _, 48, _, 55, _, 50, _, 55, _] }
     };
-    let music = null; // { mode, step, next, timer }
-    function startMusic(mode) {
-      if (music && music.mode === mode) return;
-      stopMusic();
-      const c = audio();
-      if (!c || !THEMES[mode]) return;
-      const T = THEMES[mode], step = 60 / T.bpm / 2; // croches
-      music = { mode, step: 0, next: c.currentTime + 0.1 };
-      music.timer = setInterval(() => {
-        // on planifie un peu d'avance (lecture régulière même si la page ralentit)
-        while (music && music.next < c.currentTime + 0.25) {
-          const i = music.step, w = music.next - c.currentTime;
-          const m = T.mel[i % T.mel.length], b = T.bas[i % T.bas.length];
-          if (m) tone(c, N(m), step * 1.6, T.lead, T.leadVol, w, 0, musBus);
-          if (b) tone(c, N(b), step * 3.5, T.bass, T.bassVol, w, 0, musBus);
-          if (T.kick[i % 16] === 'x') tone(c, 110, 0.12, 'sine', 0.18, w, -70, musBus);
-          if (T.hat && i % 2 === 1) noise(c, 0.04, T.hat, w, 7000, 'highpass', musBus);
-          music.step++; music.next += step;
-        }
-      }, 60);
-    }
-    function stopMusic() { if (music) { clearInterval(music.timer); music = null; } }
+    // la musique passe par le séquenceur commun (elle remplace l'ambiance du site pendant l'expédition)
+    let musicMode = null;
+    function startMusic(mode) { if (!THEMES[mode]) return; musicMode = mode; GA.playMusic('mini:' + mode, THEMES[mode]); }
+    function stopMusic() { musicMode = null; GA.stopMusic('mini:'); }
 
     return {
       // gap : délai minimal (s) entre deux déclenchements du même effet
@@ -139,22 +102,13 @@
         const c = audio(); if (c && SFX[k] && !prefs.muted) SFX[k](c, 0);
       },
       startMusic, stopMusic,
-      musicMode: () => (music ? music.mode : null),
+      musicMode: () => musicMode,
       prefs,
-      set(key, v) { prefs[key] = v; save(); applyVolumes(); },
-      toggle() { prefs.muted = !prefs.muted; save(); applyVolumes(); return prefs.muted; },
-      muted: () => prefs.muted
+      set: (key, v) => GA.set(key, v),
+      toggle: () => GA.toggle(),
+      muted: () => GA.muted()
     };
   })();
-
-  // Réglages du son : coupure + volumes de la musique et des effets
-  function soundControls() {
-    const slider = (key, label) => el('label', { class: 'mini-vol small' }, label,
-      el('input', { type: 'range', min: 0, max: 100, value: Math.round(Sound.prefs[key] * 100), oninput: (e) => { Sound.set(key, e.target.value / 100); if (key === 'sfx') Sound.play('swing'); } }));
-    return el('div', { class: 'mini-sound' },
-      el('button', { class: 'mini-mute', title: 'Activer / couper tous les sons', onclick: (e) => { e.currentTarget.textContent = Sound.toggle() ? '🔇' : '🔊'; } }, Sound.muted() ? '🔇' : '🔊'),
-      slider('music', '🎵 Musique'), slider('sfx', '💥 Effets'));
-  }
 
   /* ============================== Outils ============================== */
   // Couleurs des éclats selon la ressource
@@ -294,8 +248,7 @@
       el('div', {}, el('b', {}, 'Énergie '), ...bolts,
         el('span', { class: 'small muted', id: 'miniTimer' }, state.nextIn !== null ? ` · prochaine dans ${fmtTime(state.nextIn)}` : ' · au maximum')),
       el('div', { class: 'mini-res' }, ...GD.RES_IDS.map((k) => el('span', { class: 'chip' }, `${GD.RESOURCES[k].icon} ${state.res[k] || 0} ${GD.RESOURCES[k].name.toLowerCase()}`)),
-        ...tro.map(([k, n]) => el('span', { class: 'chip', title: M.TROPHIES[k].name }, `${M.TROPHIES[k].icon} ${n}`))),
-      soundControls());
+        ...tro.map(([k, n]) => el('span', { class: 'chip', title: M.TROPHIES[k].name }, `${M.TROPHIES[k].icon} ${n}`))));
   }
 
   const statText = (k, v) => (k === 'armor' || k === 'crit' ? `${Math.round(v * 100)} %` : k === 'haste' ? `+${Math.round(v * 100)} %` : String(Math.round(v)));

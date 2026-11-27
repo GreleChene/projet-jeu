@@ -71,7 +71,7 @@
     renderXp({ level: me.level, xp: me.xp, xpNext: me.xpNext, attrPoints: me.attrPoints });
   }
 
-  function setUser(u) { me = u; renderAll(); }
+  function setUser(u) { me = u; renderAll(); if (window.BastionGame && window.BastionGame.userChanged) window.BastionGame.userChanged(); }
   // accès pour l'onglet Mini-jeux (mini.js)
   window.PlayerApp = { me: () => me, myGear: () => myGear(), setUser: (u) => setUser(u) };
 
@@ -113,6 +113,7 @@
 
   /* ============================== Onglets ============================== */
   $$('#tabs [data-tab]').forEach((b) => b.addEventListener('click', () => {
+    if (window.GameAudio && !b.classList.contains('active')) window.GameAudio.sfx('tab');
     $$('#tabs [data-tab]').forEach((x) => x.classList.toggle('active', x === b));
     $$('[data-view]').forEach((v) => v.classList.toggle('hidden', v.dataset.view !== b.dataset.tab));
     if (b.dataset.tab === 'ladder') loadLadder();
