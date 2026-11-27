@@ -135,7 +135,7 @@ for (const zone of ZONES) {
   const wins = res.filter((r) => r.G.wave >= B.WIN_WAVE).length;
   const left = res.map((r) => r.G.res.or);
   console.log(`\n${B.ZONES[zone].icon} ${B.ZONES[zone].name} (${N} parties, plans : ${A.plans === 'tous' ? 'tous' : A.plans === 'zone' ? `ceux des zones jusqu’ici (${unlockedFor(zone).length})` : unlockedFor(zone).length ? unlockedFor(zone).join(', ') : 'aucun'})`);
-  console.log(`  manche atteinte : min ${Math.min(...reached)} · médiane ${med(reached)} · max ${Math.max(...reached)} · victoires ${wins}/${N}`);
+  console.log(`  manche atteinte : min ${Math.min(...reached)} · médiane ${med(reached)} · max ${Math.max(...reached)} · victoires ${wins}/${N} · tombés au 1er gardien (manche 10) : ${reached.filter((w) => w === 10).length}/${N}`);
   console.log(`  durée des vagues (×1) : ${(res.reduce((a, r) => a + r.simTime, 0) / N / 60).toFixed(1)} min en moyenne (×2 : ${(res.reduce((a, r) => a + r.simTime, 0) / N / 120).toFixed(1)} min)`);
   console.log(`  or restant à la fin : médiane ${med(left)} · bâtiments : médiane ${med(res.map((r) => r.G.b.length))} · tour principale niv. ${med(res.map((r) => r.G.castle.lvl))}`);
   console.log(`  rejeu serveur différent : ${res.reduce((a, r) => a + r.diverged, 0)} vague(s) · calcul : ${Date.now() - t0} ms`);

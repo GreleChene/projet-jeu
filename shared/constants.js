@@ -1444,13 +1444,13 @@
     // Gardiens (toutes les 10 manches). abil : summon (k, role, n, every), stomp (étourdit les bâtiments proches),
     // charge (accélère), aura (soigne les monstres proches, % des PV max par seconde), rebirth (renaît une fois), fly
     BOSSES: {
-      araignee_reine: { hp: 420, spd: 0.55, armor: 0.15, leak: 25, gold: 100, atk: 30, abil: { summon: { every: 8, k: 'araignee', role: 'rapide', n: 2 } } },
+      araignee_reine: { hp: 340, spd: 0.55, armor: 0.1, leak: 20, gold: 100, atk: 30, abil: { summon: { every: 8, k: 'araignee', role: 'rapide', n: 2 } } },
       golem_ancien: { hp: 800, spd: 0.4, armor: 0.35, leak: 35, gold: 160, atk: 45, abil: { stomp: { every: 7, radius: 1.8, stun: 2 } } },
       golem_obsidienne: { hp: 950, spd: 0.4, armor: 0.25, leak: 50, gold: 240, atk: 60, abil: { stomp: { every: 8, radius: 1.8, stun: 2 }, summon: { every: 10, k: 'gelee_caverne', role: 'separateur', n: 2 } } },
-      loup_alpha: { hp: 400, spd: 0.8, armor: 0, leak: 25, gold: 100, atk: 30, abil: { charge: { every: 6, dur: 1.5, mult: 2.4 }, summon: { every: 9, k: 'loup', role: 'rapide', n: 2 } } },
+      loup_alpha: { hp: 330, spd: 0.75, armor: 0, leak: 20, gold: 100, atk: 30, abil: { charge: { every: 6, dur: 1.5, mult: 2.4 }, summon: { every: 9, k: 'loup', role: 'rapide', n: 2 } } },
       treant_colossal: { hp: 820, spd: 0.38, armor: 0.25, leak: 40, gold: 160, atk: 45, abil: { aura: { heal: 0.03, radius: 2 }, summon: { every: 12, k: 'treant', role: 'soigneur', n: 1 } } },
       abomination: { hp: 1000, spd: 0.45, armor: 0.3, leak: 50, gold: 240, atk: 65, abil: { charge: { every: 7, dur: 1.5, mult: 2.2 }, stomp: { every: 8, radius: 1.8, stun: 2 } } },
-      crapaud_roi: { hp: 420, spd: 0.5, armor: 0, leak: 25, gold: 100, atk: 30, abil: { summon: { every: 9, k: 'crapaud', role: 'soigneur', n: 2 } } },
+      crapaud_roi: { hp: 340, spd: 0.5, armor: 0, leak: 20, gold: 100, atk: 30, abil: { summon: { every: 9, k: 'crapaud', role: 'soigneur', n: 2 } } },
       salamandre_ancienne: { hp: 800, spd: 0.55, armor: 0.3, leak: 35, gold: 160, atk: 45, abil: { charge: { every: 6, dur: 1.5, mult: 2.2 }, summon: { every: 10, k: 'salamandre', role: 'blinde', n: 1 } } },
       phenix_noir: { hp: 950, spd: 0.6, armor: 0, fly: true, leak: 50, gold: 240, atk: 0, abil: { rebirth: 0.5, summon: { every: 9, k: 'feu_follet', role: 'volant', n: 2 } } }
     },
