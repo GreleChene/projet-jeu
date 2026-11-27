@@ -355,7 +355,7 @@
         el('p', { class: 'small muted' }, 'Dans les mini-jeux, ton héros n’utilise pas ses statistiques de bataille : il a ses propres statistiques d’expédition, améliorées ici avec tes ressources.'),
         ...Object.keys(M.UPGRADES).filter((k) => M.UPGRADES[k].stat && !M.UPGRADES[k].trophy).map((k) => upgradeRow(k)),
         el('h3', { class: 'mini-sub' }, 'Vitesse, sac et seau / charrette (butins des monstres)'),
-        el('div', { class: 'mini-res' }, ...Object.entries(M.TROPHIES).map(([k, t]) => el('span', { class: 'chip' + ((T[k] || 0) > 0 ? '' : ' muted'), title: `${t.name} (${M.MODES[t.zone].name})` }, `${t.icon} ${T[k] || 0} ${t.name.toLowerCase()}${t.rare ? ' ★' : ''}`))),
+        el('div', { class: 'mini-res' }, ...Object.entries(M.TROPHIES).map(([k, t]) => el('span', { class: 'chip' + ((T[k] || 0) > 0 ? '' : ' muted'), title: `${t.name} (${t.zone ? M.MODES[t.zone].name : 'élites et gardiens, toutes zones'})` }, `${t.icon} ${T[k] || 0} ${t.name.toLowerCase()}${t.rare ? ' ★' : ''}`))),
         upgradeRow('vitesse'), upgradeRow('endurance'), upgradeRow('cadence'), upgradeRow('sac'), upgradeRow('chariot'),
         el('h3', { class: 'mini-sub' }, 'Équipement et récolte'),
         upgradeRow('potion'), ...GD.RES_IDS.map((k) => upgradeRow('harvest_' + k))),
@@ -415,7 +415,7 @@
   }
   function petsPanel() {
     const P = state.pets || { list: [], active: [] }, me = window.PlayerApp && window.PlayerApp.me();
-    const inRun = !!(state.run && state.run.state !== 'over');
+    const inRun = !!(state.run && state.run.state !== 'over'), fioles = (state.trophies || {}).fiole || 0;
     const toggle = (id) => {
       const on = P.active.includes(id);
       const ids = on ? P.active.filter((x) => x !== id) : [...P.active, id].slice(-PT.ACTIVE_MAX);
@@ -433,6 +433,7 @@
         el('ul', { class: 'pet-fx small' }, ...GD.petFxText(p.kind, p.rarity).map((t) => el('li', {}, t))),
         el('div', { class: 'pet-btns' },
           el('button', { class: on ? 'primary' : '', disabled: busy || inRun || (p.ko && !on), title: inRun ? 'Impossible pendant une expédition' : '', onclick: () => toggle(p.id) }, on ? '✓ Actif' : 'Activer'),
+          p.hp < p.max || p.ko ? el('button', { disabled: busy || inRun || !(fioles > 0), title: fioles > 0 ? 'Utilise une potion de familier : PV au maximum, fin du repos' : 'Pas de potion de familier (butin rare des élites et des gardiens)', onclick: () => send('/api/pets/heal', { id: p.id }) }, `🧴 Soigner (${fioles})`) : '',
           el('button', { class: main ? 'selected' : '', disabled: busy || p.level < PT.MAIN_LEVEL, title: `Familier principal : t’accompagne à côté de ton héros en défense de tour (niveau ${PT.MAIN_LEVEL} minimum, purement esthétique)`, onclick: () => send('/api/pets/main', { id: main ? null : p.id }) }, main ? '⭐ Principal' : '☆ Principal')));
     });
     const kennel = Object.entries(PT.KINDS).filter(([, K]) => K.kennel).map(([kind, K]) => {
@@ -447,7 +448,7 @@
         owned ? '✓ Adopté' : `🌨️ ${PT.KENNEL_PRICE} Grêlons`));
     });
     return el('div', { class: 'panel' }, el('h2', {}, '🐾 Familiers'),
-      el('p', { class: 'small muted' }, `Jusqu’à ${PT.ACTIVE_MAX} familiers t’accompagnent en expédition : ils te suivent et se battent seuls (l’écureuil et le mulot récoltent les points proches, l’ours porte des cases de sac en plus). Les monstres ont ${Math.round(PT.HIT_CHANCE * 100)} % de chances de les viser. Leurs PV ne remontent qu’avec le temps (${Math.round(PT.REGEN_PER_HOUR * 100)} % par heure) ; un familier K.-O. se repose jusqu’à ${Math.round(PT.REST_PCT * 100)} % de ses PV. Ils gagnent de l’XP à chaque expédition et évoluent (en apparence) aux niveaux ${PT.EVOLVE.join(' et ')}.`),
+      el('p', { class: 'small muted' }, `Jusqu’à ${PT.ACTIVE_MAX} familiers t’accompagnent en expédition : ils te suivent et se battent seuls (l’écureuil et le mulot récoltent les points proches, l’ours porte des cases de sac en plus). Les monstres ont ${Math.round(PT.HIT_CHANCE * 100)} % de chances de les viser. Leurs PV ne remontent qu’avec le temps (${Math.round(PT.REGEN_PER_HOUR * 100)} % par heure) ; un familier K.-O. se repose jusqu’à ${Math.round(PT.REST_PCT * 100)} % de ses PV. Une 🧴 potion de familier (butin rare : ${Math.round(M.DROPS.petPotion.elite * 100)} % des élites, ${Math.round(M.DROPS.petPotion.boss * 100)} % des gardiens) le soigne entièrement, même K.-O. Ils gagnent de l’XP à chaque expédition et évoluent (en apparence) aux niveaux ${PT.EVOLVE.join(' et ')}.`),
       (P.eggs || []).length ? el('h3', { class: 'mini-sub' }, '🥚 Œufs en incubation') : '',
       (P.eggs || []).length ? el('div', { class: 'pet-grid' }, ...P.eggs.map((e) => {
         const M2 = M.MODES[e.mode], dec = M2.decors[e.tier] || M2.decors[0], ready = e.readyIn <= 0, cv = eggCanvas(e);

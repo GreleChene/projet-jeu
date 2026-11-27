@@ -115,6 +115,7 @@
       const drops = kind === 'boss' ? [T3.rare, ...Array.from({ length: D.bossCommons }, pickC)]
         : kind === 'elite' ? [...Array.from({ length: D.eliteCommons }, pickC), ...(R() < D.eliteRare ? [T3.rare] : [])]
           : R() < D.normal ? [pickC()] : [];
+      if ((kind === 'boss' || kind === 'elite') && R() < D.petPotion[kind]) drops.push('fiole'); // potion de familier (rare)
       mobs.push({ i: mobs.length, ...st, x: Math.round(p.x), y: Math.round(p.y), drops, abil: kind === 'boss' ? M.bosses[tier].abil : null });
     };
     if (type === 'gardien') add(M.bosses[tier].type, 'boss');

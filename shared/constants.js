@@ -909,9 +909,11 @@
       peau: { name: 'Peau de bête', icon: '🐾', zone: 'foret' }, croc: { name: 'Croc', icon: '🦷', zone: 'foret' },
       crane: { name: 'Crâne maudit', icon: '💀', zone: 'foret', rare: true },
       plume: { name: 'Plume', icon: '🪶', zone: 'champ' }, ecaille: { name: 'Écaille', icon: '🐚', zone: 'champ' },
-      braise: { name: 'Braise de feu follet', icon: '🔥', zone: 'champ', rare: true }
+      braise: { name: 'Braise de feu follet', icon: '🔥', zone: 'champ', rare: true },
+      // butin rare des élites et des gardiens (toutes les zones) : soigne entièrement un familier au camp, même K.-O.
+      fiole: { name: 'Potion de familier', icon: '🧴', zone: null, rare: true, pet: true }
     },
-    DROPS: { normal: 0.2, eliteCommons: 2, eliteRare: 0.25, bossCommons: 3 }, // butins : 20 % par monstre ; élite 2 (+ rare 25 %) ; gardien : rare + 3
+    DROPS: { normal: 0.2, eliteCommons: 2, eliteRare: 0.25, bossCommons: 3, petPotion: { elite: 0.1, boss: 0.25 } }, // butins : 20 % par monstre ; élite 2 (+ rare 25 %) ; gardien : rare + 3 ; potion de familier : élite 10 %, gardien 25 %
     MODES: {
       mine: {
         name: 'Exploration de la caverne', icon: '⛏️', res: 'pierre', verb: 'Descendre dans la caverne', exit: 'hole', cart: 'seau',

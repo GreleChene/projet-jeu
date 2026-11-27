@@ -199,6 +199,7 @@ app.post('/api/pets/hatch', auth, (req, res) => {
     throw e;
   }
 });
+app.post('/api/pets/heal', auth, (req, res) => miniReply(res, req.user, () => pets.heal(req.user, String((req.body || {}).id))));
 app.post('/api/pets/main', auth, (req, res) => miniReply(res, req.user, () => { pets.setMain(req.user, (req.body || {}).id ? String(req.body.id) : null); afterProfileChange(req.user); }));
 app.post('/api/mini/upgrade', auth, (req, res) => miniReply(res, req.user, () => { mini.buyUpgrade(req.user, String((req.body || {}).id)); afterProfileChange(req.user); }));
 

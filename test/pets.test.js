@@ -137,3 +137,31 @@ test('mini-jeux : les monstres qui tirent peuvent toucher les familiers à dista
   for (let i = 0; i < 200; i++) X.stepSim(s, 0.05, {});
   assert.ok(s.ops.some((o) => o[0] === 'h') && s.bag.length === 1, 'récolte automatique');
 });
+
+test('familiers : potion de familier — butin rare des élites et des gardiens, soigne entièrement (même K.-O.)', () => {
+  // butin : jamais sur les monstres normaux, parfois sur les élites (≈ 10 %) et les gardiens (≈ 25 %)
+  let elite = 0, boss = 0, normal = 0, n = 0;
+  for (let seed = 1; seed <= 400; seed++) {
+    const e = X.genRoom('mine', seed, 5, {}), g = X.genRoom('foret', seed, 10, {});
+    if (e.mobs[0].drops.includes('fiole')) elite++;
+    if (g.mobs[0].drops.includes('fiole')) boss++;
+    for (const m of [...e.mobs.slice(1), ...g.mobs.slice(1)]) { n++; if (m.drops.includes('fiole')) normal++; }
+  }
+  assert.strictEqual(normal, 0);
+  assert.ok(elite > 400 * 0.05 && elite < 400 * 0.16, `élites : ${elite}/400`);
+  assert.ok(boss > 400 * 0.17 && boss < 400 * 0.33, `gardiens : ${boss}/400`);
+  // soin au camp
+  const u = user();
+  pets.buy(u, 'k_loup');
+  const p = u.pets.list[0];
+  assert.throws(() => pets.heal(u, p.id), /pleine forme/);
+  p.hp = 0; p.ko = true;
+  assert.throws(() => pets.heal(u, p.id), /Pas de potion/);
+  u.mini.trophies = { fiole: 1 };
+  mini.start(u, 'mine', {}, { rnd: fixed(0.99) });
+  assert.throws(() => pets.heal(u, p.id), /expédition/);
+  u.mini.run = null;
+  pets.heal(u, p.id);
+  assert.ok(!p.ko && p.hp === GD.petMaxHp('k_loup', 0));
+  assert.strictEqual(u.mini.trophies.fiole, 0);
+});

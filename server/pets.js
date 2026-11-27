@@ -122,6 +122,21 @@ function hatchEgg(u, id, rnd = Math.random, now = Date.now()) {
   return hatch(u, egg.mode, egg.tier, rnd);
 }
 
+// Potion de familier (butin rare des élites et des gardiens) : soigne entièrement un familier, même K.-O.
+function heal(u, id) {
+  const P = ensure(u);
+  if (u.mini && u.mini.run && u.mini.run.state !== 'over') fail('Impossible pendant une expédition');
+  const p = P.list.find((x) => x.id === id);
+  if (!p) fail('Familier inconnu');
+  const max = GD.petMaxHp(p.kind, p.rarity);
+  if (p.hp >= max && !p.ko) fail(`${GD.petName(p.kind)} est déjà en pleine forme`);
+  const T = (u.mini && u.mini.trophies) || {};
+  if (!(T.fiole > 0)) fail('Pas de potion de familier : les élites et les gardiens en lâchent parfois');
+  T.fiole--;
+  p.hp = max; p.ko = false; p.at = Date.now();
+  return p;
+}
+
 // Familiers engagés dans une expédition (copie de combat)
 function forRun(u) {
   const P = ensure(u);
@@ -167,4 +182,4 @@ function streamLook(u) {
   return p && p.level >= PETS.MAIN_LEVEL ? [GD.petSprite(p.kind), GD.petStage(p.level)] : null;
 }
 
-module.exports = { PetError, ensure, buy, setActive, setMain, hatch, addEgg, hatchEgg, forRun, afterRun, publicState, streamLook };
+module.exports = { PetError, ensure, buy, setActive, setMain, heal, hatch, addEgg, hatchEgg, forRun, afterRun, publicState, streamLook };
