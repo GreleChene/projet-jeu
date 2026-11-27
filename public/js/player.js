@@ -230,8 +230,8 @@
           const paid = o.cost && Object.keys(o.cost).length > 0;
           const afford = o.afford !== false;
           return el('button', { class: 'option' + (o.id === 'pact' ? ' challenge' : '') + (v.mine === o.id ? ' voted' : ''), disabled: !afford, onclick: () => socket.emit('vote', o.id) },
-            el('span', { class: 'icon' }, isSave ? '🪙' : up.icon),
-            el('span', { class: 'name' }, isSave ? 'Économiser' : `${up.name}${o.level && !up.revive ? ` (niv. ${o.level + 1})` : ''}`),
+            el('span', { class: 'icon' }, up.icon),
+            el('span', { class: 'name' }, `${up.name}${o.level && !up.revive ? ` (niv. ${o.level + 1})` : ''}`),
             el('span', { class: 'desc' }, up.desc),
             el('span', { class: 'desc', style: 'display:block;margin-top:6px;color:var(--gold)' }, `${paid ? GD.costText(o.cost) + ' · ' : ''}${v.counts[o.id] || 0} vote(s)`));
         }));
