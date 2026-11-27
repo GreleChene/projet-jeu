@@ -1,7 +1,7 @@
 /* Onglet « Mini-jeux » : expéditions solo en temps réel, vues du dessus (caverne, forêt, clairière).
  * La salle est simulée dans la page (shared/expedition.js) ; le serveur valide les rapports et garde l'inventaire.
  * Commandes : ZQSD / flèches, clic gauche = attaquer ou récolter vers la souris, clic droit = bouclier (parade),
- * Maj = sprint, Espace = roulade (invulnérable 2 s), E = compétence, A = potion, F = seau ou charrette, Échap = pause. Sur téléphone : joystick et boutons. */
+ * Maj = sprint, Espace = roulade (invulnérable 1 s), E = compétence, A = potion, F = seau ou charrette, Échap = pause. Sur téléphone : joystick et boutons. */
 (function () {
   'use strict';
   const GD = window.GameData, M = GD.MINI, A = window.Art, X = window.Expedition, D = window.MiniDecor;

@@ -400,7 +400,7 @@ test('mini-jeux (simulation) : sprint (Maj) ×1,5 avec une jauge d’endurance q
   assert.strictEqual(arena([], null, { stamina: 150 }).hero.staminaMax, 150);
 });
 
-test('mini-jeux (simulation) : roulade (Espace) — bond, 2 s d’invulnérabilité, 50 d’endurance', () => {
+test('mini-jeux (simulation) : roulade (Espace) — bond, 1 s d’invulnérabilité, 50 d’endurance', () => {
   const s = arena([]);
   X.stepSim(s, 0.05, { mx: 1, roll: true });
   assert.strictEqual(s.hero.stamina, M.BASE.stamina - M.ROLL.cost);
@@ -418,7 +418,7 @@ test('mini-jeux (simulation) : roulade (Espace) — bond, 2 s d’invulnérabili
   for (let i = 0; i < 10; i++) X.stepSim(s, 0.05, {});
   X.stepSim(s, 0.05, { roll: true });
   assert.ok(s.events.some((e) => e.k === 'tired'), 'plus assez d’endurance');
-  // après 2 s, il redevient vulnérable
+  // après l’invulnérabilité, il redevient vulnérable
   for (let i = 0; i < 50; i++) X.stepSim(s, 0.05, {});
   assert.strictEqual(s.hero.invT, 0);
   shoot();

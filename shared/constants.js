@@ -891,8 +891,8 @@
     DEATH_KEEP: 0.25,       // mort : on ne garde que 25 % des ressources du sac (rien du reste non renvoyé)
     REINFORCE: { after: 20, every: 5, count: 2 }, // 20 s après l'entrée dans la salle, des renforts arrivent toutes les 5 s (jamais de butin ; aucun en salle d'élite ou de gardien)
     SPRINT: { mult: 1.5, drain: 34, regen: 22, delay: 0.6, min: 15 }, // Maj : sprint ×1,5 ; endurance dépensée par seconde, rechargée après 0,6 s, 15 pour repartir
-    // Espace : roulade — bond rapide (0,3 s), puis 2 s d'invulnérabilité ; coûte 50 d'endurance, qui ne remonte pas pendant l'invulnérabilité
-    ROLL: { cost: 50, invuln: 2, dash: 0.3, speed: 500 },
+    // Espace : roulade — bond rapide (0,3 s), puis 1 s d'invulnérabilité ; coûte 50 d'endurance, qui ne remonte pas pendant l'invulnérabilité
+    ROLL: { cost: 50, invuln: 1, dash: 0.3, speed: 500 },
     // monstres présents au départ d'une salle normale ou riche (à éliminer avant de pouvoir rentrer) : 3, puis +1 toutes les 6 salles (8 au plus) ;
     // chaque monstre en plus retarde les renforts de 2 s (20 s → 30 s au plus)
     START_MOBS: 3, MOBS_EVERY: 6, MOBS_MAX: 8, REINF_PER_MOB: 2,
