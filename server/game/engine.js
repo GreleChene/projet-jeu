@@ -26,6 +26,8 @@ const DEFAULT_SETTINGS = {
   intermission: 4, // secondes d'entracte entre deux manches (les votes ont lieu pendant les manches)
   autoNext: true, // enchaîne les manches automatiquement
   autoRestart: false, // relance une partie après une défaite
+  dailyStart: true, // lance une partie de défense de tour tous les jours à dailyTime (heure de Paris)
+  dailyTime: '23:00',
   joinWindow: 180, // secondes pendant lesquelles on peut rejoindre après le lancement (0 = toute la partie)
   prepTime: 15, // secondes de préparation avant la 1re manche
   maxHeroes: 200,

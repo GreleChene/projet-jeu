@@ -122,7 +122,9 @@
     ['maxHeroes', 'Héros maximum', 'number', 1],
     ['maxAliveMobs', 'Monstres simultanés max', 'number', 10],
     ['autoNext', 'Enchaîner les manches automatiquement', 'checkbox'],
-    ['autoRestart', 'Relancer une partie quand l’écran de fin est validé', 'checkbox']
+    ['autoRestart', 'Relancer une partie quand l’écran de fin est validé', 'checkbox'],
+    ['dailyStart', 'Lancer automatiquement une partie tous les jours', 'checkbox'],
+    ['dailyTime', 'Heure du lancement automatique (heure de Paris)', 'time']
   ];
   function renderSettings(s) {
     $('#settings').replaceChildren(...SETTINGS.map(([k, label, type, step]) => el('div', {},
@@ -133,7 +135,7 @@
   }
   async function saveSettings() {
     const body = {};
-    for (const [k, , type] of SETTINGS) body[k] = type === 'checkbox' ? $('#set_' + k).checked : Number($('#set_' + k).value);
+    for (const [k, , type] of SETTINGS) body[k] = type === 'checkbox' ? $('#set_' + k).checked : type === 'time' ? $('#set_' + k).value : Number($('#set_' + k).value);
     try { await api('/api/admin/game/settings', { body }); $('#setNotice').textContent = 'Enregistré ✓'; setTimeout(() => ($('#setNotice').textContent = ''), 1500); }
     catch (e) { toast(e.message); }
   }

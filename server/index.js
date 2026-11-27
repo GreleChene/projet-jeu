@@ -704,6 +704,8 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
       num('maxHeroes', 1, 500); num('maxAliveMobs', 20, 600); num('voteEvery', 1, 20); num('joinWindow', 0, 7200); num('prepTime', 5, 600);
       if (b.autoNext !== undefined) s.autoNext = !!b.autoNext;
       if (b.autoRestart !== undefined) s.autoRestart = !!b.autoRestart;
+      if (b.dailyStart !== undefined) s.dailyStart = !!b.dailyStart;
+      if (b.dailyTime !== undefined && /^([01]\d|2[0-3]):[0-5]\d$/.test(String(b.dailyTime))) s.dailyTime = String(b.dailyTime);
       game.saveSettings();
       break;
     }
@@ -711,6 +713,27 @@ app.post('/api/admin/game/:action', admin, (req, res) => {
   }
   res.json({ ok: true, run: game.publicRunInfo(), settings: game.settings });
 });
+
+// Lancement automatique : une partie de défense de tour tous les jours à l'heure choisie (heure de Paris, quel que soit
+// le fuseau du serveur). Pendant 30 min après l'heure, tant qu'aucune partie n'est en cours ; une seule fois par jour.
+const PARIS = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+function parisNow(d = new Date()) {
+  const p = Object.fromEntries(PARIS.formatToParts(d).map((x) => [x.type, x.value]));
+  return { day: `${p.year}-${p.month}-${p.day}`, minutes: (Number(p.hour) % 24) * 60 + Number(p.minute) };
+}
+function dailyCheck(now = new Date()) {
+  const s = game.settings;
+  if (!s.dailyStart || !/^\d\d:\d\d$/.test(s.dailyTime || '')) return false;
+  const { day, minutes } = parisNow(now), [h, m] = s.dailyTime.split(':').map(Number), at = h * 60 + m;
+  if (s.lastDaily === day || minutes < at || minutes > at + 30) return false;
+  if (!['lobby', 'gameover', 'victory'].includes(game.phase)) return false; // une partie est déjà en cours
+  s.lastDaily = day;
+  game.saveSettings();
+  game.startRun(1, { mode: 'classic', difficulty: 'normal' });
+  console.log(`Lancement automatique de la défense de tour (${s.dailyTime}, heure de Paris).`);
+  return true;
+}
+setInterval(() => { try { dailyCheck(); } catch (e) { console.warn('Lancement automatique :', e.message); } }, 20e3).unref();
 
 // Anti-triche : comptes avec des alertes ou liés à d'autres comptes (même connexion)
 // comptes des joueurs (sans l'admin, qui teste souvent depuis la même connexion)

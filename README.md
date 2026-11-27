@@ -40,6 +40,7 @@ En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui t
 
 ## Le jeu
 
+- **Lancement automatique tous les jours à 23 h** (heure de Paris, quel que soit le fuseau du serveur) : une partie classique en difficulté normale démarre seule, avec ses inscriptions, si aucune partie n'est en cours (sinon elle est retentée pendant 30 min, une fois par jour). Réglable dans l'admin (« Lancer automatiquement une partie tous les jours », heure du lancement).
 - **Lancement par l'admin et inscriptions limitées.** Le bouton « Rejoindre la bataille » n'apparaît que lorsque l'admin a lancé une bataille, et seulement pendant la durée d'inscription qu'il a choisie (180 s par défaut, réglable ; l'admin peut aussi rouvrir ou fermer les inscriptions). Ensuite, plus personne ne peut rejoindre. Chaque nouvelle bataille demande de rejoindre à nouveau.
 - **Twitch** (chaîne `hyoneko_` par défaut, réglable dans l'admin). Le serveur lit le chat en anonyme, sans identifiants, et reconnaît trois commandes :
   - `!lier CODE` : lie le compte Twitch au compte du site (le code est affiché dans l'onglet Compte) ;
