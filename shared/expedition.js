@@ -21,6 +21,9 @@
   const IN = { x0: A.WALL + 18, x1: A.W - A.WALL - 18, y0: A.WALL + 18, y1: A.H - A.WALL - 18 }; // intérieur jouable
 
   /* ============================== Génération des salles ============================== */
+  // monstres de départ d'une salle normale ou riche, et délai des renforts (un peu plus long en profondeur)
+  const startMobs = (room) => Math.min(MINI.MOBS_MAX, MINI.START_MOBS + Math.floor((room - 1) / MINI.MOBS_EVERY));
+  const reinfAfter = (room) => MINI.REINFORCE.after + MINI.REINF_PER_MOB * (startMobs(room) - MINI.START_MOBS);
   function roomType(seed, room) {
     if (room % MINI.BOSS_EVERY === 0) return 'gardien';
     if (room % MINI.ELITE_EVERY === 0) return 'elite';
@@ -116,7 +119,7 @@
     };
     if (type === 'gardien') add(M.bosses[tier].type, 'boss');
     if (type === 'elite') add(pool[Math.floor(R() * pool.length)], 'elite');
-    const nM = type === 'repos' ? 0 : type === 'gardien' ? 2 : type === 'elite' ? Math.min(3, 1 + Math.floor(room / 10)) : MINI.START_MOBS;
+    const nM = type === 'repos' ? 0 : type === 'gardien' ? 2 : type === 'elite' ? Math.min(3, 1 + Math.floor(room / 10)) : startMobs(room);
     for (let k = 0; k < nM; k++) add(pool[Math.floor(R() * pool.length)], '');
     const cp = free(30, 130), cart = { x: Math.round(cp.x), y: Math.round(cp.y) };
     return { mode, room, type, decor, sub, tier, seed, entry, exit, fountain, nodes, mobs, cart,
@@ -411,7 +414,7 @@
     if (!s.exitOpen && s.t >= s.exitAt) openExit(s);
     if (s.exitOpen) {
       const R2 = MINI.REINFORCE, since = s.t - s.exitOpenedAt;
-      if (since >= R2.after && s.t >= s.reinfT) { s.reinfT = s.t + R2.every; spawnReinf(s, R2.count); }
+      if (since >= reinfAfter(s.room.room) && s.t >= s.reinfT) { s.reinfT = s.t + R2.every; spawnReinf(s, R2.count); }
     }
   }
   function bagFull(s) { if (!s.fullT || s.t > s.fullT) { s.fullT = s.t + 1.2; ev(s, 'bagfull', { x: s.hero.x, y: s.hero.y }); } }
@@ -629,5 +632,5 @@
   const nearCart = (s) => !!(s.cart && s.cart.here && s.cart.x !== undefined && dist(s.hero, s.cart) < 80);
 
   return { roomType, sidesFor, genRoom, mobStats, bagCap, cartCap, hasPocket, carrySlots, addRes, resRoom, addTrophy, moveSlot, moveAll, totals, deathSplit,
-    heroStyle, createSim, stepSim, nearCart, startMobsLeft, openExit, SLOT, REINF0, reinfSpec, mobAt };
+    heroStyle, createSim, stepSim, startMobs, reinfAfter, nearCart, startMobsLeft, openExit, SLOT, REINF0, reinfSpec, mobAt };
 });

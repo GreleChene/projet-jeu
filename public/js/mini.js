@@ -364,7 +364,7 @@
           el('li', {}, `Une expédition coûte 1 ⚡ (1 énergie toutes les ${M.ENERGY_HOURS} h, ${M.ENERGY_MAX} au plus). Tu diriges ton héros en temps réel, vu du dessus, avec ses statistiques d’expédition (et jusqu’à ${PT.ACTIVE_MAX} familiers).`),
           el('li', {}, 'Commandes : ZQSD ou flèches pour bouger · clic gauche (maintenu) pour attaquer vers la souris ou récolter le point visé · clic droit (maintenu) pour le bouclier · E : compétence · A : potion · F ou Espace : seau / charrette · Échap : pause. Sur téléphone : joystick et boutons.'),
           el('li', {}, `Bouclier : il encaisse les coups avec ses points. Levé juste avant un coup (${Math.round(M.SHIELD.parryWindow * 1000)} ms), c’est une parade parfaite : aucun dégât et le coup est renvoyé (les projectiles repartent vers les monstres).`),
-          el('li', {}, `Chaque salle contient des points de récolte et des monstres. La sortie apparaît au bout de ${M.ROOMS.normal.exit} s (une cavité dans la caverne, une ouverture sur un côté ailleurs) ; ${M.REINFORCE.after} s plus tard, des renforts arrivent. Salles riches (beaucoup de récolte, sortie à ${M.ROOMS.riche.exit} s), salles de repos (fontaine de soin), élite toutes les ${M.ELITE_EVERY} salles et gardien de zone toutes les ${M.BOSS_EVERY} : la sortie ne s’ouvre qu’une fois vaincus, avec une récompense au choix (${Math.round(PT.EGG_CHANCE * 100)} % de chances d’un œuf de familier).`),
+          el('li', {}, `Chaque salle contient des points de récolte et des monstres. La sortie apparaît au bout de ${M.ROOMS.normal.exit} s (une cavité dans la caverne, une ouverture sur un côté ailleurs) ; ${M.REINFORCE.after} s plus tard (un peu plus en profondeur), des renforts arrivent. Salles riches (beaucoup de récolte, sortie à ${M.ROOMS.riche.exit} s), salles de repos (fontaine de soin), élite toutes les ${M.ELITE_EVERY} salles et gardien de zone toutes les ${M.BOSS_EVERY} : la sortie ne s’ouvre qu’une fois vaincus, avec une récompense au choix (${Math.round(PT.EGG_CHANCE * 100)} % de chances d’un œuf de familier).`),
           el('li', {}, `Sac : ${M.BAG.base} cases (+${M.BAG.per} par niveau) ; une case = ${M.HARVEST.slot} ressources ou 1 butin de monstre. Vide-le dans le seau (caverne) ou la charrette (forêt, clairière) : ${M.CART.base} cases (+${M.CART.per} par niveau), il ou elle t’attend à un endroit différent de chaque salle (et te rejoint d’une salle à l’autre avec son contenu). « Renvoyer » met son contenu à l’abri à la base (retour ${M.CART.away} salles plus tard) ; « Rentrer » termine l’expédition avec tout, une fois les monstres de départ de la salle éliminés.`),
           el('li', {}, `Si ton héros tombe, tout ce qui n’a pas été renvoyé est perdu (butins compris), sauf ${Math.round(M.DEATH_KEEP * 100)} % des ressources du sac — et la poche sécurisée (sac au niveau max : ses ${M.BAG.pocket} cases les plus précieuses sont gardées).`),
           el('li', {}, 'Les ressources améliorent les statistiques d’expédition et ta récolte en défense de tour ; les butins des monstres agrandissent le sac et le seau / la charrette.'))));
@@ -672,7 +672,7 @@
         li('Échap', 'pause'),
         G.touchMode ? li('Téléphone', `joystick pour bouger, touche la scène ou ⚔️ pour attaquer, 🔰 bouclier, ✨ compétence, 🧪 potion, ${cw.icon} ${cw.the}`) : ''),
       el('ul', { class: 'small muted' },
-        el('li', {}, `La sortie apparaît au bout de ${M.ROOMS.normal.exit} s : ${MD.exit === 'hole' ? 'une cavité dans le sol' : 'une ouverture sur un côté'}. ${M.REINFORCE.after} s plus tard, des renforts arrivent.`),
+        el('li', {}, `La sortie apparaît au bout de ${M.ROOMS.normal.exit} s : ${MD.exit === 'hole' ? 'une cavité dans le sol' : 'une ouverture sur un côté'}. ${M.REINFORCE.after} s plus tard (un peu plus en profondeur), des renforts arrivent.`),
         el('li', {}, `Sac : 1 case = ${M.HARVEST.slot} ressources ou 1 butin de monstre. Vide-le dans ${cw.the}, posé${cw.the === 'le seau' ? '' : 'e'} à un endroit au hasard dans chaque salle.`),
         el('li', {}, `« Renvoyer » met le contenu ${cw.of} à l’abri (retour ${M.CART.away} salles plus tard) ; « Rentrer » termine l’expédition, une fois les monstres de la salle éliminés.`),
         el('li', {}, `Si ton héros tombe : tout ce qui n’a pas été renvoyé est perdu, sauf ${Math.round(M.DEATH_KEEP * 100)} % des ressources du sac.`)),
@@ -1250,9 +1250,10 @@
     // en haut au centre : la sortie (et les renforts)
     let msg, col = '#ffffff';
     if (s.exitOpen) {
-      const since = s.t - s.exitOpenedAt, R2 = M.REINFORCE;
-      if (since >= R2.after) { msg = '⚠️ Renforts en approche !'; col = '#ffb0a0'; }
-      else if (since >= R2.after - 15) { msg = `⚠️ Renforts dans ${Math.ceil(R2.after - since)} s`; col = '#ffd0a0'; }
+      const since = s.t - s.exitOpenedAt;
+      const after = X.reinfAfter(G.roomNo);
+      if (since >= after) { msg = '⚠️ Renforts en approche !'; col = '#ffb0a0'; }
+      else if (since >= after - 15) { msg = `⚠️ Renforts dans ${Math.ceil(after - since)} s`; col = '#ffd0a0'; }
       else { msg = room.exit.kind === 'hole' ? '➡️ Cavité ouverte : saute dedans !' : '➡️ Passage ouvert !'; col = '#b8ffb0'; }
     } else if (room.boss >= 0) msg = room.type === 'gardien' ? '👑 Vaincs le gardien pour ouvrir la sortie' : '⚔️ Vaincs l’élite pour ouvrir la sortie';
     else msg = `⏳ Sortie dans ${Math.max(1, Math.ceil(s.exitAt - s.t))} s`;

@@ -890,7 +890,9 @@
     CART: { base: 10, per: 10, away: 2 },    // seau / charrette : 10 cases (+10 par niveau) ; renvoyé(e), revient 2 salles plus tard
     DEATH_KEEP: 0.25,       // mort : on ne garde que 25 % des ressources du sac (rien du reste non renvoyé)
     REINFORCE: { after: 15, every: 5, count: 2 }, // 15 s après l'ouverture de la sortie, des renforts arrivent toutes les 5 s (jamais de butin)
-    START_MOBS: 3,          // monstres présents au départ d'une salle normale ou riche (à éliminer avant de pouvoir rentrer)
+    // monstres présents au départ d'une salle normale ou riche (à éliminer avant de pouvoir rentrer) : 3, puis +1 toutes les 6 salles (8 au plus) ;
+    // chaque monstre en plus retarde les renforts de 2 s (15 s → 25 s au plus)
+    START_MOBS: 3, MOBS_EVERY: 6, MOBS_MAX: 8, REINF_PER_MOB: 2,
     FOUNTAIN: { hps: 10, time: 3 },  // fontaine des salles de repos : 10 PV/s pendant 3 s au total
     ROOMS: {
       normal: { name: 'Salle', icon: '🗡️', exit: 10, nodes: [3, 4], mobs: true },

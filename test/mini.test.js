@@ -177,6 +177,8 @@ test('mini-jeux : « Rentrer » avec le seau / la charrette termine l’expédit
   run.xp = 50;
   const R = X.genRoom('champ', run.seed, 4, run.gen);
   assert.strictEqual(R.mobs.length, M.START_MOBS, '3 monstres au départ');
+  assert.deepStrictEqual([1, 7, 13, 31, 80].map(X.startMobs), [3, 4, 5, 8, 8], 'plus nombreux en profondeur (8 au plus)');
+  assert.deepStrictEqual([1, 13, 80].map(X.reinfAfter), [15, 19, 25], 'renforts un peu plus tard en profondeur');
   assert.throws(() => mini.act(u, { action: 'home' }, { now: T0 + 1e9 }), /Élimine d’abord/, 'pas de retour tant que les monstres de la salle vivent');
   mini.act(u, { action: 'sync', report: { k: R.mobs.map((m) => m.i) } }, { now: T0 + 1e9 });
   run.xp = 50;

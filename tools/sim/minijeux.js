@@ -113,7 +113,7 @@ function decide(s) {
   // combat : le monstre le plus proche (éveillé ou à moins de 300 px)
   let tg = null, bd = 1e9;
   for (const m of mobs) { const d = dist(m, h); if ((m.aggro || d < 300) && d < bd) { bd = d; tg = m; } }
-  if (tg && !(exitOpen && since > M.REINFORCE.after - 8 && !tg.boss && !tg.elite)) {
+  if (tg && !(exitOpen && since > X.reinfAfter(s.room.room) - 8 && !tg.boss && !tg.elite)) {
     const reach = s.style === 'melee' ? tg.r + 44 : 230;
     go(tg.x, tg.y, reach - 12);
     inp.ax = tg.x; inp.ay = tg.y;
@@ -124,11 +124,11 @@ function decide(s) {
   // butins et tas de ressources
   const roomInBag = s.bag.length < s.bagCap;
   const drop = s.drops.find((d) => roomInBag || (!d.t && s.bag.some((x) => x.r === d.r && x.n < X.SLOT)));
-  if (drop && since < M.REINFORCE.after - 5) { go(drop.x, drop.y, 2); return inp; }
+  if (drop && since < X.reinfAfter(s.room.room) - 5) { go(drop.x, drop.y, 2); return inp; }
   // sac plein : vers le seau s'il est là et qu'il a de la place
   if (!roomInBag && s.cart.here && s.cart.items.length < s.cart.cap) { go(s.cart.x, s.cart.y, 40); return inp; }
   // récolte
-  if (roomInBag && since < M.REINFORCE.after - 6) {
+  if (roomInBag && since < X.reinfAfter(s.room.room) - 6) {
     let n = null, nd = 1e9;
     for (const q of s.nodes) if (q.left > 0) { const d = dist(q, h); if (d < nd) { nd = d; n = q; } }
     if (n) { go(n.x, n.y, 48); inp.ax = n.x; inp.ay = n.y; if (nd < 60) inp.attack = true; return inp; }
