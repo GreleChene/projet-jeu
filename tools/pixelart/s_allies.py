@@ -88,3 +88,54 @@ def bird(frame=0):
     else:
         c.poly([(7, 10), (15, 10), (13, 17), (10, 17)], 'W'); c.line(10, 16, 12, 11, 'w')
     return c.rows()
+
+# Familiers du chenil (mini-jeux) : tortue, lapin, écureuil
+TURTLE_PAL = {'S': '#5aa04a', 's': '#3a7a32', 'l': '#8fd070', 'H': '#c9a46a', 'h': '#9a7a46', 'B': '#e8d8a0', 'k': '#140c08'}
+def turtle(frame=0):
+    c = C(30, 17)
+    st = 1 if frame % 2 else 0
+    # pattes (arrière en sombre)
+    for (x, d) in ((6, st), (18, -st)): c.rect(x + d, 12, 4, 4, 'h')
+    # tête et cou (sort davantage pour attaquer)
+    hx = 27 if frame == 2 else 25
+    c.line(20, 11, hx - 2, 10, 'H', 2); c.ell(hx, 9, 3.6, 2.8, 'H'); c.px(hx + 1, 8, 'k'); c.line(hx + 1, 10, hx + 3, 10, 'h')
+    # carapace bombée et bordure
+    c.ell(14, 8, 10.5, 6.5, 'S'); c.rect(4, 11, 21, 2, 'B')
+    for (x, y) in ((9, 5), (15, 4), (12, 8), (6, 8), (18, 8)): c.ell(x, y, 2.2, 1.6, 's')
+    c.px(10, 3, 'l'); c.px(11, 3, 'l'); c.px(9, 4, 'l')
+    for (x, d) in ((9, -st), (21, st)): c.rect(x + d, 13, 4, 3, 'H')
+    return c.rows()
+
+RABBIT_PAL = {'F': '#d9c8b4', 'f': '#a8947c', 'L': '#f3ead7', 'P': '#e89aa8', 'k': '#140c08', 'W': '#ffffff'}
+def rabbit(frame=0):
+    c = C(24, 24)
+    h = [0, 2, 0][frame % 3]  # petit bond
+    y = 2 - h
+    c.ell(2, 14 + y, 2.4, 2.4, 'W')                       # queue
+    c.ell(10, 16 + y, 7, 5, 'F'); c.ell(11, 18 + y, 4.5, 2.2, 'L')  # corps
+    c.ell(5, 18 + y, 3.6, 3, 'f')                         # patte arrière
+    c.rect(14, 20 + y, 2, 2, 'f'); c.rect(11, 20 + y, 2, 2, 'f')
+    c.line(15, 8 + y, 13, 0 + y, 'F', 2); c.line(18, 8 + y, 18, 0 + y, 'F', 2)   # oreilles
+    c.line(14, 6 + y, 13, 2 + y, 'P'); c.line(18, 6 + y, 18, 2 + y, 'P')
+    c.ell(17, 11 + y, 4.4, 3.8, 'F')                      # tête
+    c.px(18, 10 + y, 'k'); c.px(21, 12 + y, 'P'); c.px(19, 13 + y, 'L'); c.px(20, 13 + y, 'L')
+    return c.rows()
+
+SQUIRREL_PAL = {'F': '#c86a2a', 'f': '#8a4518', 'L': '#f0d2a8', 'T': '#d9843a', 't': '#a85a20', 'k': '#140c08', 'N': '#7a5030', 'n': '#c9a46a'}
+def squirrel(frame=0):
+    c = C(26, 24)
+    b = 1 if frame % 2 else 0
+    # queue touffue en panache
+    c.ell(6, 10, 5.5, 8, 'T'); c.ell(9, 3.5, 4.5, 3.5, 'T')
+    c.recolor('T', 't', lambda x, y: x <= 3 or (y >= 14 and x <= 6))
+    c.line(5, 4, 4, 12, 't')
+    # corps, ventre
+    c.ell(14, 17 - b, 5, 5.5, 'F'); c.ell(15, 18 - b, 3, 3.5, 'L')
+    # tête, oreille, œil, museau
+    c.ell(18, 10 - b, 4, 3.6, 'F'); c.line(16, 7 - b, 16, 4 - b, 'F', 2); c.px(16, 4 - b, 'f')
+    c.px(19, 9 - b, 'k'); c.px(22, 11 - b, 'k'); c.px(20, 12 - b, 'L')
+    # noisette entre les pattes
+    nx = 22 if frame == 2 else 20
+    c.ell(nx, 16 - b, 2.2, 2, 'N'); c.px(nx, 14 - b, 'n')
+    c.rect(11, 22, 3, 2, 'f'); c.rect(16, 22, 3, 2, 'f')
+    return c.rows()

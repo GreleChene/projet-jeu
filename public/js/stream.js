@@ -389,6 +389,18 @@
     ctx.restore();
   }
 
+  // Petit familier qui suit le héros (familier principal niveau 10+, purement esthétique)
+  const petPos = new Map();
+  function drawHeroPet(id, h, pt) {
+    const dir = Math.cos(h.facing || 0) >= 0 ? 1 : -1;
+    const tx = h.x - dir * 40, ty = h.y + 12;
+    let p = petPos.get(id);
+    if (!p) { p = { x: tx, y: ty }; petPos.set(id, p); }
+    const d = Math.hypot(tx - p.x, ty - p.y);
+    p.x += (tx - p.x) * 0.08; p.y += (ty - p.y) * 0.08;
+    A.drawPet(ctx, pt[0], p.x, p.y, { size: 14, maxH: 42, t: time + id, facing: tx > p.x + 1 ? 0 : tx < p.x - 1 ? Math.PI : h.facing, stage: pt[1], moving: d > 3 });
+  }
+
   function drawHeroEnt(id, h) {
     const info = roster.get(id);
     if (!info) return;
@@ -401,6 +413,7 @@
       cls: info.cls, look: info.look, gear: info.gear, facing: h.facing, t: time, seed: h.seed, scale: HERO_SCALE, moving: h.moving,
       attack: Math.max(0, h.attackT), zombie: !!(h.f & HF.ZOMBIE), stealth: !!(h.f & HF.STEALTH), mounted: !!info.mt
     });
+    if (info.pt && !(h.f & HF.STEALTH)) drawHeroPet(id, h, info.pt);
     if (h.f & HF.SHIELD) { ctx.save(); ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(h.x, h.y - HERO_TOP * 0.42, HERO_TOP * 0.56, 0, Math.PI * 2); ctx.strokeStyle = P.fx.frost; ctx.lineWidth = 3; ctx.stroke(); ctx.restore(); }
     if (h.f & HF.ANTHEM && Math.random() < 0.12) fx.push({ k: 'text', x: h.x + (Math.random() - 0.5) * 24, y: h.y - HERO_TOP - 4, s: '♪', color: '#ffd34d', dur: 0.9, t: 0, size: 16 });
     else if (h.f & HF.SONG && Math.random() < 0.03) fx.push({ k: 'text', x: h.x + (Math.random() - 0.5) * 24, y: h.y - HERO_TOP, s: '♪', color: '#ff9fd0', dur: 0.8, t: 0, size: 13 });

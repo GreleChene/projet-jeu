@@ -915,7 +915,8 @@
       heal: { name: 'Repos', icon: '💚', desc: 'Soigne tous les PV' },
       res: { name: 'Trésor de l’élite', icon: '💰', desc: 'Un gros tas de la ressource du mode' },
       grelons: { name: 'Bourse de Grêlons', icon: '🌨️', desc: 'Des Grêlons tout de suite (gardés même en cas de mort)' },
-      potion: { name: 'Fiole', icon: '🧪', desc: '+1 potion de soin' }
+      potion: { name: 'Fiole', icon: '🧪', desc: '+1 potion de soin' },
+      egg: { name: 'Œuf mystérieux', icon: '🥚', desc: 'Un œuf de familier : un monstre de cette zone, rareté au hasard (très rare)' }
     },
     // Améliorations achetées avec les ressources du compte
     // mode : amélioration d'un mini-jeu (payée avec sa ressource) ; all : payée avec les trois ressources
@@ -944,6 +945,91 @@
     return { [u.perMode ? MINI.MODES[suf].res : u.perRes ? suf : u.res]: v };
   }
   const miniUpgradeIds = () => Object.entries(MINI.UPGRADES).flatMap(([k, u]) => (u.perMode ? Object.keys(MINI.MODES).map((m) => `${k}_${m}`) : u.perRes ? RES_IDS.map((r) => `${k}_${r}`) : [k]));
+
+  /* ------------------------------------------------------------------ */
+  /* Familiers (mini-jeux) : achetés au chenil (Grêlons) ou éclos d'un œuf (récompense d'élite rare). */
+  /* 2 familiers actifs par expédition ; ils agissent seuls après le héros. Leurs PV ne remontent      */
+  /* qu'avec le temps ; un familier K.-O. se repose jusqu'à 50 % de ses PV avant de repartir.          */
+  /* ------------------------------------------------------------------ */
+  const PETS = {
+    ACTIVE_MAX: 2,
+    HIT_CHANCE: 0.2,          // chance qu'un coup de monstre vise un familier plutôt que le héros
+    REST_PCT: 0.5,            // un familier K.-O. doit remonter à 50 % de ses PV avant d'être réutilisé
+    REGEN_PER_HOUR: 0.1,      // hors expédition : +10 % des PV max par heure
+    KENNEL_PRICE: GLACONS.PRICE * 10, // prix d'un animal du chenil : 10 glaçons
+    EGG_CHANCE: 0.01,         // chance que « Œuf mystérieux » fasse partie des récompenses d'élite
+    DUP_RES: [5, 8, 12, 17, 23, 30], // œuf en double : ressources de la zone selon la rareté (30 au plus)
+    MAX_LEVEL: 20,
+    EVOLVE: [10, 20],         // évolutions (purement esthétiques)
+    MAIN_LEVEL: 10,           // niveau requis pour accompagner le héros en défense de tour (purement esthétique)
+    xpForLevel: (l) => 60 + 30 * l,
+    expeditionXp: (room) => 20 + 10 * room,
+    /* Effets (valeurs de rareté commune ; multipliées par la rareté pour les œufs) :
+     *  bite   : morsure, % des dégâts du héros à la cible chaque tour     aoe    : % des dégâts du héros à tous les monstres
+     *  poison / burn : la cible subit ce % des dégâts du héros pendant 2 tours
+     *  mark   : la cible subit +% de dégâts       weaken : la cible inflige −% de dégâts
+     *  freeze / stun : chance que la cible passe son prochain coup
+     *  guard  : absorbe ce % du 1er coup reçu par le héros dans chaque salle
+     *  heal   : soigne ce % des PV max du héros tous les 2 tours
+     *  taunt  : attire les coups (chance en plus d'être visé)        ranged : jamais visé
+     *  loot   : +% de butin       sniff : flaire si la salle suivante contient du butin
+     *  carry  : réduit la perte de ressources en cas de mort (points de %)    rally : +% de dégâts du héros */
+    KINDS: {
+      // chenil (un peu moins puissants que l'idée de départ ; toujours en rareté commune)
+      k_loup: { size: 14, name: 'Loup', icon: '🐺', sprite: 'ally_wolf', kennel: true, hp: 70, fx: { bite: 0.25 } },
+      k_tortue: { size: 15, name: 'Tortue', icon: '🐢', sprite: 'pet_turtle', kennel: true, hp: 130, fx: { guard: 0.7 } },
+      k_lapin: { size: 13, name: 'Lapin', icon: '🐰', sprite: 'pet_rabbit', kennel: true, hp: 50, fx: { heal: 0.03 } },
+      k_faucon: { size: 12, name: 'Faucon', icon: '🦅', sprite: 'ally_falcon', kennel: true, hp: 45, fx: { mark: 0.15 } },
+      k_ecureuil: { size: 12, name: 'Écureuil', icon: '🐿️', sprite: 'pet_squirrel', kennel: true, hp: 35, fx: { loot: 0.1, sniff: 1 } },
+      k_ours: { size: 16, name: 'Ours porteur', icon: '🐻', sprite: 'ally_bear', kennel: true, hp: 160, fx: { carry: 0.1 } },
+      // œufs : monstres des zones des mini-jeux (le nom vient de MOBS)
+      gobelin: { hp: 60, fx: { bite: 0.2, loot: 0.05 } },
+      gobelin_archer: { hp: 45, fx: { bite: 0.2, ranged: 1 } },
+      araignee: { hp: 45, fx: { poison: 0.15 } },
+      golem_glace: { hp: 150, fx: { guard: 0.5, taunt: 0.15 } },
+      esprit_givre: { hp: 40, fx: { freeze: 0.12, ranged: 1 } },
+      diablotin: { hp: 50, fx: { burn: 0.18 } },
+      chien_infernal: { hp: 75, fx: { bite: 0.3 } },
+      salamandre: { hp: 55, fx: { burn: 0.15, ranged: 1 } },
+      elementaire: { hp: 110, fx: { aoe: 0.12 } },
+      loup: { hp: 70, fx: { bite: 0.22, rally: 0.05 } },
+      sanglier: { hp: 110, fx: { stun: 0.15 } },
+      loup_neige: { hp: 75, fx: { bite: 0.2, freeze: 0.06 } },
+      rampant: { hp: 65, fx: { poison: 0.12, weaken: 0.05 } },
+      treant: { hp: 140, fx: { heal: 0.03, taunt: 0.1 } },
+      mutant: { hp: 170, fx: { taunt: 0.25 } },
+      crapaud: { hp: 60, fx: { weaken: 0.12 } },
+      champignon: { hp: 45, fx: { aoe: 0.08, weaken: 0.05 } }
+    }
+  };
+  const PET_CAPS = { freeze: 0.4, stun: 0.4, taunt: 0.5, guard: 1, heal: 0.08, carry: 0.3, loot: 0.5, mark: 0.5, weaken: 0.5, rally: 0.3 };
+  // Effets d'un familier selon sa rareté (sniff / ranged ne changent pas)
+  function petPower(kind, rarity) {
+    const K = PETS.KINDS[kind], m = (RARITIES[rarity || 0] || RARITIES[0]).mult, out = {};
+    if (!K) return out;
+    for (const [k, v] of Object.entries(K.fx)) out[k] = k === 'sniff' || k === 'ranged' ? v : Math.min(PET_CAPS[k] || 9, +(v * m).toFixed(3));
+    return out;
+  }
+  const petMaxHp = (kind, rarity) => Math.round((PETS.KINDS[kind] || { hp: 50 }).hp * (1 + ((RARITIES[rarity || 0] || RARITIES[0]).mult - 1) / 2));
+  const petStage = (level) => (level >= PETS.EVOLVE[1] ? 2 : level >= PETS.EVOLVE[0] ? 1 : 0);
+  const petName = (kind) => { const K = PETS.KINDS[kind]; return K ? K.name || (MOBS[kind] ? MOBS[kind].name : kind) : kind; };
+  const petSprite = (kind) => (PETS.KINDS[kind] && PETS.KINDS[kind].sprite) || kind;
+  // Description lisible des effets
+  function petFxText(kind, rarity) {
+    const f = petPower(kind, rarity), p = (v) => `${Math.round(v * 100)} %`;
+    const T = {
+      bite: (v) => `mord la cible : ${p(v)} de tes dégâts chaque tour`, aoe: (v) => `frappe tous les monstres : ${p(v)} de tes dégâts`,
+      poison: (v) => `empoisonne la cible : ${p(v)} de tes dégâts pendant 2 tours`, burn: (v) => `brûle la cible : ${p(v)} de tes dégâts pendant 2 tours`,
+      mark: (v) => `marque la cible : +${p(v)} de dégâts subis`, weaken: (v) => `affaiblit la cible : −${p(v)} de dégâts`,
+      freeze: (v) => `${p(v)} de chances de geler la cible (elle passe son coup)`, stun: (v) => `${p(v)} de chances d’étourdir la cible (elle passe son coup)`,
+      guard: (v) => `absorbe ${p(v)} du premier coup reçu dans chaque salle`, heal: (v) => `soigne ${p(v)} de tes PV max tous les 2 tours`,
+      taunt: (v) => `attire les coups (+${p(v)} de chances d’être visé)`, ranged: () => 'reste à distance : jamais visé',
+      loot: (v) => `+${p(v)} de butin`, sniff: () => 'flaire si la salle suivante contient du butin',
+      carry: (v) => `si tu tombes, ${p(v)} de ressources perdues en moins`, rally: (v) => `+${p(v)} de dégâts pour le héros`
+    };
+    return Object.entries(f).map(([k, v]) => (T[k] ? T[k](v) : k));
+  }
+
   // Statistiques d'expédition d'un joueur (base + améliorations « Vitalité », « Force »…)
   function miniStats(up) {
     const s = { ...MINI.BASE };
@@ -1019,5 +1105,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { MINI, miniStats, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { PETS, petPower, petMaxHp, petStage, petName, petSprite, petFxText, MINI, miniStats, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

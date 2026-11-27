@@ -1031,7 +1031,8 @@
         'Chaque salle : du butin, ou des monstres qui rapportent 1 ressource et de l’XP chacun. Plus tu descends, plus c’est rentable… et dangereux.',
         'Statistiques propres aux mini-jeux (PV, dégâts, armure, critique, bouclier), améliorées avec les ressources. « Se protéger » lève un bouclier qui absorbe les dégâts (recharge de 3 tours). Avec plusieurs monstres, choisis ta cible.',
         `Toutes les ${GD.MINI.ELITE_EVERY} salles : une élite, puis une récompense au choix. Toutes les ${GD.MINI.ESCAPE_EVERY} salles : remonter ou continuer (mort : ${Math.round(GD.MINI.DEATH_LOSS * 100)} % des ressources perdues).`,
-        'Les ressources du compte améliorent les mini-jeux et ta récolte en défense de tour (une amélioration « Récolteur » par ressource).'])),
+        'Les ressources du compte améliorent les mini-jeux et ta récolte en défense de tour (une amélioration « Récolteur » par ressource).',
+        `🐾 Familiers : jusqu’à ${GD.PETS.ACTIVE_MAX} t’accompagnent et agissent après toi. Adopte-les au chenil (${GD.PETS.KENNEL_PRICE} Grêlons) ou trouve un œuf (${Math.round(GD.PETS.EGG_CHANCE * 100)} % des récompenses d’élite) : un monstre de la zone, avec une rareté. Leurs PV remontent avec le temps ; K.-O., ils se reposent jusqu’à ${Math.round(GD.PETS.REST_PCT * 100)} %. Niveau ${GD.PETS.MAIN_LEVEL} : ton familier principal te suit sur le stream.`])),
       sec('🧊 Glaçons', ul([
         `Tu gagnes ${G.PER_WAVE} glaçon pour chaque manche passée avec ton héros en jeu.`,
         ['Un glaçon s’achète ', hail(), `${G.PRICE} Grêlons.`],

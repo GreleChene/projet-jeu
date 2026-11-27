@@ -2,7 +2,8 @@
 (function () {
   'use strict';
   const GD = window.GameData, M = GD.MINI, A = window.Art;
-  const { api, $, el, toast } = window.UI;
+  const { api, $, el, toast, ask } = window.UI;
+  const PT = GD.PETS;
   const W = 800, H = 340, G = 252; // scène : largeur, hauteur, ligne du sol
   const HERO_X = 170, MOB_X0 = 470;
 
@@ -10,6 +11,8 @@
   const floaters = []; // nombres et textes flottants
   let heroAnim = 0, mobAnim = 0, shake = 0;
   let heroX = HERO_X;      // position du héros (il va jusqu'au butin pour le récolter)
+  const petAnim = [0, 0], petHurt = [0, 0]; // élan d'attaque / secousse des familiers
+  const petX = (i) => heroX + (i === 0 ? -88 : 78);
   let harvestFx = null;    // animation de récolte en cours { t, kind, amount, jackpot, sent }
   const parts = [];        // éclats (pierre, copeaux, baies) et étincelles
   const flyers = [];       // icônes de ressources qui s'envolent vers le compteur
@@ -205,7 +208,15 @@
   function animate(a, b, action) {
     if (!a || !b) return;
     if (b.state === 'over' && a.state !== 'over') Sound.play(b.over && b.over.dead ? 'death' : 'victory');
+    if (b.hatch && JSON.stringify(b.hatch) !== JSON.stringify(a.hatch)) showHatch(b.hatch);
     if (a.room !== b.room) { Sound.play((b.mobs || []).some((m) => m.elite) ? 'elite' : 'room'); return; }
+    (b.pets || []).forEach((p, i) => {
+      const o = (a.pets || [])[i];
+      if (p.acted) petAnim[i] = 0.3;
+      if (o && p.hp < o.hp) { floaters.push({ x: petX(i), y: G - 60, s: '−' + (o.hp - p.hp), c: '#ff9a5a', t: 0 }); petHurt[i] = 0.3; }
+      if (o && p.hp > o.hp) floaters.push({ x: petX(i), y: G - 60, s: '+' + (p.hp - o.hp), c: '#7fe07a', t: 0 });
+      if (o && o.hp > 0 && p.hp <= 0) Sound.play('kill', 0.3);
+    });
     const fresh = b.log.slice(Math.max(0, b.log.lastIndexOf(a.log[a.log.length - 1]) + 1));
     if (action === 'attack') Sound.play('swing');
     else if (action === 'skill') Sound.play('skill');
@@ -262,6 +273,79 @@
       el('button', { disabled: !ok, onclick: () => send('/api/mini/upgrade', { id }) }, max ? 'Max' : GD.costText(cost)));
   }
 
+  /* ============================== Familiers ============================== */
+  const petSize = (kind) => (PT.KINDS[kind] && PT.KINDS[kind].size) || (GD.MOBS[kind] ? GD.MOBS[kind].size : 13);
+  const rarityOf = (r) => GD.RARITIES[r || 0];
+  // vignette d'un familier (dessinée une fois)
+  function petThumb(kind, stage, w = 96, h = 72) {
+    const c = el('canvas', { class: 'pet-thumb', width: w, height: h });
+    requestAnimationFrame(() => { const x = c.getContext('2d'); A.drawPet(x, GD.petSprite(kind), w / 2, h - 10, { size: petSize(kind) * 1.4, maxH: h - 22, t: 0.3, facing: 0, stage, moving: false }); });
+    return c;
+  }
+  const fmtH = (ms) => { const m = Math.ceil(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
+  function petsPanel() {
+    const P = state.pets || { list: [], active: [] }, me = window.PlayerApp && window.PlayerApp.me();
+    const inRun = !!(state.run && state.run.state !== 'over');
+    const toggle = (id) => {
+      const on = P.active.includes(id);
+      const ids = on ? P.active.filter((x) => x !== id) : [...P.active, id].slice(-PT.ACTIVE_MAX);
+      send('/api/pets/active', { ids });
+    };
+    const mine = P.list.map((p) => {
+      const R = rarityOf(p.rarity), K = PT.KINDS[p.kind], on = P.active.includes(p.id), main = P.main === p.id;
+      const hpPct = Math.max(0, Math.min(100, (100 * p.hp) / p.max));
+      return el('div', { class: 'pet-card' + (on ? ' on' : ''), style: `border-color:${R.color}` },
+        petThumb(p.kind, p.stage),
+        el('div', { class: 'pet-name' }, el('b', {}, GD.petName(p.kind)), K && K.kennel ? '' : el('span', { class: 'small', style: `color:${R.color}` }, ` ${R.name}`)),
+        el('div', { class: 'small muted' }, `Niv. ${p.level}${p.level < PT.MAX_LEVEL ? ` · ${p.xp}/${p.xpNext} XP` : ' (max)'}${p.stage ? ` · ${['', '✨ évolué', '👑 évolution finale'][p.stage]}` : ''}`),
+        el('div', { class: 'bar pet-hp' }, el('span', { style: `width:${hpPct}%;background:${p.ko ? '#8a8494' : hpPct > 40 ? '#5cb84a' : '#e2504c'}` })),
+        el('div', { class: 'small' }, p.ko ? `💤 Au repos : ${p.hp}/${p.max} PV · prêt dans ${fmtH(p.readyIn)}` : `❤️ ${p.hp}/${p.max} PV`),
+        el('ul', { class: 'pet-fx small' }, ...GD.petFxText(p.kind, p.rarity).map((t) => el('li', {}, t))),
+        el('div', { class: 'pet-btns' },
+          el('button', { class: on ? 'primary' : '', disabled: busy || inRun || (p.ko && !on), title: inRun ? 'Impossible pendant une expédition' : '', onclick: () => toggle(p.id) }, on ? '✓ Actif' : 'Activer'),
+          el('button', { class: main ? 'selected' : '', disabled: busy || p.level < PT.MAIN_LEVEL, title: `Familier principal : t’accompagne à côté de ton héros en défense de tour (niveau ${PT.MAIN_LEVEL} minimum, purement esthétique)`, onclick: () => send('/api/pets/main', { id: main ? null : p.id }) }, main ? '⭐ Principal' : '☆ Principal')));
+    });
+    const kennel = Object.entries(PT.KINDS).filter(([, K]) => K.kennel).map(([kind, K]) => {
+      const owned = P.list.some((p) => p.kind === kind), gold = me ? me.gold || 0 : 0;
+      return el('div', { class: 'pet-card shop' + (owned ? ' owned' : '') },
+        petThumb(kind, 0),
+        el('div', { class: 'pet-name' }, el('b', {}, `${K.icon} ${K.name}`)),
+        el('div', { class: 'small muted' }, `❤️ ${GD.petMaxHp(kind, 0)} PV`),
+        el('ul', { class: 'pet-fx small' }, ...GD.petFxText(kind, 0).map((t) => el('li', {}, t))),
+        el('button', { class: owned ? '' : 'primary', disabled: owned || busy || gold < PT.KENNEL_PRICE,
+          onclick: async () => { if (await ask(`Adopter ${K.name} pour ${PT.KENNEL_PRICE} Grêlons ?`, { title: '🐾 Chenil', ok: 'Adopter' })) send('/api/pets/buy', { kind }); } },
+        owned ? '✓ Adopté' : `🌨️ ${PT.KENNEL_PRICE} Grêlons`));
+    });
+    return el('div', { class: 'panel' }, el('h2', {}, '🐾 Familiers'),
+      el('p', { class: 'small muted' }, `Jusqu’à ${PT.ACTIVE_MAX} familiers t’accompagnent en expédition et agissent seuls après toi. Les monstres ont ${Math.round(PT.HIT_CHANCE * 100)} % de chances de les viser. Leurs PV ne remontent qu’avec le temps (${Math.round(PT.REGEN_PER_HOUR * 100)} % par heure) ; un familier K.-O. se repose jusqu’à ${Math.round(PT.REST_PCT * 100)} % de ses PV. Ils gagnent de l’XP à chaque expédition et évoluent (en apparence) aux niveaux ${PT.EVOLVE.join(' et ')}.`),
+      el('h3', { class: 'mini-sub' }, `Mes familiers (${P.active.length}/${PT.ACTIVE_MAX} actifs)`),
+      P.list.length ? el('div', { class: 'pet-grid' }, ...mine) : el('p', { class: 'small' }, 'Aucun familier pour l’instant : adopte-en un au chenil, ou trouve un œuf !'),
+      el('h3', { class: 'mini-sub' }, '🏠 Chenil'),
+      el('div', { class: 'pet-grid' }, ...kennel),
+      el('p', { class: 'small muted' }, `🥚 Œufs : très rarement (${Math.round(PT.EGG_CHANCE * 100)} %), une élite propose un « Œuf mystérieux ». Il contient un monstre de la zone, avec une rareté (commune = puissance du chenil, puis de plus en plus fort). En double, il devient une meilleure rareté de ton familier, ou des ressources de la zone (${PT.DUP_RES.join(' / ')} selon la rareté).`));
+  }
+
+  // Éclosion d'un œuf : fenêtre avec le familier obtenu
+  function showHatch(h) {
+    const R = rarityOf(h.rarity);
+    const c = el('canvas', { width: 220, height: 150, class: 'pet-hatch' });
+    let t = 0;
+    (function loop() {
+      if (!c.isConnected && t > 0.1) return;
+      t += 1 / 60;
+      const x = c.getContext('2d'); x.clearRect(0, 0, 220, 150);
+      x.save(); x.translate(110, 90); A.glow(x, R.color, 50 + Math.sin(t * 3) * 6); x.restore();
+      A.drawPet(x, GD.petSprite(h.kind), 110, 128, { size: petSize(h.kind) * 2, maxH: 100, t, facing: 0, moving: false });
+      requestAnimationFrame(loop);
+    })();
+    Sound.play('jackpot');
+    const txt = h.result === 'new' ? `${GD.petName(h.kind)} rejoint tes familiers !`
+      : h.result === 'upgrade' ? `Ton ${GD.petName(h.kind)} devient ${R.name} !`
+        : `Tu as déjà ce familier : il est converti en ${h.amount} ${GD.RESOURCES[h.res].icon} ${GD.RESOURCES[h.res].name.toLowerCase()}.`;
+    ask(el('div', { style: 'text-align:center' }, c, el('div', { style: `color:${R.color};font-weight:700` }, `${GD.petName(h.kind)} · ${R.name}`), el('div', {}, txt)),
+      { title: '🥚 L’œuf éclot !', ok: 'Super !', noCancel: true });
+  }
+
   function lobby() {
     const cards = Object.entries(M.MODES).map(([k, m]) => el('div', { class: 'panel mini-card' },
       el('canvas', { class: 'mini-thumb', width: 320, height: 120, 'data-mode': k }),
@@ -272,6 +356,7 @@
       el('div', { class: 'mini-ups' }, ...['luck', 'bounty', 'jackpot', 'fortune'].map((u) => upgradeRow(`${u}_${k}`)))));
     const wrap = el('div', {},
       el('div', { class: 'grid three' }, ...cards),
+      petsPanel(),
       el('div', { class: 'panel' }, el('h2', {}, 'Améliorations générales'),
         el('h3', { class: 'mini-sub' }, 'Statistiques d’expédition'),
         el('p', { class: 'small muted' }, 'Dans les mini-jeux, ton héros n’utilise pas ses statistiques de bataille : il a ses propres statistiques d’expédition, améliorées ici avec tes ressources.'),
@@ -280,7 +365,7 @@
         upgradeRow('potion'), ...GD.RES_IDS.map((k) => upgradeRow('harvest_' + k))),
       el('div', { class: 'panel small' }, el('h2', {}, 'Comment ça marche'),
         el('ul', {},
-          el('li', {}, `Une expédition coûte 1 ⚡ (1 énergie toutes les ${M.ENERGY_HOURS} h, ${M.ENERGY_MAX} au plus). Combat au tour par tour avec les statistiques réelles de ton héros.`),
+          el('li', {}, `Une expédition coûte 1 ⚡ (1 énergie toutes les ${M.ENERGY_HOURS} h, ${M.ENERGY_MAX} au plus). Combat au tour par tour avec tes statistiques d’expédition (et jusqu’à 2 familiers).`),
           el('li', {}, 'Chaque salle contient du butin ou des monstres ; chaque monstre tué rapporte 1 ressource et de l’XP. Plus tu descends, plus le butin est gros… et les monstres coriaces.'),
           el('li', {}, `Toutes les ${M.ELITE_EVERY} salles, un monstre d’élite garde la salle : choisis ensuite une récompense (force, PV, Grêlons, ressources…).`),
           el('li', {}, `Toutes les ${M.ESCAPE_EVERY} salles : remonte avec ton butin ou continue. Si ton héros tombe, tu perds ${Math.round(M.DEATH_LOSS * 100)} % des ressources de l’expédition (l’XP est gardée).`),
@@ -306,6 +391,7 @@
       el('div', {}, el('b', {}, `${mode.icon} Salle ${r.room}`), el('span', { class: 'small muted' }, ` · ${dec.name} — ${dec.subs[r.sub]}`)),
       el('div', { class: 'mini-hp' }, el('span', { class: 'small' }, `❤️ ${r.hp} / ${r.max}`), el('div', { class: 'bar' }, el('span', { style: `width:${hpPct}%;background:${hpPct > 40 ? '#5cb84a' : '#e2504c'}` })),
         el('span', { class: 'small' }, `🔰 Bouclier ${r.shield || 0} / ${r.shieldMax || M.BASE.shield}${r.shield > 0 ? ` · encore ${r.shieldTurns} tour${r.shieldTurns > 1 ? 's' : ''}` : ''}`), el('div', { class: 'bar mini-shield' }, el('span', { style: `width:${Math.min(100, (100 * (r.shield || 0)) / (r.shieldMax || M.BASE.shield))}%` }))),
+      (r.pets || []).length ? el('div', { class: 'small mini-pets' }, ...r.pets.map((p) => el('span', { class: 'chip', style: p.hp <= 0 ? 'opacity:.5' : '' }, `🐾 ${p.name} ${p.hp <= 0 ? 'K.-O.' : `${p.hp}/${p.max}`}`))) : '',
       el('div', { class: 'small' }, `${resIcon(r.mode)} ${r.got} · ✨ ${r.xp} XP · 🧪 ${r.potions}${r.grelons ? ` · 🌨️ ${r.grelons}` : ''}${buffs ? ' · ' + buffs : ''}${r.dot ? ` · ${r.dot.kind === 'burn' ? '🔥 brûlure' : '☠️ poison'}` : ''}`));
     return el('div', { class: 'panel' }, info, el('div', { class: 'mini-scene-wrap' }, sceneCv), actions(r),
       el('ul', { class: 'mini-log small' }, ...r.log.slice().reverse().map((l, i) => el('li', { style: i ? 'opacity:.7' : 'font-weight:700' }, l))));
@@ -339,7 +425,8 @@
     } else if (r.state === 'over') {
       const o = r.over;
       box.append(el('div', {}, el('b', {}, o.dead ? '💀 Ton héros est tombé' : '🏁 Expédition terminée'),
-        el('div', { class: 'small' }, `Salle ${o.room} · ${o.kills} monstres · +${o.banked} ${resIcon(r.mode)}${o.lost ? ` (${o.lost} perdus)` : ''} · +${o.xp} XP${o.grelons ? ` · +${o.grelons} 🌨️` : ''}${o.levels ? ` · +${o.levels} niveau(x) !` : ''}`)),
+        el('div', { class: 'small' }, `Salle ${o.room} · ${o.kills} monstres · +${o.banked} ${resIcon(r.mode)}${o.lost ? ` (${o.lost} perdus)` : ''} · +${o.xp} XP${o.grelons ? ` · +${o.grelons} 🌨️` : ''}${o.levels ? ` · +${o.levels} niveau(x) !` : ''}`),
+        ...(o.petUps || []).map((u) => el('div', { class: 'small', style: 'color:var(--gold)' }, `🐾 ${u.name} passe niveau ${u.level}${u.evolved ? ' et évolue !' : ' !'}`))),
         B('Retour au camp', () => act('close'), { cls: 'primary' }));
     }
     return box;
@@ -358,6 +445,15 @@
     ctx.translate((Math.random() - 0.5) * shake, 0);
     drawScene(ctx, r.mode, r.decor, r.sub, t, r.room);
     const me = window.PlayerApp && window.PlayerApp.me();
+    // familiers (le premier derrière le héros, le second devant)
+    (r.pets || []).forEach((p, i) => {
+      petAnim[i] = Math.max(0, (petAnim[i] || 0) - 1 / 60); petHurt[i] = Math.max(0, (petHurt[i] || 0) - 1 / 60);
+      const lunge = petAnim[i] > 0 ? 40 * Math.sin((petAnim[i] / 0.3) * Math.PI) : 0, sh = petHurt[i] > 0 ? Math.sin(t * 80) * 4 : 0;
+      const x = petX(i) + lunge + sh, y = G + (i === 0 ? 2 : 14);
+      const lvl = ((state.pets || { list: [] }).list.find((q) => q.id === p.id) || {}).level || 1;
+      A.drawPet(ctx, GD.petSprite(p.kind), x, y, { size: petSize(p.kind) * 1.5, maxH: 62, t: t + i, facing: 0, stage: GD.petStage(lvl), moving: Math.abs(heroX - HERO_X) > 2, attack: petAnim[i], ko: p.hp <= 0 });
+      if (p.hp > 0) { A.rrect(ctx, x - 22, G - 72 + (i === 0 ? 0 : 12), 44, 5, 2, '#2a1f22', 1.2); A.rrect(ctx, x - 21, G - 71 + (i === 0 ? 0 : 12), Math.max(0, 42 * p.hp / p.max), 3, 1, '#5cb84a', 0.01); }
+    });
     // héros
     if (r.state === 'over' && r.over.dead) A.drawGrave(ctx, HERO_X, G + 6);
     else if (me) A.drawHero(ctx, heroX + (heroAnim > 0 ? 18 * Math.sin((heroAnim / 0.3) * Math.PI) : 0), G + 6, { cls: me.cls, look: me.look, gear: window.PlayerApp.myGear(), t, scale: 2.2, facing: 0, moving: Math.abs(heroX - HERO_X) > 2 && Math.abs(heroX - (LOOT_X - 95)) > 2, attack: heroAnim });
@@ -588,5 +684,5 @@
   };
 
   // ouverture de l'onglet
-  window.MiniGames = { open: load, drawScene };
+  window.MiniGames = { open: load, drawScene, showHatch };
 })();

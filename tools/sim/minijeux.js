@@ -5,6 +5,7 @@
  *   node tools/sim/minijeux.js [--mode=mine] [--n=200]
  * Stratégie du bot : bouclier dès qu'il est prêt (s'il est vide), compétence dès qu'elle est prête, potion sous 35 % de PV,
  * remonte au point de choix quand il lui reste moins de 45 % de PV.
+ * --familiers=k_loup,k_lapin[:3] : familiers actifs (rareté après « : », 0 = commun) ; PV pleins à chaque expédition.
  * Repères : sans amélioration ≈ salles 5-8, améliorations à mi-chemin ≈ 12-18, au maximum ≈ 25+ ; la mort doit rester un vrai risque.
  */
 const GD = require('../../shared/constants');
@@ -12,6 +13,7 @@ const mini = require('../../server/mini');
 const { args } = require('./lib');
 const A = args();
 const mode = A.mode || 'mine', N = Number(A.n || 200);
+const PETS = A.familiers ? String(A.familiers).split(',') : [];
 
 // Héros type : points de stat répartis (force, vie, défense…), compétences d'une spécialisation
 function hero(level) {
@@ -26,6 +28,7 @@ function expedition(tier) {
   const up = {};
   for (const [k, U] of Object.entries(GD.MINI.UPGRADES)) if (U.stat) up[k] = Math.min(U.max, Math.round(U.max * tier));
   u.mini = { energy: 3, energyAt: Date.now(), up };
+  u.pets = { list: PETS.map((s, i) => { const [kind, r] = s.split(':'); return { id: 'p' + i, kind, rarity: Number(r) || 0, level: 1, xp: 0, hp: GD.petMaxHp(kind, Number(r) || 0), at: Date.now() }; }), active: PETS.map((s, i) => 'p' + i), main: null };
   const run = mini.start(u, mode, {});
   for (let guard = 0; guard < 5000 && run.state !== 'over'; guard++) {
     const s = run.state;
@@ -45,5 +48,5 @@ for (const tier of [0, 0.25, 0.5, 0.75, 1]) {
   const rs = Array.from({ length: N }, () => expedition(tier));
   const avg = (f) => (rs.reduce((s, r) => s + f(r), 0) / rs.length).toFixed(1);
   const rooms = rs.map((r) => r.room).sort((a, b) => a - b);
-  console.log(`améliorations ${Math.round(tier * 100)} % : salle moyenne ${avg((r) => r.room)} (médiane ${rooms[N >> 1]}, max ${rooms[N - 1]}) · morts ${Math.round((100 * rs.filter((r) => r.dead).length) / N)} % · ${GD.RESOURCES[GD.MINI.MODES[mode].res].icon} rapportées ${avg((r) => r.banked)} · XP ${avg((r) => r.xp)}`);
+  console.log(`${PETS.length ? `[${PETS.join(' + ')}] ` : ''}améliorations ${Math.round(tier * 100)} % : salle moyenne ${avg((r) => r.room)} (médiane ${rooms[N >> 1]}, max ${rooms[N - 1]}) · morts ${Math.round((100 * rs.filter((r) => r.dead).length) / N)} % · ${GD.RESOURCES[GD.MINI.MODES[mode].res].icon} rapportées ${avg((r) => r.banked)} · XP ${avg((r) => r.xp)}`);
 }

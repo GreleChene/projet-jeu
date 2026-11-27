@@ -5,6 +5,7 @@
  * et un état personnel à chaque joueur.
  */
 const GD = require('../../shared/constants');
+const petsLib = require('../pets');
 const Terrain = require('../../shared/terrain');
 const U = require('./util');
 const config = require('../config');
@@ -372,6 +373,8 @@ class Game {
     h.cls = p.cls; h.level = p.level; h.look = live.look; h.ai = live.ai;
     // récolte en défense de tour : améliorée par « Récolteur aguerri » (mini-jeux)
     const mu = (live.mini && live.mini.up) || {};
+    // familier principal (niveau 10+) : accompagne le héros sur le stream, purement esthétique
+    h.petLook = h.isBot ? null : petsLib.streamLook(live);
     h.harvestMul = Object.fromEntries(GD.RES_IDS.map((k) => [k, 1 + 0.1 * (mu['harvest_' + k] || 0)]));
     h.gear = GD.gearFor(p.cls, h.isBot ? p.gear : h.lock ? h.lock.gear : this.db.gearOf(p));
     h.attrs = p.attrs;
@@ -1306,7 +1309,7 @@ class Game {
   /* ============================== Réseau ============================== */
   rosterPayload() {
     const out = [];
-    for (const h of this.heroes.values()) out.push({ n: h.nid, name: h.name, cls: h.cls, lvl: h.level, look: h.look, gear: h.gear, bot: h.isBot, mt: h.mounted ? 1 : 0 });
+    for (const h of this.heroes.values()) out.push({ n: h.nid, name: h.name, cls: h.cls, lvl: h.level, look: h.look, gear: h.gear, bot: h.isBot, mt: h.mounted ? 1 : 0, pt: h.petLook || undefined });
     return { v: this.rosterVersion, heroes: out };
   }
 

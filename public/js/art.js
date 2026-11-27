@@ -535,6 +535,7 @@
     rampant: 'crawler', crapaud: 'toad', crapaud_roi: 'toad:king', champignon: 'shroom', champignon_titan: 'shroom:titan', mutant: 'zombie', abomination: 'zombie:abomination',
     araignee: 'spider', araignee_reine: 'spider:queen', diablotin: 'imp', seigneur_diablotin: 'imp:lord', salamandre: 'salamander', salamandre_ancienne: 'salamander:ancient',
     chien_infernal: 'hound', cerbere: 'cerberus', elementaire: 'elemental', geant_magma: 'elemental:magma', mere_spore: 'mother', ally_skeleton: 'skeleton',
+    pet_turtle: 'turtle', pet_rabbit: 'rabbit', pet_squirrel: 'squirrel',
     ally_rat: 'rat', ally_slime: 'slime', ally_zombie: 'zombie', ally_skelarcher: 'skeleton_archer', ally_falcon: 'bird', ally_pigeon: 'bird:pigeon', ally_eagle: 'bird:eagle'
   };
   const PX_CACHE = new Map();
@@ -573,6 +574,37 @@
     const c = pixelCanvas(ps.key, sp, ps.pal, fi, p);
     const fy = sp.float ? Math.round(Math.sin(t * 2.5) * 2) * p - 3 * p : 0;
     ctx.drawImage(c, -Math.round(c.width / 2), -c.height + p + fy);
+  }
+
+  /* Familier (mini-jeux, et petit compagnon du héros sur le stream) : sprite + évolution purement esthétique
+   * stage 1 (niv. 10) : un peu plus grand, étincelles argentées ; stage 2 (niv. 20) : aura et couronne dorées.
+   * o : { size, maxH (hauteur max en px), t, facing, stage, attack, moving, ko } */
+  function drawPet(ctx, sprite, x, y, o) {
+    const ps = pixelSprite(sprite);
+    if (!ps) return;
+    const st = o.stage || 0, t = o.t || 0;
+    let s = (o.size || 13) * [1, 1.12, 1.25][st];
+    if (o.maxH) s = Math.min(s, (o.maxH * [1, 1.12, 1.25][st]) / ps.sp.h);
+    ctx.save(); ctx.translate(x, y);
+    shadow(ctx, 0, 1, s * 1.1, s * 0.35);
+    if (st === 2 && !o.ko) { ctx.save(); ctx.globalAlpha = 0.3 + 0.15 * Math.sin(t * 3); ctx.beginPath(); ctx.ellipse(0, 0, s * 1.5, s * 0.5, 0, 0, TAU); ctx.fillStyle = P.ui.gold; ctx.fill(); ctx.restore(); }
+    const flip = Math.cos(o.facing || 0) < 0 ? -1 : 1;
+    ctx.save(); ctx.scale(flip, 1);
+    if (o.ko) { ctx.globalAlpha = 0.5; ctx.translate(0, -s * 0.2); ctx.rotate(-1.3); }
+    else ctx.translate(0, -Math.abs(Math.sin(t * 4)) * (o.moving ? s * 0.08 : 0));
+    drawPixelMob(ctx, ps, s, o.moving === false || o.ko ? 0 : t, o.attack || 0);
+    ctx.restore();
+    const top = -s * ps.sp.h;
+    if (o.ko) { ctx.font = `${Math.round(s * 0.9)}px sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#000'; ctx.fillText('💤', s * 0.6, top * 0.5); }
+    else if (st >= 1) {
+      const n = st === 2 ? 3 : 2, col = st === 2 ? '#ffd23a' : '#e8eef5';
+      for (let i = 0; i < n; i++) {
+        const a = t * 2 + (i * TAU) / n, sx = Math.cos(a) * s * 0.9, sy = top * 0.55 + Math.sin(a) * s * 0.25, r = 2 + (st === 2 ? 1 : 0);
+        ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(sx, sy - r * 1.8); ctx.lineTo(sx + r * 0.6, sy); ctx.lineTo(sx, sy + r * 1.8); ctx.lineTo(sx - r * 0.6, sy); ctx.closePath(); ctx.fill();
+      }
+      if (st === 2) drawCrown(ctx, 0, top - 3, Math.max(5, s * 0.3));
+    }
+    ctx.restore();
   }
 
   function drawMob(ctx, type, x, y, o) {
@@ -1829,5 +1861,5 @@
     ctx.restore();
   }
 
-  window.Art = { mobTop, heroPortrait, heroTop: (s, mounted) => 29 * Math.max(1, Math.round(s * 1.45)) + (mounted ? MOUNT_LIFT * Math.max(1, Math.round(Math.max(1, Math.round(s * 1.45)) * 0.8)) : 0), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawDamage, drawResNode, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
+  window.Art = { mobTop, heroPortrait, heroTop: (s, mounted) => 29 * Math.max(1, Math.round(s * 1.45)) + (mounted ? MOUNT_LIFT * Math.max(1, Math.round(Math.max(1, Math.round(s * 1.45)) * 0.8)) : 0), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawDamage, drawResNode, drawPet, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
 })();

@@ -10,6 +10,7 @@ const config = require('./config');
 const db = require('./db');
 const Game = require('./game/engine');
 const mini = require('./mini');
+const pets = require('./pets');
 const GD = require('../shared/constants');
 
 db.load();
@@ -173,7 +174,7 @@ function miniReply(res, u, fn) {
     db.markDirty();
     res.json({ mini: mini.publicState(u), user: publicUser(u) });
   } catch (e) {
-    if (e instanceof mini.MiniError) return res.status(400).json({ error: e.message });
+    if (e instanceof mini.MiniError || e instanceof pets.PetError) return res.status(400).json({ error: e.message });
     throw e;
   }
 }
@@ -183,6 +184,10 @@ app.post('/api/mini/act', auth, (req, res) => {
   const b = req.body || {};
   miniReply(res, req.user, () => mini.act(req.user, { action: String(b.action), target: Number(b.target) || 0, id: String(b.id || '') }, { grantXp: (u, xp) => game.grantXp(u, xp) }));
 });
+// Familiers : chenil (Grêlons), familiers actifs (2 au plus), familier principal (stream, niveau 10+)
+app.post('/api/pets/buy', auth, (req, res) => miniReply(res, req.user, () => pets.buy(req.user, String((req.body || {}).kind))));
+app.post('/api/pets/active', auth, (req, res) => miniReply(res, req.user, () => pets.setActive(req.user, Array.isArray((req.body || {}).ids) ? req.body.ids : [])));
+app.post('/api/pets/main', auth, (req, res) => miniReply(res, req.user, () => { pets.setMain(req.user, (req.body || {}).id ? String(req.body.id) : null); afterProfileChange(req.user); }));
 app.post('/api/mini/upgrade', auth, (req, res) => miniReply(res, req.user, () => { mini.buyUpgrade(req.user, String((req.body || {}).id)); afterProfileChange(req.user); }));
 
 /* ============================== Améliorations d'habitation ============================== */
@@ -653,6 +658,15 @@ app.post('/api/admin/users/:id', admin, async (req, res) => {
     const m = mini.ensure(u);
     m.energy = Math.max(0, Math.min(99, m.energy + Math.floor(Number(b.addEnergy) || 0)));
     if (m.energy >= GD.MINI.ENERGY_MAX) m.energyAt = Date.now();
+  }
+  // test : faire éclore un œuf de familier (zone choisie, rareté au hasard)
+  if (b.giveEgg !== undefined) {
+    const [mode, tier] = String(b.giveEgg).split(':');
+    if (!GD.MINI.MODES[mode]) return res.status(400).json({ error: 'Mini-jeu inconnu' });
+    mini.ensure(u);
+    const h = pets.hatch(u, mode, Math.max(0, Math.min(2, Number(tier) || 0)));
+    afterProfileChange(u);
+    return res.json({ ok: true, egg: h, text: `${GD.petName(h.kind)} (${GD.RARITIES[h.rarity].name}) : ${h.result === 'new' ? 'nouveau familier' : h.result === 'upgrade' ? 'rareté améliorée' : `doublon → ${h.amount} ${GD.RESOURCES[h.res].name.toLowerCase()}`}` });
   }
   if (b.addXp !== undefined) {
     const n = Math.floor(Number(b.addXp) || 0);

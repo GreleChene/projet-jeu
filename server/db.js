@@ -136,6 +136,8 @@ function migrateUser(u) {
     if (u.mini.run && u.mini.run.state !== 'over') u.mini.run.mobs = u.mini.run.mobs || [];
     u.miniV2 = true;
   }
+  // familiers des mini-jeux (chenil, œufs)
+  if (!u.petsV1) { u.pets = { list: [], active: [], main: null, ...(u.pets || {}) }; u.petsV1 = true; }
   return u;
 }
 
