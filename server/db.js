@@ -145,6 +145,8 @@ function migrateUser(u) {
   }
   // familiers des mini-jeux (chenil, œufs)
   if (!u.petsV1) { u.pets = { list: [], active: [], main: null, ...(u.pets || {}) }; u.petsV1 = true; }
+  // succès : ceux déjà mérités (niveau, glaçons ouverts, éliminations…) sont débloqués sans notification
+  if (!u.achV1) { const ach = require('./achievements'); ach.ensure(u); ach.check(u, { silent: true }); u.title ||= null; u.achV1 = true; }
   return u;
 }
 

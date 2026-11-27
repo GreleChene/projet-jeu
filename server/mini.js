@@ -12,6 +12,7 @@
 const GD = require('../shared/constants');
 const X = require('../shared/expedition');
 const pets = require('./pets');
+const ach = require('./achievements');
 const { MINI } = GD;
 const ENERGY_MS = MINI.ENERGY_HOURS * 3600e3;
 
@@ -109,6 +110,7 @@ function applyReport(u, run, rep, rnd = Math.random, now = Date.now()) {
     if (i >= X.REINF0 ? i - X.REINF0 >= maxReinf : !R.mobs[i]) continue;
     const mob = X.mobAt(R, i);
     cur.killed.push(i); run.kills++; run.xp += mob.xp;
+    ach.add(u, 'miniKills'); if (mob.boss) ach.add(u, 'guardians'); else if (mob.elite) ach.add(u, 'elites');
   }
   for (const op of Array.isArray(rep.ops) ? rep.ops.slice(0, 2000) : []) {
     if (!Array.isArray(op)) continue;
@@ -133,6 +135,8 @@ function applyReport(u, run, rep, rnd = Math.random, now = Date.now()) {
       }
     } else if (op[0] === 'pot') { if (run.potions > 0) run.potions--; }
   }
+  // parades parfaites et roulades depuis le dernier rapport (succès ; plafonnées par rapport)
+  ach.add(u, 'parries', Math.min(60, Math.max(0, rep.pa | 0))); ach.add(u, 'rolls', Math.min(60, Math.max(0, rep.ro | 0)));
   if (typeof rep.hp === 'number' && isFinite(rep.hp)) run.hp = Math.max(0, Math.min(run.max, Math.round(rep.hp)));
   if (Array.isArray(rep.pets)) run.pets.forEach((p, i) => { const v = Number(rep.pets[i]); if (isFinite(v)) p.hp = Math.max(0, Math.min(p.hp, Math.round(v))); });
   // élite / gardien vaincu : choix de récompense
@@ -158,6 +162,9 @@ function finish(u, m, run, dead, grantXp) {
   }
   run.bag = [];
   if (cartHere(run)) run.cart.items = [];
+  // succès : expéditions, ressources et butins mis à l'abri, chutes
+  ach.add(u, 'expeditions'); if (dead) ach.add(u, 'miniDeaths');
+  ach.add(u, 'banked', Object.values(banked.res).reduce((a, n) => a + n, 0)); ach.add(u, 'trophies', Object.values(banked.tro).reduce((a, n) => a + n, 0));
   const levels = grantXp ? grantXp(u, run.xp) || 0 : 0;
   m.best[run.mode] = Math.max(m.best[run.mode] || 0, run.room);
   const petUps = pets.afterRun(u, run);

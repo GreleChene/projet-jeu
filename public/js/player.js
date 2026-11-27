@@ -116,13 +116,14 @@
     $$('#tabs [data-tab]').forEach((x) => x.classList.toggle('active', x === b));
     $$('[data-view]').forEach((v) => v.classList.toggle('hidden', v.dataset.view !== b.dataset.tab));
     if (b.dataset.tab === 'ladder') loadLadder();
+    if (b.dataset.tab === 'ach') { markAchSeen(); renderAch(); }
     if (b.dataset.tab === 'market') loadMarket();
     if (b.dataset.tab === 'mini' && window.MiniGames) window.MiniGames.open();
   }));
 
   function renderAll() {
     const c = GD.CLASSES[me.cls];
-    $('#hdrPseudo').textContent = me.pseudo;
+    $('#hdrPseudo').replaceChildren(me.pseudo, me.title ? el('span', { class: 'hdr-title' }, ` « ${me.title} »`) : '');
     $('#hdrLevel').textContent = `Niv. ${me.level}`;
     $('#heroCls').textContent = c.name;
     $('#heroCls').style.color = c.color;
@@ -135,6 +136,7 @@
     renderMarket();
     renderAI();
     renderStats();
+    renderAch();
   }
 
   /* ============================== Bataille ============================== */
@@ -1034,6 +1036,10 @@
         `Sac : ${GD.MINI.BAG.base} cases (1 case = ${GD.MINI.HARVEST.slot} ressources ou 1 butin de monstre). Vide-le dans le seau (caverne) ou la charrette (forêt, clairière), posé à un endroit au hasard de chaque salle ; « Renvoyer » met son contenu à l’abri (retour ${GD.MINI.CART.away} salles plus tard), « Rentrer » termine l’expédition (une fois les monstres de départ de la salle éliminés). Mort : tout le non-renvoyé est perdu, sauf ${Math.round(GD.MINI.DEATH_KEEP * 100)} % des ressources du sac.`,
         'Statistiques propres aux mini-jeux (PV, dégâts, armure, critique, bouclier ; vitesse et vitesse d’attaque avec les butins des monstres), améliorées avec les ressources ; le sac et le seau / la charrette s’agrandissent avec les butins des monstres. Une amélioration « Récolteur » par ressource augmente aussi ta récolte en défense de tour.',
         `🐾 Familiers : jusqu’à ${GD.PETS.ACTIVE_MAX} te suivent et se battent seuls. Adopte-les au chenil (${GD.PETS.KENNEL_PRICE} Grêlons) ou trouve un œuf (${Math.round(GD.PETS.EGG_CHANCE * 100)} % des récompenses d’élite et de gardien) : un monstre de la zone, avec une rareté. Leurs PV remontent avec le temps ; K.-O., ils se reposent jusqu’à ${Math.round(GD.PETS.REST_PCT * 100)} %. Niveau ${GD.PETS.MAIN_LEVEL} : ton familier principal te suit sur le stream.`])),
+      sec('🏅 Succès et titres', ul([
+        `${GD.ACHIEVEMENTS.length} succès en ${Object.keys(GD.ACH_CATS).length} catégories : ${Object.values(GD.ACH_CATS).map((c) => `${c.icon} ${c.name.toLowerCase()}`).join(', ')}.`,
+        'Chaque succès débloque un titre (par exemple « Mangeur de glaçons » pour 500 glaçons ouverts). Équipe-le dans l’onglet Succès : il s’affiche au-dessus de ton héros sur le stream, dans le classement et en haut de ta page.',
+        'Certains succès restent secrets tant que tu ne les as pas débloqués.'])),
       sec('🧊 Glaçons', ul([
         `Tu gagnes ${G.PER_WAVE} glaçon pour chaque manche passée avec ton héros en jeu.`,
         ['Un glaçon s’achète ', hail(), `${G.PRICE} Grêlons.`],
@@ -1088,7 +1094,7 @@
     const { top } = await api('/api/leaderboard');
     $('#ladder').replaceChildren(
       el('tr', {}, el('th', {}, '#'), el('th', {}, 'Pseudo'), el('th', {}, 'Classe'), el('th', {}, 'Niveau'), el('th', {}, 'Meilleure manche'), el('th', {}, 'Éliminations')),
-      ...top.map((u, i) => el('tr', {}, el('td', {}, i + 1), el('td', {}, u.pseudo), el('td', { style: `color:${GD.CLASSES[u.cls].color}` }, GD.CLASSES[u.cls].name), el('td', {}, u.level), el('td', {}, u.bestWave), el('td', {}, u.kills)))
+      ...top.map((u, i) => el('tr', {}, el('td', {}, i + 1), el('td', {}, u.pseudo, u.title ? el('div', { class: 'tiny ach-title' }, `« ${u.title} »`) : ''), el('td', { style: `color:${GD.CLASSES[u.cls].color}` }, GD.CLASSES[u.cls].name), el('td', {}, u.level), el('td', {}, u.bestWave), el('td', {}, u.kills)))
     );
   }
 
@@ -1119,6 +1125,64 @@
     $('#twitchState').replaceChildren(
       twitchCode ? el('p', { class: 'twitch-code' }, 'Tape ', el('b', {}, `!lier ${twitchCode}`), ` dans le chat de `, el('a', { href: `https://twitch.tv/${twitchChannel}`, target: '_blank', rel: 'noopener' }, `twitch.tv/${twitchChannel}`), ' (code valable 10 minutes). Cette page se met à jour toute seule.') : '',
       el('button', { class: 'primary', onclick: async () => { const d = await api('/api/me/twitch/code', { method: 'POST' }); twitchCode = d.code; twitchChannel = d.channel; renderTwitch(); } }, twitchCode ? 'Nouveau code' : '🔗 Lier mon compte Twitch'));
+  }
+
+  /* ============================== Succès et titres ============================== */
+  // Succès déjà vus (pastille de l'onglet), retenus dans le navigateur
+  let achFilter = 'tous';
+  const achSeenKey = () => `achSeen:${me.id}`;
+  function achSeen() { try { return new Set(JSON.parse(localStorage.getItem(achSeenKey()) || '[]')); } catch (e) { return new Set(); } }
+  function markAchSeen() { if (!me || !me.ach) return; try { localStorage.setItem(achSeenKey(), JSON.stringify(Object.keys(me.ach.done))); } catch (e) { /* */ } }
+  const fmtN = (n) => String(Math.max(0, Math.floor(n))).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
+  async function setTitle(id) {
+    try { setUser((await api('/api/me/title', { body: { id } })).user); toast(id ? 'Titre équipé ✓' : 'Titre retiré'); } catch (e) { toast(e.message); }
+  }
+  function renderAch() {
+    const root = $('#achRoot');
+    if (!root || !me || !me.ach) return;
+    const S = me.ach, all = GD.ACHIEVEMENTS, done = S.done || {}, n = Object.keys(done).length;
+    // pastille : succès débloqués pas encore vus (la première fois, tout est considéré comme vu)
+    let known = true;
+    try { known = localStorage.getItem(achSeenKey()) !== null; } catch (e) { /* stockage indisponible */ }
+    if (!known) markAchSeen();
+    const seen = achSeen(), visible = !$('[data-view="ach"]').classList.contains('hidden');
+    const fresh = visible ? 0 : Object.keys(done).filter((id) => !seen.has(id)).length;
+    $('#achBadge').textContent = fresh; $('#achBadge').classList.toggle('hidden', !fresh);
+    if (visible) setTimeout(markAchSeen, 0); // onglet ouvert : les nouveaux succès sont vus (surlignés une fois)
+    const cur = S.title && all.find((a) => a.id === S.title);
+    const card = (a) => {
+      const ok = !!done[a.id], hidden = a.hidden && !ok, v = S.v[a.stat] || 0, pct = Math.max(0, Math.min(100, (100 * v) / a.goal));
+      const worn = S.title === a.id;
+      return el('div', { class: 'ach-card' + (ok ? ' done' : '') + (hidden ? ' secret' : '') + (ok && !seen.has(a.id) ? ' fresh' : '') },
+        el('div', { class: 'ach-icon' }, hidden ? '❔' : a.icon),
+        el('div', { class: 'ach-body' },
+          el('b', {}, hidden ? 'Succès secret' : a.name),
+          el('div', { class: 'small muted' }, hidden ? '???' : a.desc),
+          ok ? el('div', { class: 'tiny muted' }, `✓ Débloqué le ${new Date(done[a.id]).toLocaleDateString('fr-FR')}`)
+            : el('div', { class: 'ach-prog' }, el('div', { class: 'bar' }, el('span', { style: `width:${pct}%` })), el('span', { class: 'tiny muted' }, `${fmtN(Math.min(v, a.goal))} / ${fmtN(a.goal)}`)),
+          el('div', { class: 'ach-title-line' },
+            el('span', { class: 'ach-title' + (ok ? '' : ' locked') }, hidden ? '🏷️ « ??? »' : `🏷️ « ${a.title} »`),
+            ok ? el('button', { class: 'small' + (worn ? ' primary' : ''), onclick: () => setTitle(worn ? null : a.id) }, worn ? '✓ Équipé' : 'Équiper') : '')));
+    };
+    const keep = (a) => (achFilter === 'faits' ? !!done[a.id] : achFilter === 'afaire' ? !done[a.id] : true);
+    const filterBtn = (k, label) => el('button', { class: 'small' + (achFilter === k ? ' selected' : ''), onclick: () => { achFilter = k; renderAch(); } }, label);
+    root.replaceChildren(
+      el('div', { class: 'panel' },
+        el('h2', {}, '🏅 Succès et titres'),
+        el('div', { class: 'row ach-head' },
+          el('div', { class: 'ach-count' }, el('b', {}, `${n} / ${all.length}`), el('span', { class: 'small muted' }, ' succès débloqués'),
+            el('div', { class: 'bar gold' }, el('span', { style: `width:${(100 * n) / all.length}%` }))),
+          el('span', { class: 'spacer' }),
+          el('div', {}, el('span', { class: 'small muted' }, 'Titre affiché : '), cur ? el('b', { class: 'ach-title' }, `« ${cur.title} »`) : el('span', { class: 'muted' }, 'aucun'),
+            cur ? el('button', { class: 'small', style: 'margin-left:8px', onclick: () => setTitle(null) }, 'Retirer') : '')),
+        el('p', { class: 'small muted' }, 'Chaque succès débloque un titre. Le titre équipé s’affiche au-dessus de ton héros sur le stream, dans le classement et en haut de ta page.'),
+        el('div', { class: 'row' }, filterBtn('tous', 'Tous'), filterBtn('faits', '✓ Débloqués'), filterBtn('afaire', 'À débloquer'))),
+      ...Object.entries(GD.ACH_CATS).map(([cat, C]) => {
+        const list = all.filter((a) => a.cat === cat), got = list.filter((a) => done[a.id]).length, shown = list.filter(keep);
+        if (!shown.length) return '';
+        return el('div', { class: 'panel' }, el('h3', { class: 'ach-cat' }, `${C.icon} ${C.name}`, el('span', { class: 'small muted' }, ` · ${got} / ${list.length}`)),
+          el('div', { class: 'ach-grid' }, ...shown.map(card)));
+      }));
   }
 
   function renderStats() {

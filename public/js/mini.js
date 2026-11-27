@@ -207,7 +207,8 @@
     let ops = [];
     if (s && action !== 'close') {
       ops = s.ops.splice(0);
-      body.report = { k: [...s.killed], ops, hp: Math.round(s.hero.hp), pets: s.pets.map((p) => Math.max(0, Math.round(p.hp))) };
+      body.report = { k: [...s.killed], ops, hp: Math.round(s.hero.hp), pets: s.pets.map((p) => Math.max(0, Math.round(p.hp))), pa: g.parries || 0, ro: g.rolls || 0 };
+      g.parries = 0; g.rolls = 0;
       g.sentKills = s.killed.size;
     }
     try {
@@ -217,7 +218,10 @@
       return r;
     } catch (e) {
       if (e.data && e.data.mini) { if (G === g && g) applyServer(e.data.mini, null); else state = e.data.mini; } // rapport pris en compte, action refusée
-      else if (s && ops.length) s.ops.unshift(...ops); // pas de réponse : ces opérations repartiront au prochain appel
+      else { // pas de réponse : ces opérations (et les compteurs de succès) repartiront au prochain appel
+        if (s && ops.length) s.ops.unshift(...ops);
+        if (g && body.report) { g.parries = (g.parries || 0) + body.report.pa; g.rolls = (g.rolls || 0) + body.report.ro; }
+      }
       if (!opts.silent) toast(e.message);
       throw e;
     }
@@ -917,11 +921,11 @@
         case 'kill': puff(e.x, e.y - 8, '#efe6d6', e.boss ? 26 : 12); Sound.play('kill', 0.06); if (e.boss) G.shake = 10; break;
         case 'hurt': floatTxt(e.x, e.y - 62, '-' + e.n, '#ff6a5a', 20); G.shake = Math.max(G.shake, 6); G.flash = 0.35; Sound.play('hurt', 0.08); break;
         case 'block': floatTxt(e.x, e.y - 62, '🔰 ' + e.n, '#9fd8ff', 15, 0.8); Sound.play('block', 0.06); break;
-        case 'parry': G.fx.push({ k: 'parry', x: e.x, y: e.y - 22, t: 0, life: 0.45 }); floatTxt(e.x, e.y - 74, 'Parade parfaite !', '#ffd23a', 19); G.shake = Math.max(G.shake, 4); Sound.play('parry'); break;
+        case 'parry': G.parries = (G.parries || 0) + 1; G.fx.push({ k: 'parry', x: e.x, y: e.y - 22, t: 0, life: 0.45 }); floatTxt(e.x, e.y - 74, 'Parade parfaite !', '#ffd23a', 19); G.shake = Math.max(G.shake, 4); Sound.play('parry'); break;
         case 'shieldBreak': floatTxt(e.x, e.y - 74, 'Bouclier brisé !', '#c8d8e8', 16); Sound.play('breakShield'); break;
         case 'guard': floatTxt(e.x, e.y - 62, '🛡️ ' + e.n, '#e8f0b0', 14); break;
         case 'death': Sound.play('death'); puff(e.x, e.y - 20, '#b0a8b8', 20); break;
-        case 'roll': for (let i = 0; i < 9; i++) G.parts.push({ x: e.x, y: e.y, z: 2, vx: -Math.cos(e.a) * (40 + Math.random() * 70) + (Math.random() - 0.5) * 50, vy: -Math.sin(e.a) * 30 + (Math.random() - 0.5) * 30, vz: 40 + Math.random() * 60, life: 0.5, t: 0, c: '#e8dcc0', s: 4 + Math.random() * 3, round: true, soft: true }); Sound.play('roll'); break;
+        case 'roll': G.rolls = (G.rolls || 0) + 1; for (let i = 0; i < 9; i++) G.parts.push({ x: e.x, y: e.y, z: 2, vx: -Math.cos(e.a) * (40 + Math.random() * 70) + (Math.random() - 0.5) * 50, vy: -Math.sin(e.a) * 30 + (Math.random() - 0.5) * 30, vz: 40 + Math.random() * 60, life: 0.5, t: 0, c: '#e8dcc0', s: 4 + Math.random() * 3, round: true, soft: true }); Sound.play('roll'); break;
         case 'tired': floatTxt(e.x, e.y - 74, 'Pas assez d’endurance', '#ffd0a0', 15, 0.9); Sound.play('full', 0.5); break;
         case 'swing': G.fx.push({ k: 'slash', x: e.x, y: e.y - 18, a: e.a, t: 0, life: 0.18 }); Sound.play('swing', 0.05); break;
         case 'shoot': Sound.play('shoot', e.pet ? 0.25 : 0.06); break;

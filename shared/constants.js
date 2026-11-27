@@ -1178,5 +1178,80 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { miniCostText, isTrophyCost, PETS, petPower, petMaxHp, petStage, petName, petSprite, petFxText, MINI, miniStats, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  /* ------------------------------------------------------------------ */
+  /* Succès (onglet « Succès ») : chaque succès débloque un titre que le joueur peut équiper :      */
+  /* il s'affiche au-dessus de son héros sur le stream, dans le classement et en haut de sa page.   */
+  /* stat : statistique suivie (server/achievements.js) ; goal : objectif ; hidden : succès secret. */
+  /* ------------------------------------------------------------------ */
+  const ACH_CATS = {
+    tour: { name: 'Défense de tour', icon: '🏰' },
+    objets: { name: 'Glaçons et objets', icon: '🧊' },
+    marche: { name: 'Place marchande', icon: '🏪' },
+    mini: { name: 'Mini-jeux', icon: '🎲' },
+    familiers: { name: 'Familiers', icon: '🐾' },
+    divers: { name: 'Divers', icon: '🎉' }
+  };
+  const nfmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f'); // 10 000
+  const plural = (n, one, many) => (n > 1 ? many : one);
+  const ACHIEVEMENTS = [];
+  // une série de paliers sur la même statistique : [objectif, nom du succès, titre débloqué]
+  function achSeries(cat, stat, icon, desc, tiers, extra) {
+    tiers.forEach(([goal, name, title], i) => ACHIEVEMENTS.push({ id: `${stat}_${goal}`, cat, stat, icon, goal, name, title, tier: i, desc: desc(goal), ...(extra || {}) }));
+  }
+  // défense de tour
+  achSeries('tour', 'games', '⚔️', (n) => (n === 1 ? 'Termine une partie de défense de tour' : `Termine ${nfmt(n)} parties de défense de tour`),
+    [[1, 'Première bataille', 'Recrue'], [10, 'Habitué des remparts', 'Défenseur'], [50, 'Vétéran de la tour', 'Vétéran'], [200, 'Pilier de la tour', 'Pilier de la tour']]);
+  achSeries('tour', 'wins', '🏆', (n) => (n === 1 ? 'Gagne une partie' : `Gagne ${nfmt(n)} parties`),
+    [[1, 'Première victoire', 'Vainqueur'], [10, 'Champion', 'Champion de la tour'], [50, 'Légende vivante', 'Légende vivante']]);
+  achSeries('tour', 'winsHard', '🔴', () => 'Gagne une partie en difficulté Difficile', [[1, 'L’impossible', 'Héros de l’impossible']]);
+  achSeries('tour', 'winsQuick', '⚡', (n) => `Gagne ${n} parties rapides`, [[5, 'Blitz', 'Foudroyant']]);
+  achSeries('tour', 'bestWave', '🌊', (n) => `Atteins la manche ${n}`,
+    [[30, 'L’hiver ne passera pas', 'Gardien de l’hiver'], [60, 'Purificateur', 'Purificateur'], [90, 'Traversée des cendres', 'Marcheur des cendres']]);
+  achSeries('tour', 'kills', '💀', (n) => `Élimine ${nfmt(n)} monstres en bataille`,
+    [[100, 'Premier sang', 'Chasseur'], [1000, 'Massacre', 'Massacreur'], [10000, 'Fléau des monstres', 'Fléau des monstres'], [50000, 'Apocalypse', 'Apocalypse ambulante']]);
+  achSeries('tour', 'bossKills', '👹', (n) => (n === 1 ? 'Participe à la mort d’un boss' : `Participe à la mort de ${n} boss`),
+    [[1, 'Tueur de boss', 'Tueur de boss'], [25, 'Briseur de titans', 'Briseur de titans'], [100, 'Terreur des boss', 'Terreur des boss']]);
+  achSeries('tour', 'harvest', '🧺', (n) => `Récolte ${nfmt(n)} ressources en bataille`, [[500, 'Cueilleur', 'Cueilleur'], [5000, 'Récolteur infatigable', 'Récolteur infatigable']]);
+  achSeries('tour', 'deaths', '🪦', (n) => `Tombe ${n} fois en bataille`, [[10, 'Habitué du cimetière', 'Habitué du cimetière'], [100, 'Immortel… presque', 'Presque immortel']]);
+  achSeries('tour', 'level', '⭐', (n) => `Atteins le niveau ${n}`,
+    [[7, 'Apprenti', 'Apprenti'], [30, 'Maître de sa classe', 'Maître'], [60, 'Grand maître', 'Grand maître'], [100, 'Sommet', 'Ascendant']]);
+  // glaçons et objets
+  achSeries('objets', 'glacons', '🧊', (n) => `Ouvre ${nfmt(n)} glaçons`,
+    [[10, 'Briseur de glace', 'Briseur de glace'], [100, 'Amateur de glaçons', 'Amateur de glaçons'], [500, 'Mangeur de glaçons', 'Mangeur de glaçons'], [2000, 'Banquise vivante', 'Banquise vivante']]);
+  achSeries('objets', 'epic', '🟣', (n) => `Trouve ${n} objets épiques (ou mieux) dans des glaçons`, [[10, 'Coup de chance', 'Chanceux'], [50, 'Main en or', 'Main en or']]);
+  achSeries('objets', 'legendary', '🟠', (n) => (n === 1 ? 'Trouve un objet légendaire (ou mieux) dans un glaçon' : `Trouve ${n} objets légendaires (ou mieux) dans des glaçons`),
+    [[1, 'Légende', 'Élu de la fortune'], [10, 'Collectionneur de légendes', 'Collectionneur de légendes']]);
+  achSeries('objets', 'mystic', '🌌', () => 'Trouve quelque chose d’inconnu…', [[1, 'L’inconnu', 'Porteur de l’inconnu']], { hidden: true });
+  achSeries('objets', 'recycled', '♻️', (n) => `Recycle ${n} objets`, [[50, 'Recycleur', 'Recycleur'], [500, 'Ferrailleur', 'Ferrailleur']]);
+  achSeries('objets', 'fullSet', '👑', () => 'Porte toutes les pièces d’un même set', [[1, 'Tenue complète', 'Tiré à quatre épingles']]);
+  // place marchande
+  achSeries('marche', 'sold', '💰', (n) => (n === 1 ? 'Vends un objet sur la place marchande' : `Vends ${n} objets sur la place marchande`), [[1, 'Première vente', 'Marchand'], [50, 'Négociant', 'Négociant']]);
+  achSeries('marche', 'bought', '🛍️', (n) => `Achète ${n} objets sur la place marchande`, [[10, 'Client fidèle', 'Client fidèle']]);
+  achSeries('marche', 'trades', '🔄', (n) => (n === 1 ? 'Conclus un échange' : `Conclus ${n} échanges`), [[1, 'Troc', 'Troqueur'], [25, 'Roi du troc', 'Roi du troc']]);
+  achSeries('marche', 'gifts', '🎁', (n) => `Offre ${n} objets à d’autres joueurs`, [[5, 'Cœur sur la main', 'Généreux']]);
+  achSeries('marche', 'goldMax', '🌨️', (n) => `Possède ${nfmt(n)} Grêlons en même temps`, [[10000, 'Bas de laine', 'Riche comme Crésus']]);
+  // mini-jeux
+  achSeries('mini', 'expeditions', '🧭', (n) => (n === 1 ? 'Termine une expédition' : `Termine ${n} expéditions`), [[1, 'Première expédition', 'Aventurier'], [25, 'Expéditionnaire', 'Expéditionnaire'], [100, 'Globe-trotteur', 'Globe-trotteur']]);
+  achSeries('mini', 'bestRoom', '🕳️', (n) => `Atteins la salle ${n} d’un mini-jeu`, [[10, 'Profondeurs', 'Explorateur'], [25, 'Abysses', 'Explorateur des abysses'], [50, 'Légende des profondeurs', 'Légende des profondeurs']]);
+  achSeries('mini', 'best_mine', '⛏️', (n) => `Atteins la salle ${n} de la caverne`, [[20, 'Mineur de fond', 'Mineur de fond']]);
+  achSeries('mini', 'best_foret', '🌲', (n) => `Atteins la salle ${n} de la forêt`, [[20, 'Garde forestier', 'Garde forestier']]);
+  achSeries('mini', 'best_champ', '🫐', (n) => `Atteins la salle ${n} de la clairière`, [[20, 'Gardien des moissons', 'Gardien des moissons']]);
+  achSeries('mini', 'guardians', '👑', (n) => (n === 1 ? 'Vaincs un gardien de zone' : `Vaincs ${n} gardiens de zone`), [[1, 'Tueur de gardiens', 'Tueur de gardiens'], [20, 'Fléau des gardiens', 'Fléau des gardiens']]);
+  achSeries('mini', 'elites', '⚔️', (n) => `Vaincs ${n} élites`, [[10, 'Chasseur d’élites', 'Chasseur d’élites']]);
+  achSeries('mini', 'miniKills', '🗡️', (n) => `Vaincs ${nfmt(n)} monstres en expédition`, [[500, 'Nettoyeur', 'Nettoyeur de salles'], [5000, 'Exterminateur', 'Exterminateur']]);
+  achSeries('mini', 'banked', '🏠', (n) => `Mets ${nfmt(n)} ressources à l’abri`, [[1000, 'Prévoyant', 'Prévoyant'], [20000, 'Grenier plein', 'Grand récolteur']]);
+  achSeries('mini', 'trophies', '🦴', (n) => `Rapporte ${n} butins de monstres`, [[50, 'Collectionneur de trophées', 'Collectionneur de trophées']]);
+  achSeries('mini', 'parries', '🔰', (n) => `Réussis ${n} parades parfaites`, [[50, 'Parade parfaite', 'Maître de la parade'], [500, 'Mur vivant', 'Mur vivant']]);
+  achSeries('mini', 'rolls', '🤸', (n) => `Fais ${n} roulades`, [[200, 'Acrobate', 'Acrobate']]);
+  achSeries('mini', 'miniDeaths', '😵', (n) => `Tombe ${n} fois en expédition`, [[10, 'Imprudent', 'Imprudent']]);
+  // familiers
+  achSeries('familiers', 'pets', '🐾', (n) => `Possède ${n} ${plural(n, 'familier', 'familiers')}`, [[1, 'Premier compagnon', 'Ami des bêtes'], [6, 'Ménagerie', 'Maître de la ménagerie'], [15, 'Zoologiste', 'Zoologiste']]);
+  achSeries('familiers', 'eggs', '🥚', (n) => (n === 1 ? 'Fais éclore un œuf' : `Fais éclore ${n} œufs`), [[1, 'Couvée', 'Couveur'], [10, 'Éleveur', 'Éleveur']]);
+  achSeries('familiers', 'petLevel', '📈', (n) => `Monte un familier au niveau ${n}`, [[10, 'Compagnon fidèle', 'Compagnon fidèle'], [20, 'Dresseur émérite', 'Dresseur émérite']]);
+  achSeries('familiers', 'petRarity', '✨', () => 'Obtiens un familier légendaire (ou mieux)', [[4, 'Bête légendaire', 'Dompteur de légendes']]);
+  // divers
+  achSeries('divers', 'twitch', '📺', () => 'Lie ton compte Twitch', [[1, 'Connecté', 'Viewer fidèle']]);
+  achSeries('divers', 'achCount', '🏅', (n) => `Débloque ${n} succès`, [[10, 'Chasseur de succès', 'Chasseur de succès'], [50, 'Complétionniste', 'Complétionniste']]);
+
+  return { ACH_CATS, ACHIEVEMENTS, miniCostText, isTrophyCost, PETS, petPower, petMaxHp, petStage, petName, petSprite, petFxText, MINI, miniStats, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

@@ -9,6 +9,7 @@
  */
 const GD = require('../shared/constants');
 const { PETS } = GD;
+const ach = require('./achievements');
 
 class PetError extends Error {}
 const fail = (msg) => { throw new PetError(msg); };
@@ -119,6 +120,7 @@ function hatchEgg(u, id, rnd = Math.random, now = Date.now()) {
   if (now < egg.hatchAt) fail('Cet œuf n’est pas encore prêt à éclore');
   P.eggs = P.eggs.filter((e) => e !== egg);
   u.mini ||= {}; u.mini.res ||= { pierre: 0, bois: 0, baies: 0 };
+  ach.add(u, 'eggs');
   return hatch(u, egg.mode, egg.tier, rnd);
 }
 

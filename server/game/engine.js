@@ -6,6 +6,7 @@
  */
 const GD = require('../../shared/constants');
 const petsLib = require('../pets');
+const achLib = require('../achievements');
 const Terrain = require('../../shared/terrain');
 const U = require('./util');
 const config = require('../config');
@@ -228,6 +229,10 @@ class Game {
       if (!u) continue;
       u.stats.runs++;
       u.stats.bestWave = Math.max(u.stats.bestWave, won ? 100 : this.run.cleared);
+      // succès : victoires (difficile, partie rapide) et récolte de la partie
+      if (won) { achLib.add(u, 'wins'); if (this.run.difficulty === 'difficile') achLib.add(u, 'winsHard'); if (this.run.mode === 'quick') achLib.add(u, 'winsQuick'); }
+      achLib.add(u, 'harvest', GD.RES_IDS.reduce((a, k) => a + Math.floor((h.runHarvestBy || {})[k] || 0), 0));
+      achLib.check(u);
     }
     this.db.markDirty();
     if (!silent) this.pushFeed(won ? 'Victoire !' : `Défaite à la manche ${this.run.wave}`);
@@ -375,6 +380,9 @@ class Game {
     const mu = (live.mini && live.mini.up) || {};
     // familier principal (niveau 10+) : accompagne le héros sur le stream, purement esthétique
     h.petLook = h.isBot ? null : petsLib.streamLook(live);
+    // titre équipé (succès) : affiché au-dessus du héros sur le stream
+    const title = h.isBot ? null : achLib.titleOf(live);
+    if (title !== (h.title || null)) { h.title = title; this.rosterVersion++; }
     h.harvestMul = Object.fromEntries(GD.RES_IDS.map((k) => [k, 1 + 0.1 * (mu['harvest_' + k] || 0)]));
     h.gear = GD.gearFor(p.cls, h.isBot ? p.gear : h.lock ? h.lock.gear : this.db.gearOf(p));
     h.attrs = p.attrs;
@@ -1309,7 +1317,7 @@ class Game {
   /* ============================== Réseau ============================== */
   rosterPayload() {
     const out = [];
-    for (const h of this.heroes.values()) out.push({ n: h.nid, name: h.name, cls: h.cls, lvl: h.level, look: h.look, gear: h.gear, bot: h.isBot, mt: h.mounted ? 1 : 0, pt: h.petLook || undefined });
+    for (const h of this.heroes.values()) out.push({ n: h.nid, name: h.name, cls: h.cls, lvl: h.level, look: h.look, gear: h.gear, bot: h.isBot, mt: h.mounted ? 1 : 0, pt: h.petLook || undefined, tt: h.title || undefined });
     return { v: this.rosterVersion, heroes: out };
   }
 

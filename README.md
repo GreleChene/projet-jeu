@@ -170,6 +170,23 @@ Trois expéditions solo **en temps réel, vues du dessus** : on dirige son héro
   - Pas de vente ni d'échange de familiers. L'admin peut donner un œuf pour tester (onglet Joueurs, bouton « 🥚 Œuf » : prêt à éclore tout de suite, ou avec l'incubation en ajoutant « :incuber »).
 - **Fonctionnement** : la salle est générée à l'identique côté serveur et côté page à partir d'une graine ; la page simule la salle en temps réel (`shared/expedition.js`) et envoie des rapports (monstres tués, récoltes, ramassages, PV) que le serveur **valide** (ce que la salle contient, la place dans le sac) ; le serveur garde l'inventaire, le seau et ce qui est à l'abri. On peut fermer la page et reprendre l'expédition plus tard (au début de la salle en cours). Les anciennes expéditions au tour par tour en cours sont abandonnées et leur énergie rendue. Équilibrage : `npm run sim:minijeux` (un bot joue des expéditions complètes).
 
+### Succès et titres (onglet 🏅)
+
+**78 succès** répartis en 6 catégories, chacun débloque un **titre** que le joueur peut **équiper** (un seul à la fois) : il s'affiche en doré au-dessus de son héros **sur le stream**, dans le **classement** et en haut de sa page.
+
+| Catégorie | Exemples (objectif → titre) |
+|---|---|
+| 🏰 Défense de tour | 1 / 10 / 50 / 200 parties → Recrue, Défenseur, Vétéran, Pilier de la tour · 1 / 10 / 50 victoires · victoire en Difficile → Héros de l'impossible · 5 victoires en partie rapide → Foudroyant · manches 30 / 60 / 90 · 100 → 50 000 monstres → … Apocalypse ambulante · boss · récolte · chutes (Habitué du cimetière) · niveaux 7 / 30 / 60 / 100 |
+| 🧊 Glaçons et objets | 10 / 100 / **500** / 2 000 glaçons ouverts → Briseur de glace, Amateur de glaçons, **Mangeur de glaçons**, Banquise vivante · objets épiques et légendaires trouvés · objets recyclés · set complet porté · un succès secret |
+| 🏪 Place marchande | ventes, achats, échanges, cadeaux, 10 000 Grêlons possédés → Riche comme Crésus |
+| 🎲 Mini-jeux | expéditions, salles 10 / 25 / 50, salle 20 de chaque mini-jeu (Mineur de fond, Garde forestier, Gardien des moissons), gardiens, élites, monstres, ressources mises à l'abri, butins rapportés, parades parfaites, roulades, chutes |
+| 🐾 Familiers | familiers possédés, œufs éclos, familier niveau 10 / 20, familier légendaire |
+| 🎉 Divers | compte Twitch lié, 10 / 50 succès débloqués → Chasseur de succès, Complétionniste |
+
+- L'onglet affiche la **progression** de chaque succès (barre et compteur), la date de déblocage, et permet de filtrer (tous / débloqués / à débloquer) ; une pastille signale les nouveaux succès.
+- Quand un succès est débloqué, le joueur reçoit une notification et le **fil du stream** l'annonce (« 🏅 Pseudo débloque le succès … »).
+- Les comptes existants reçoivent d'office les succès déjà mérités (niveau, glaçons ouverts, éliminations, meilleures manches, profondeurs des mini-jeux, familiers…), sans notification ; les compteurs nouveaux (victoires, ventes, parades…) partent de zéro.
+
 ### Modes et difficultés
 
 L'admin choisit le mode et la difficulté au lancement de chaque partie.

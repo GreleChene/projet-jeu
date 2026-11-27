@@ -11,6 +11,7 @@ const db = require('./db');
 const Game = require('./game/engine');
 const mini = require('./mini');
 const pets = require('./pets');
+const ach = require('./achievements');
 const GD = require('../shared/constants');
 
 db.load();
@@ -88,12 +89,14 @@ function rateLimited(key) {
 }
 
 function publicUser(u) {
+  ach.check(u); // succès atteints depuis la dernière réponse (glaçons, marché, mini-jeux, niveau…)
   return {
     id: u.id, pseudo: u.pseudo, role: isAdmin(u) ? 'admin' : 'player', cls: u.cls, level: u.level, xp: u.xp, xpNext: GD.PROGRESSION.xpForLevel(u.level),
     gold: u.gold, look: u.look, inventory: u.inventory, equip: u.equip, glacons: u.glacons, glaconsOpened: u.glaconsOpened || 0, ai: u.ai, stats: u.stats, inRun: game.heroes.has(u.id),
     attrs: u.attrs, attrPoints: u.attrPoints, skills: u.skills || {}, house: GD.houseOf(u), skillLost: u.skillLost || 0, twitchName: u.twitchName || null, mysticFound: !!u.mysticFound,
     locked: Object.fromEntries(u.inventory.map((it) => [it.uid, lockOf(u, it.uid)]).filter(([, l]) => l)),
-    incomingTrades: db.data.trades.filter((t) => t.toId === u.id).length
+    incomingTrades: db.data.trades.filter((t) => t.toId === u.id).length,
+    ach: ach.publicState(u), title: ach.titleOf(u)
   };
 }
 
@@ -144,6 +147,17 @@ function afterProfileChange(u) {
   const h = game.heroes.get(u.id);
   if (h) game.refreshHero(h);
 }
+
+// Titre (succès débloqué) affiché au-dessus du héros sur le stream, dans le classement et en haut de la page
+app.post('/api/me/title', auth, (req, res) => {
+  const id = (req.body || {}).id;
+  try { ach.setTitle(req.user, id ? String(id) : null); } catch (e) {
+    if (e instanceof ach.AchError) return res.status(400).json({ error: e.message });
+    throw e;
+  }
+  afterProfileChange(req.user);
+  res.json({ user: publicUser(req.user) });
+});
 
 app.put('/api/me/look', auth, (req, res) => {
   const b = req.body || {};
@@ -367,6 +381,7 @@ app.post('/api/inventory/recycle', auth, (req, res) => {
   const gain = GD.recycleValue(it.r);
   takeItem(u, it.uid);
   u.gold += gain;
+  ach.add(u, 'recycled');
   afterProfileChange(u);
   res.json({ user: publicUser(u), gain });
 });
@@ -390,6 +405,7 @@ app.post('/api/glacons/open', auth, (req, res) => {
   u.glaconsOpened = (u.glaconsOpened || 0) + 1;
   const item = rollItem(u.cls);
   giveItem(u, item);
+  if (!GD.isConsumable(item.t)) { if (item.r >= 3) ach.add(u, 'epic'); if (item.r >= 4) ach.add(u, 'legendary'); }
   db.markDirty();
   // la rareté secrète n'est jamais nommée publiquement
   if (GD.isConsumable(item.t)) game.pushFeed(`📜 ${u.pseudo} trouve un ${GD.TEMPLATES[item.t].name} dans un glaçon !`);
@@ -496,6 +512,7 @@ app.post('/api/market/buy', auth, (req, res) => {
   u.gold -= l.price;
   seller.gold += l.price;
   giveItem(u, it);
+  ach.add(u, 'bought'); ach.add(seller, 'sold'); ach.check(seller);
   refreshUser(seller);
   afterProfileChange(u);
   notify(seller.id, `💰 ${u.pseudo} a acheté ${GD.itemName(it, seller.cls)} pour ${l.price} Grêlons.`);
@@ -513,6 +530,7 @@ app.post('/api/market/gift', auth, (req, res) => {
   const it = takeItem(u, uid);
   purgeItem(uid);
   giveItem(o, it);
+  ach.add(u, 'gifts');
   afterProfileChange(u);
   refreshUser(o);
   notify(o.id, `🎁 ${u.pseudo} t’a offert ${GD.itemName(it, o.cls)} !`);
@@ -556,6 +574,7 @@ app.post('/api/market/trade/:id/:action', auth, (req, res) => {
   purgeItem(t.give); purgeItem(t.want);
   giveItem(u, a); giveItem(from, b);
   from.gold -= t.gold; u.gold += t.gold;
+  ach.add(u, 'trades'); ach.add(from, 'trades'); ach.check(from);
   afterProfileChange(u);
   refreshUser(from);
   notify(from.id, `✅ ${u.pseudo} a accepté ton échange !`);
@@ -571,7 +590,7 @@ app.get('/api/leaderboard', (req, res) => {
   const top = db.allUsers().filter((u) => !u.banned)
     .sort((a, b) => b.stats.bestWave - a.stats.bestWave || b.level - a.level || b.stats.kills - a.stats.kills)
     .slice(0, 20)
-    .map((u) => ({ pseudo: u.pseudo, cls: u.cls, level: u.level, bestWave: u.stats.bestWave, kills: u.stats.kills }));
+    .map((u) => ({ pseudo: u.pseudo, title: ach.titleOf(u), cls: u.cls, level: u.level, bestWave: u.stats.bestWave, kills: u.stats.kills }));
   res.json({ top });
 });
 
@@ -750,6 +769,10 @@ io.on('connection', (socket) => {
 for (const u of db.allUsers()) if (u.pending) game.settlePending(u);
 game.onPayout = (u, r) => notify(u.id, `🎁 Fin de partie : +${r.xp} XP, +${r.gold} Grêlons, +${r.glacons} glaçon(s)${r.levels ? ` · +${r.levels} niveau(x) !` : ''}`);
 // récapitulatif détaillé de fin de partie sur la page joueur
+ach.onUnlock = (u, a) => {
+  notify(u.id, `🏅 Succès débloqué : ${a.name} — titre « ${a.title} » à équiper dans l’onglet Succès !`);
+  game.pushFeed(`🏅 ${u.pseudo} débloque le succès « ${a.name} » !`);
+};
 game.onRunEnd = (userId, r) => { for (const s of io.sockets.sockets.values()) if (s.data.userId === userId) s.emit('runEnd', r); };
 game.start();
 const Twitch = require('./twitch');

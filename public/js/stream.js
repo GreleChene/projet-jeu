@@ -567,6 +567,12 @@
       const dead = h.f & HF.DEAD;
       const y = h.y - (dead ? 38 : (info.mt ? A.heroTop(HERO_SCALE, true) : HERO_TOP) + 12);
       ctx.globalAlpha = dead ? 0.6 : h.f & HF.STEALTH ? 0.45 : 1;
+      // titre équipé (succès), en petit et doré au-dessus du pseudo
+      if (info.tt) {
+        ctx.font = `italic 800 11px ${FONT_B}`; ctx.lineWidth = 3.5; ctx.strokeStyle = P.outline;
+        ctx.strokeText(`« ${info.tt} »`, h.x, y - 14); ctx.fillStyle = P.ui.gold; ctx.fillText(`« ${info.tt} »`, h.x, y - 14);
+        ctx.font = `800 13px ${FONT_B}`;
+      }
       ctx.lineWidth = 4; ctx.strokeStyle = P.outline;
       ctx.strokeText(info.name, h.x, y);
       ctx.fillStyle = info.bot ? P.ui.muted : '#ffffff';
