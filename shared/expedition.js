@@ -121,6 +121,8 @@
     if (type === 'elite') add(pool[Math.floor(R() * pool.length)], 'elite');
     const nM = type === 'repos' ? 0 : type === 'gardien' ? 2 : type === 'elite' ? Math.min(3, 1 + Math.floor(room / 10)) : startMobs(room);
     for (let k = 0; k < nM; k++) add(pool[Math.floor(R() * pool.length)], '');
+    // pas sous les panneaux d'informations de la page (en haut à gauche, au centre et à droite)
+    taken.push({ x: 165, y: 75, r: 150 }, { x: A.W / 2, y: 40, r: 70 }, { x: A.W - 130, y: 55, r: 110 });
     const cp = free(30, 130), cart = { x: Math.round(cp.x), y: Math.round(cp.y) };
     return { mode, room, type, decor, sub, tier, seed, entry, exit, fountain, nodes, mobs, cart,
       exitDelay: RT.exit, boss: type === 'gardien' || type === 'elite' ? 0 : -1 };
@@ -203,7 +205,7 @@
     const s = {
       t: 0, room: R, mode: R.mode, style: st.style, proj: st.proj, timeScale: 1,
       hero: { x: R.entry.x, y: R.entry.y, r: H.radius, hp: o.hp, max: o.max, dmg: o.dmg, crit: o.crit, armor: o.armor, buff: o.buff || { dmg: 0, crit: 0 },
-        speed: o.speed || H.speed, haste: o.haste || 0, shieldMax: o.shield, shield: o.shield, shieldUp: false, shieldAt: -9, broken: 0, idle: 9, atkCd: 0.3, skillCd: 0, face: 0, aimX: R.entry.x + 1, aimY: R.entry.y,
+        speed: o.speed || MINI.BASE.speed, haste: o.haste || 0, staminaMax: o.stamina || MINI.BASE.stamina, stamina: o.stamina || MINI.BASE.stamina, sprinting: false, restT: 9, shieldMax: o.shield, shield: o.shield, shieldUp: false, shieldAt: -9, broken: 0, idle: 9, atkCd: 0.3, skillCd: 0, face: 0, aimX: R.entry.x + 1, aimY: R.entry.y,
         iframes: 0, swing: 0, hurt: 0, moving: false, dead: false, guardUsed: false, lootFrac: 0 },
       mobs: R.mobs.map((m) => ({ ...m, home: { x: m.x, y: m.y }, aggro: false, wake: 0.6 + m.i * 0.25, cdT: 0.5 + Math.random() * 0.6, wind: 0, target: -1, retarget: 0, frozen: 0, stun: 0,
         mark: 0, markT: 0, weak: 0, weakT: 0, pdot: null, dead: killed.has(m.i), hit: 0, wander: Math.random() * 6, abilT: {}, act: null })),
@@ -351,7 +353,12 @@
     let mx = inp.mx || 0, my = inp.my || 0;
     const ml = Math.hypot(mx, my);
     if (ml > 1) { mx /= ml; my /= ml; }
-    const sp = h.speed * (h.shieldUp ? MINI.SHIELD.slow : 1);
+    // sprint (Maj) : ×1,5 tant qu'il reste de l'endurance ; elle remonte après une courte pause
+    const SP = MINI.SPRINT;
+    h.sprinting = !!inp.sprint && ml > 0.1 && !h.shieldUp && h.stamina > (h.sprinting ? 0 : SP.min);
+    if (h.sprinting) { h.stamina = Math.max(0, h.stamina - SP.drain * dt); h.restT = 0; }
+    else { h.restT += dt; if (h.restT > SP.delay) h.stamina = Math.min(h.staminaMax, h.stamina + SP.regen * dt); }
+    const sp = h.speed * (h.shieldUp ? MINI.SHIELD.slow : 1) * (h.sprinting ? SP.mult : 1);
     h.x += mx * sp * dt; h.y += my * sp * dt; h.moving = ml > 0.1;
     // la sortie (ouverture d'un côté) permet de franchir le mur
     const ex = s.room.exit;
@@ -412,10 +419,8 @@
     stepProjs(s, dt);
     /* --- sortie et renforts --- */
     if (!s.exitOpen && s.t >= s.exitAt) openExit(s);
-    if (s.exitOpen) {
-      const R2 = MINI.REINFORCE, since = s.t - s.exitOpenedAt;
-      if (since >= reinfAfter(s.room.room) && s.t >= s.reinfT) { s.reinfT = s.t + R2.every; spawnReinf(s, R2.count); }
-    }
+    // renforts : 20 s après l'entrée dans la salle, puis toutes les 5 s ; jamais en salle d'élite ou de gardien
+    if (s.room.boss < 0 && s.t >= reinfAfter(s.room.room) && s.t >= s.reinfT) { const R2 = MINI.REINFORCE; s.reinfT = s.t + R2.every; spawnReinf(s, R2.count); }
   }
   function bagFull(s) { if (!s.fullT || s.t > s.fullT) { s.fullT = s.t + 1.2; ev(s, 'bagfull', { x: s.hero.x, y: s.hero.y }); } }
 
@@ -501,14 +506,14 @@
     m.cdT -= dt;
     // capacités des gardiens (charge, onde de choc, salve, invocation)
     if (m.boss && bossAbility(s, m, dt, tg)) { keepIn(s, m, m.r); return; }
-    const reach = m.r + (tg.r || 14) + 14;
+    const reach = m.r + (tg.r || 14) + 22;
     if (m.wind > 0) {
       m.wind -= dt;
       if (m.wind <= 0) {
         m.cdT = m.cd;
         const dmg = m.dmg * (1 - (m.weak || 0));
         if (m.ranged) { ev(s, 'mobShoot', { x: m.x, y: m.y }); shoot(s, 'mob', m.x, m.y - m.r, tg.x, tg.y - 16, { speed: 240, range: 520, dmg, kind: m.ranged, src: m }); }
-        else if (dist(m, tg) <= reach + 14) { if (tg === h) hurtHero(s, dmg, { mob: m }); else hurtPet(s, tg, dmg); m.act = 0.2; }
+        else if (dist(m, tg) <= reach + 18) { if (tg === h) hurtHero(s, dmg, { mob: m }); else hurtPet(s, tg, dmg); m.act = 0.2; }
       }
     } else if (m.ranged) {
       if (d > 260) moveToward(m, tg.x, tg.y, m.speed, dt);

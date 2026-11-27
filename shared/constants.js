@@ -878,7 +878,7 @@
     POTIONS: 2,             // potions de soin par expédition (touche A : 35 % des PV)
     POTION_HEAL: 0.35,
     // Statistiques d'expédition (propres aux mini-jeux, améliorées avec les ressources du compte)
-    BASE: { hp: 100, dmg: 10, armor: 0, crit: 0.05, shield: 20, speed: 175, haste: 0 }, // speed : px/s ; haste : vitesse d'attaque en plus
+    BASE: { hp: 100, dmg: 10, armor: 0, crit: 0.05, shield: 20, speed: 150, haste: 0, stamina: 100 }, // speed : px/s ; haste : vitesse d'attaque en plus
     // Arène vue du dessus (une salle = un écran)
     ARENA: { W: 960, H: 600, WALL: 40 },
     // shotDmg : les tirs et sorts (classes à distance) font 60 % des dégâts d'un coup d'arme, en échange de la sécurité
@@ -889,9 +889,10 @@
     BAG: { base: 5, per: 5, pocket: 5 },     // sac : 5 cases (+5 par niveau) ; au niveau max, poche sécurisée de 5 cases
     CART: { base: 10, per: 10, away: 2 },    // seau / charrette : 10 cases (+10 par niveau) ; renvoyé(e), revient 2 salles plus tard
     DEATH_KEEP: 0.25,       // mort : on ne garde que 25 % des ressources du sac (rien du reste non renvoyé)
-    REINFORCE: { after: 15, every: 5, count: 2 }, // 15 s après l'ouverture de la sortie, des renforts arrivent toutes les 5 s (jamais de butin)
+    REINFORCE: { after: 20, every: 5, count: 2 }, // 20 s après l'entrée dans la salle, des renforts arrivent toutes les 5 s (jamais de butin ; aucun en salle d'élite ou de gardien)
+    SPRINT: { mult: 1.5, drain: 34, regen: 22, delay: 0.6, min: 15 }, // Maj : sprint ×1,5 ; endurance dépensée par seconde, rechargée après 0,6 s, 15 pour repartir
     // monstres présents au départ d'une salle normale ou riche (à éliminer avant de pouvoir rentrer) : 3, puis +1 toutes les 6 salles (8 au plus) ;
-    // chaque monstre en plus retarde les renforts de 2 s (15 s → 25 s au plus)
+    // chaque monstre en plus retarde les renforts de 2 s (20 s → 30 s au plus)
     START_MOBS: 3, MOBS_EVERY: 6, MOBS_MAX: 8, REINF_PER_MOB: 2,
     FOUNTAIN: { hps: 10, time: 3 },  // fontaine des salles de repos : 10 PV/s pendant 3 s au total
     ROOMS: {
@@ -971,6 +972,8 @@
       // vitesse de déplacement et vitesse d'attaque : payées avec les butins des monstres (costs[niveau actuel])
       vitesse: { stat: 'speed', per: 10, trophy: true, name: 'Vitesse', icon: '👟', desc: '+10 de vitesse de déplacement en expédition', max: 5,
         costs: [{ plume: 4, peau: 4 }, { plume: 7, croc: 7 }, { ecaille: 10, os: 10 }, { plume: 14, cristal: 14, braise: 1 }, { peau: 18, ecaille: 18, crane: 1, obsidienne: 1 }] },
+      endurance: { stat: 'stamina', per: 25, trophy: true, name: 'Endurance', icon: '🏃', desc: '+25 d’endurance pour le sprint (Maj) en expédition', max: 5,
+        costs: [{ os: 3, peau: 3 }, { plume: 6, ecaille: 6 }, { cristal: 9, croc: 9 }, { os: 12, plume: 12, braise: 1 }, { peau: 15, cristal: 15, crane: 1, obsidienne: 1 }] },
       cadence: { stat: 'haste', per: 0.08, trophy: true, name: 'Vitesse d’attaque', icon: '⚡', desc: '+8 % de vitesse d’attaque (et de récolte) en expédition', max: 5,
         costs: [{ croc: 4, cristal: 4 }, { os: 7, ecaille: 7 }, { croc: 10, plume: 10 }, { cristal: 14, peau: 14, obsidienne: 1 }, { os: 18, croc: 18, braise: 1, crane: 1 }] },
       // sac et seau / charrette : payés avec les butins des monstres (costs[niveau actuel])

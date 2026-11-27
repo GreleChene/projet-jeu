@@ -356,15 +356,15 @@
         ...Object.keys(M.UPGRADES).filter((k) => M.UPGRADES[k].stat && !M.UPGRADES[k].trophy).map((k) => upgradeRow(k)),
         el('h3', { class: 'mini-sub' }, 'Vitesse, sac et seau / charrette (butins des monstres)'),
         el('div', { class: 'mini-res' }, ...Object.entries(M.TROPHIES).map(([k, t]) => el('span', { class: 'chip' + ((T[k] || 0) > 0 ? '' : ' muted'), title: `${t.name} (${M.MODES[t.zone].name})` }, `${t.icon} ${T[k] || 0} ${t.name.toLowerCase()}${t.rare ? ' ★' : ''}`))),
-        upgradeRow('vitesse'), upgradeRow('cadence'), upgradeRow('sac'), upgradeRow('chariot'),
+        upgradeRow('vitesse'), upgradeRow('endurance'), upgradeRow('cadence'), upgradeRow('sac'), upgradeRow('chariot'),
         el('h3', { class: 'mini-sub' }, 'Équipement et récolte'),
         upgradeRow('potion'), ...GD.RES_IDS.map((k) => upgradeRow('harvest_' + k))),
       el('div', { class: 'panel small' }, el('h2', {}, 'Comment ça marche'),
         el('ul', {},
           el('li', {}, `Une expédition coûte 1 ⚡ (1 énergie toutes les ${M.ENERGY_HOURS} h, ${M.ENERGY_MAX} au plus). Tu diriges ton héros en temps réel, vu du dessus, avec ses statistiques d’expédition (et jusqu’à ${PT.ACTIVE_MAX} familiers).`),
-          el('li', {}, 'Commandes : ZQSD ou flèches pour bouger · clic gauche (maintenu) pour attaquer vers la souris ou récolter le point visé · clic droit (maintenu) pour le bouclier · E : compétence · A : potion · F ou Espace : seau / charrette · Échap : pause. Sur téléphone : joystick et boutons.'),
+          el('li', {}, 'Commandes : ZQSD ou flèches pour bouger (Maj pour sprinter) · clic gauche (maintenu) pour attaquer vers la souris ou récolter le point visé · clic droit (maintenu) pour le bouclier · E : compétence · A : potion · F ou Espace : seau / charrette · Échap : pause. Sur téléphone : joystick et boutons.'),
           el('li', {}, `Bouclier : il encaisse les coups avec ses points. Levé juste avant un coup (${Math.round(M.SHIELD.parryWindow * 1000)} ms), c’est une parade parfaite : aucun dégât et le coup est renvoyé (les projectiles repartent vers les monstres).`),
-          el('li', {}, `Chaque salle contient des points de récolte et des monstres. La sortie apparaît au bout de ${M.ROOMS.normal.exit} s (une cavité dans la caverne, une ouverture sur un côté ailleurs) ; ${M.REINFORCE.after} s plus tard (un peu plus en profondeur), des renforts arrivent. Salles riches (beaucoup de récolte, sortie à ${M.ROOMS.riche.exit} s), salles de repos (fontaine de soin), élite toutes les ${M.ELITE_EVERY} salles et gardien de zone toutes les ${M.BOSS_EVERY} : la sortie ne s’ouvre qu’une fois vaincus, avec une récompense au choix (${Math.round(PT.EGG_CHANCE * 100)} % de chances d’un œuf de familier).`),
+          el('li', {}, `Chaque salle contient des points de récolte et des monstres. La sortie apparaît au bout de ${M.ROOMS.normal.exit} s (une cavité dans la caverne, une ouverture sur un côté ailleurs) ; ${M.REINFORCE.after} s après ton entrée (un peu plus en profondeur), des renforts arrivent toutes les ${M.REINFORCE.every} s, sauf dans les salles d’élite et de gardien. Salles riches (beaucoup de récolte, sortie à ${M.ROOMS.riche.exit} s), salles de repos (fontaine de soin), élite toutes les ${M.ELITE_EVERY} salles et gardien de zone toutes les ${M.BOSS_EVERY} : la sortie ne s’ouvre qu’une fois vaincus, avec une récompense au choix (${Math.round(PT.EGG_CHANCE * 100)} % de chances d’un œuf de familier).`),
           el('li', {}, `Sac : ${M.BAG.base} cases (+${M.BAG.per} par niveau) ; une case = ${M.HARVEST.slot} ressources ou 1 butin de monstre. Vide-le dans le seau (caverne) ou la charrette (forêt, clairière) : ${M.CART.base} cases (+${M.CART.per} par niveau), il ou elle t’attend à un endroit différent de chaque salle (et te rejoint d’une salle à l’autre avec son contenu). « Renvoyer » met son contenu à l’abri à la base (retour ${M.CART.away} salles plus tard) ; « Rentrer » termine l’expédition avec tout, une fois les monstres de départ de la salle éliminés.`),
           el('li', {}, `Si ton héros tombe, tout ce qui n’a pas été renvoyé est perdu (butins compris), sauf ${Math.round(M.DEATH_KEEP * 100)} % des ressources du sac — et la poche sécurisée (sac au niveau max : ses ${M.BAG.pocket} cases les plus précieuses sont gardées).`),
           el('li', {}, 'Les ressources améliorent les statistiques d’expédition et ta récolte en défense de tour ; les butins des monstres agrandissent le sac et le seau / la charrette.'))));
@@ -507,7 +507,7 @@
     const me = (window.PlayerApp && window.PlayerApp.me()) || {};
     const wasAway = !!(G.sim && G.sim.cart && !G.sim.cart.here);
     const sim = X.createSim({
-      room, cls: me.cls || 'habitant', hp: run.hp, max: run.max, dmg: run.dmg, crit: run.crit, armor: run.armor, shield: run.shield, speed: run.speed, haste: run.haste,
+      room, cls: me.cls || 'habitant', hp: run.hp, max: run.max, dmg: run.dmg, crit: run.crit, armor: run.armor, shield: run.shield, speed: run.speed, haste: run.haste, stamina: run.stamina,
       buff: { dmg: run.buff.dmg || 0, crit: run.buff.crit || 0 }, pets: clone(run.pets), potions: run.potions,
       bag: clone(run.bag), bagCap: run.bagCap,
       cart: { items: clone(run.cart.items), cap: run.cartCap, here: !run.cart.back, skin: run.cart.skin },
@@ -664,6 +664,7 @@
       el('h3', {}, first ? '🎮 Bienvenue dans l’expédition !' : '⏸️ Pause'),
       el('ul', { class: 'small' },
         li('ZQSD / flèches', 'se déplacer'),
+        li('Maj (maintenue)', `sprint (vitesse ×${String(M.SPRINT.mult).replace('.', ',')}) tant qu’il reste de l’endurance`),
         li('Clic gauche (maintenu)', 'attaquer vers la souris — vise un point de récolte pour récolter'),
         li('Clic droit (maintenu)', 'bouclier ; levé juste avant un coup, c’est une parade parfaite : les dégâts sont renvoyés'),
         li('E', 'compétence de classe'),
@@ -672,7 +673,7 @@
         li('Échap', 'pause'),
         G.touchMode ? li('Téléphone', `joystick pour bouger, touche la scène ou ⚔️ pour attaquer, 🔰 bouclier, ✨ compétence, 🧪 potion, ${cw.icon} ${cw.the}`) : ''),
       el('ul', { class: 'small muted' },
-        el('li', {}, `La sortie apparaît au bout de ${M.ROOMS.normal.exit} s : ${MD.exit === 'hole' ? 'une cavité dans le sol' : 'une ouverture sur un côté'}. ${M.REINFORCE.after} s plus tard (un peu plus en profondeur), des renforts arrivent.`),
+        el('li', {}, `La sortie apparaît au bout de ${M.ROOMS.normal.exit} s : ${MD.exit === 'hole' ? 'une cavité dans le sol' : 'une ouverture sur un côté'}. ${M.REINFORCE.after} s après ton entrée (un peu plus en profondeur), des renforts arrivent, sauf dans les salles d’élite et de gardien.`),
         el('li', {}, `Sac : 1 case = ${M.HARVEST.slot} ressources ou 1 butin de monstre. Vide-le dans ${cw.the}, posé${cw.the === 'le seau' ? '' : 'e'} à un endroit au hasard dans chaque salle.`),
         el('li', {}, `« Renvoyer » met le contenu ${cw.of} à l’abri (retour ${M.CART.away} salles plus tard) ; « Rentrer » termine l’expédition, une fois les monstres de la salle éliminés.`),
         el('li', {}, `Si ton héros tombe : tout ce qui n’a pas été renvoyé est perdu, sauf ${Math.round(M.DEATH_KEEP * 100)} % des ressources du sac.`)),
@@ -719,12 +720,13 @@
     if (k === 'escape' || k === 'p') { e.preventDefault(); if (G.panel === 'cart' || G.panel === 'help') closePanel(); else if (!G.panel) openHelp(false); return; }
     if (k === 'f' || k === ' ') { e.preventDefault(); if (!e.repeat) toggleCart(); return; }
     if (G.panel) return;
+    if (k === 'shift') { G.keys.sprint = true; return; }
     if (KEYMAP[k]) { G.keys[KEYMAP[k]] = true; e.preventDefault(); return; }
     if (e.repeat) return;
     if (k === 'e') G.keys.skill = true;
     else if (k === 'a') G.keys.potion = true;
   });
-  window.addEventListener('keyup', (e) => { if (G && KEYMAP[e.key.toLowerCase()]) G.keys[KEYMAP[e.key.toLowerCase()]] = false; });
+  window.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (!G) return; if (k === 'shift') G.keys.sprint = false; if (KEYMAP[k]) G.keys[KEYMAP[k]] = false; });
   window.addEventListener('blur', releaseKeys);
 
   function setMouse(e) {
@@ -778,7 +780,7 @@
     const tap = (label, fn, title) => { const b = el('button', { class: 'mini-tbtn', title }, label); b.addEventListener('pointerdown', (e) => { e.preventDefault(); if (G) fn(); }); return b; };
     return el('div', { class: 'mini-touch' }, joy,
       el('div', { class: 'mini-tbtns' },
-        hold('⚔️', 'attack', 'Attaquer / récolter (cible la plus proche)'), hold('🔰', 'shield', 'Bouclier (maintenir)'),
+        hold('⚔️', 'attack', 'Attaquer / récolter (cible la plus proche)'), hold('🔰', 'shield', 'Bouclier (maintenir)'), hold('🏃', 'sprint', 'Sprint (maintenir)'),
         tap('✨', () => { if (!G.panel) G.keys.skill = true; }, 'Compétence'), tap('🧪', () => { if (!G.panel) G.keys.potion = true; }, 'Potion'),
         tap('🛒', toggleCart, 'Seau / charrette'), tap('⏸️', () => { if (G.panel === 'help') closePanel(); else if (!G.panel) openHelp(false); }, 'Pause')));
   }
@@ -819,7 +821,7 @@
     const mx = (K.right ? 1 : 0) - (K.left ? 1 : 0) + G.joy.x, my = (K.down ? 1 : 0) - (K.up ? 1 : 0) + G.joy.y;
     if (Math.hypot(mx, my) > 0.2) G.lastDir = Math.atan2(my, mx);
     G.hover = hoverTarget();
-    const o = { mx, my, attack: !!(K.attack || T.attack), shield: !!(K.shield || T.shield), skill: !!K.skill, potion: !!K.potion };
+    const o = { mx, my, attack: !!(K.attack || T.attack), shield: !!(K.shield || T.shield), sprint: !!(K.sprint || T.sprint), skill: !!K.skill, potion: !!K.potion };
     if (T.attack || (G.touchMode && (K.skill || T.shield) && !K.attack)) { const p = autoAim(); o.ax = p.x; o.ay = p.y; }
     else if (G.mouse.in) { o.ax = G.hover ? G.hover.x : G.mouse.x; o.ay = G.hover ? G.hover.y : G.mouse.y; }
     return o;
@@ -1237,10 +1239,11 @@
     const s = G.sim, h = s.hero, room = G.room, RT = M.ROOMS[room.type], run = state.run;
     if (!run) return;
     // en haut à gauche : salle (numéro + type), PV, bouclier, potions, compétence, sac
-    box(ctx, 10, 10, 300, 104);
+    box(ctx, 10, 10, 300, 122);
     txt(ctx, `Salle ${G.roomNo}`, 22, 29, 19, '#f2c14e', 'left');
     txt(ctx, `${RT.icon} ${RT.name}`, 30 + textW(ctx, `Salle ${G.roomNo}`, 19), 29, 15, room.type === 'gardien' ? '#ff9a8a' : room.type === 'elite' ? '#f2c14e' : room.type === 'riche' ? '#ffe9a0' : room.type === 'repos' ? '#9fffd6' : '#ffffff', 'left');
     bar(ctx, 20, 42, 280, 18, h.hp / h.max, h.hp / h.max > 0.4 ? '#5cb84a' : '#e2504c', `${Math.ceil(h.hp)} / ${h.max} PV`);
+    bar(ctx, 20, 116, 280, 10, h.stamina / h.staminaMax, h.sprinting ? '#ffe27a' : '#e8c46a', `Endurance (Maj) ${Math.round(h.stamina)} / ${h.staminaMax}`);
     bar(ctx, 20, 64, 280, 14, h.broken > 0 ? 0 : h.shield / Math.max(1, h.shieldMax), h.shieldUp ? '#bfe8ff' : '#5ab4f0', h.broken > 0 ? `Bouclier brisé (${Math.ceil(h.broken)} s)` : `Bouclier ${Math.round(h.shield)} / ${h.shieldMax}`);
     let x = 22;
     const item = (s1, col) => { txt(ctx, s1, x, 97, 14, col, 'left'); x += textW(ctx, s1, 14) + 16; };
@@ -1250,10 +1253,9 @@
     // en haut au centre : la sortie (et les renforts)
     let msg, col = '#ffffff';
     if (s.exitOpen) {
-      const since = s.t - s.exitOpenedAt;
-      const after = X.reinfAfter(G.roomNo);
-      if (since >= after) { msg = '⚠️ Renforts en approche !'; col = '#ffb0a0'; }
-      else if (since >= after - 15) { msg = `⚠️ Renforts dans ${Math.ceil(after - since)} s`; col = '#ffd0a0'; }
+      const left = X.reinfAfter(G.roomNo) - s.t;
+      if (room.boss < 0 && left <= 0) { msg = '⚠️ Renforts en approche !'; col = '#ffb0a0'; }
+      else if (room.boss < 0 && left <= 10) { msg = `⚠️ Renforts dans ${Math.ceil(left)} s`; col = '#ffd0a0'; }
       else { msg = room.exit.kind === 'hole' ? '➡️ Cavité ouverte : saute dedans !' : '➡️ Passage ouvert !'; col = '#b8ffb0'; }
     } else if (room.boss >= 0) msg = room.type === 'gardien' ? '👑 Vaincs le gardien pour ouvrir la sortie' : '⚔️ Vaincs l’élite pour ouvrir la sortie';
     else msg = `⏳ Sortie dans ${Math.max(1, Math.ceil(s.exitAt - s.t))} s`;
@@ -1279,7 +1281,7 @@
     // aide des commandes au début de la première salle
     if (G.roomNo === 1 && G.roomT < 15 && !G.panel) {
       const hint = G.touchMode ? 'Joystick : bouger · touche la scène ou ⚔️ : attaquer / récolter · 🔰 : bouclier · ✨ : compétence · 🧪 : potion'
-        : 'ZQSD : bouger · clic gauche : attaquer / récolter · clic droit : bouclier · E : compétence · A : potion · F : seau';
+        : 'ZQSD : bouger · Maj : sprint · clic gauche : attaquer / récolter · clic droit : bouclier · E : compétence · A : potion · F : seau';
       ctx.save(); ctx.globalAlpha = Math.min(1, (15 - G.roomT) / 2);
       const w2 = textW(ctx, hint, 13) + 24;
       box(ctx, AW / 2 - w2 / 2, AH - 44, w2, 28); txt(ctx, hint, AW / 2, AH - 30, 13, '#ffffff');

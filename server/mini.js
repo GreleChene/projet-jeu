@@ -83,7 +83,7 @@ function start(u, mode, gear, opts = {}) {
   m.run = {
     v: 2, mode, seed: Math.floor(rnd() * 1e9), room: 0, state: 'room',
     gen: { luck: m.up['luck_' + mode] || 0, bounty: m.up['bounty_' + mode] || 0, jackpot: m.up['jackpot_' + mode] || 0, fortune: m.up['fortune_' + mode] || 0 },
-    hp: st.hp, max: st.hp, baseMax: st.hp, dmg: st.dmg, crit: st.crit, armor: st.armor, shield: st.shield, speed: st.speed, haste: st.haste,
+    hp: st.hp, max: st.hp, baseMax: st.hp, dmg: st.dmg, crit: st.crit, armor: st.armor, shield: st.shield, speed: st.speed, haste: st.haste, stamina: st.stamina,
     buff: { dmg: 0, hp: 0, crit: 0 }, potions: MINI.POTIONS + (m.up.potion || 0),
     xp: 0, kills: 0, grelons: 0, log: [],
     bag: [], cart: { items: [], back: 0, skin: M.cart }, sent: { res: {}, tro: {} },

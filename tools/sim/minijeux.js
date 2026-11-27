@@ -48,7 +48,7 @@ function expedition(mode, tier) {
   // salle simulée à partir de l'état du serveur (comme la page)
   function build() {
     const room = X.genRoom(run.mode, run.seed, run.room, run.gen);
-    s = X.createSim({ room, cls: CLS, hp: run.hp, max: run.max, dmg: run.dmg, crit: run.crit, armor: run.armor, shield: run.shield, speed: run.speed, haste: run.haste,
+    s = X.createSim({ room, cls: CLS, hp: run.hp, max: run.max, dmg: run.dmg, crit: run.crit, armor: run.armor, shield: run.shield, speed: run.speed, haste: run.haste, stamina: run.stamina,
       buff: { dmg: run.buff.dmg, crit: run.buff.crit }, pets: clone(run.pets), potions: run.potions, bag: clone(run.bag), bagCap: X.bagCap(u.mini.up, run.pets),
       cart: { items: clone(run.cart.items), cap: X.cartCap(u.mini.up), here: !run.cart.back, skin: run.cart.skin },
       killed: run.cur.killed, harv: run.cur.harv, picked: run.cur.picked, extra: run.cur.extra, rewardDone: run.cur.reward === 'done' });
@@ -91,7 +91,7 @@ function expedition(mode, tier) {
 // Décision du bot pour un pas de simulation
 function decide(s) {
   const h = s.hero, inp = { mx: 0, my: 0 };
-  const go = (x, y, stop) => { const dx = x - h.x, dy = y - h.y, d = Math.hypot(dx, dy); if (d > (stop || 4)) { inp.mx = dx / d; inp.my = dy / d; } return d; };
+  const go = (x, y, stop) => { const dx = x - h.x, dy = y - h.y, d = Math.hypot(dx, dy); if (d > (stop || 4)) { inp.mx = dx / d; inp.my = dy / d; if (d > 160 && h.stamina > h.staminaMax * 0.3) inp.sprint = true; } return d; };
   const mobs = s.mobs.filter((m) => !m.dead);
   // parade : on lève le bouclier juste avant le coup (avec la probabilité --parade, tirée une fois par coup préparé)
   for (const m of mobs) {
@@ -109,11 +109,11 @@ function decide(s) {
       if (along > 0 && Math.abs(side) < m.r + h.r + 20) { const k = side >= 0 ? 1 : -1; inp.mx = px * k; inp.my = py * k; return inp; }
     }
   }
-  const exitOpen = s.exitOpen, since = exitOpen ? s.t - s.exitOpenedAt : 0;
+  const exitOpen = s.exitOpen, reinf = s.room.boss < 0 ? X.reinfAfter(s.room.room) : Infinity, since = s.t + 25 - reinf; // since > 25 - n : renforts dans n s
   // combat : le monstre le plus proche (éveillé ou à moins de 300 px)
   let tg = null, bd = 1e9;
   for (const m of mobs) { const d = dist(m, h); if ((m.aggro || d < 300) && d < bd) { bd = d; tg = m; } }
-  if (tg && !(exitOpen && since > X.reinfAfter(s.room.room) - 8 && !tg.boss && !tg.elite)) {
+  if (tg && !(exitOpen && since > 25 - 8 && !tg.boss && !tg.elite)) {
     const reach = s.style === 'melee' ? tg.r + 44 : 230;
     go(tg.x, tg.y, reach - 12);
     inp.ax = tg.x; inp.ay = tg.y;
@@ -124,11 +124,11 @@ function decide(s) {
   // butins et tas de ressources
   const roomInBag = s.bag.length < s.bagCap;
   const drop = s.drops.find((d) => roomInBag || (!d.t && s.bag.some((x) => x.r === d.r && x.n < X.SLOT)));
-  if (drop && since < X.reinfAfter(s.room.room) - 5) { go(drop.x, drop.y, 2); return inp; }
+  if (drop && since < 25 - 5) { go(drop.x, drop.y, 2); return inp; }
   // sac plein : vers le seau s'il est là et qu'il a de la place
   if (!roomInBag && s.cart.here && s.cart.items.length < s.cart.cap) { go(s.cart.x, s.cart.y, 40); return inp; }
   // récolte
-  if (roomInBag && since < X.reinfAfter(s.room.room) - 6) {
+  if (roomInBag && since < 25 - 6) {
     let n = null, nd = 1e9;
     for (const q of s.nodes) if (q.left > 0) { const d = dist(q, h); if (d < nd) { nd = d; n = q; } }
     if (n) { go(n.x, n.y, 48); inp.ax = n.x; inp.ay = n.y; if (nd < 60) inp.attack = true; return inp; }

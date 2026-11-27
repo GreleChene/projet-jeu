@@ -178,7 +178,7 @@ test('mini-jeux : « Rentrer » avec le seau / la charrette termine l’expédit
   const R = X.genRoom('champ', run.seed, 4, run.gen);
   assert.strictEqual(R.mobs.length, M.START_MOBS, '3 monstres au départ');
   assert.deepStrictEqual([1, 7, 13, 31, 80].map(X.startMobs), [3, 4, 5, 8, 8], 'plus nombreux en profondeur (8 au plus)');
-  assert.deepStrictEqual([1, 13, 80].map(X.reinfAfter), [15, 19, 25], 'renforts un peu plus tard en profondeur');
+  assert.deepStrictEqual([1, 13, 80].map(X.reinfAfter), [20, 24, 30], 'renforts un peu plus tard en profondeur');
   assert.throws(() => mini.act(u, { action: 'home' }, { now: T0 + 1e9 }), /Élimine d’abord/, 'pas de retour tant que les monstres de la salle vivent');
   mini.act(u, { action: 'sync', report: { k: R.mobs.map((m) => m.i) } }, { now: T0 + 1e9 });
   run.xp = 50;
@@ -300,12 +300,16 @@ test('mini-jeux (simulation) : récolte avec la touche d’attaque, sac plein, s
   assert.ok(!s.exitOpen);
   for (let i = 0; i < 10; i++) X.stepSim(s, 0.05, {});
   assert.ok(s.exitOpen);
-  // renforts 45 s après l'ouverture
-  const open = s.exitOpenedAt;
+  // renforts 20 s après l'entrée dans la salle
   s.hero.hp = s.hero.max = 1e6;
   for (let i = 0; i < 1200 && !s.events.some((e) => e.k === 'reinforce'); i++) X.stepSim(s, 0.05, {});
   assert.ok(s.mobs.some((m) => m.reinf), 'des renforts arrivent');
-  assert.ok(s.t - open >= M.REINFORCE.after - 0.06);
+  assert.ok(Math.abs(s.t - M.REINFORCE.after) < 0.1, 'au bout de 20 s');
+  // salle d'élite ou de gardien : aucun renfort
+  const b = arena([{ type: 'sanglier', x: 900, y: 540 }], { boss: 0 });
+  b.hero.hp = b.hero.max = 1e6;
+  for (let i = 0; i < 20 * 60; i++) X.stepSim(b, 0.05, {});
+  assert.ok(!b.mobs.some((m) => m.reinf), 'pas de renforts en salle de boss');
   // le héros saute dans la cavité
   s.hero.x = 820; s.hero.y = 470;
   X.stepSim(s, 0.05, {});
@@ -336,7 +340,7 @@ test('mini-jeux (simulation) : fontaine 10 PV/s pendant 3 s ; monstres qui fonce
   // renforts : 25 s après l'ouverture de la sortie, puis toutes les 5 s
   s = arena([]);
   s.hero.hp = s.hero.max = 1e7;
-  for (let i = 0; i < 20 * (10 + M.REINFORCE.after + M.REINFORCE.every) + 4; i++) X.stepSim(s, 0.05, {});
+  for (let i = 0; i < 20 * (M.REINFORCE.after + M.REINFORCE.every) + 4; i++) X.stepSim(s, 0.05, {});
   assert.strictEqual(s.mobs.filter((m) => m.reinf).length, 2 * M.REINFORCE.count);
   assert.ok(s.mobs.every((m) => m.i >= X.REINF0), 'renforts numérotés');
   assert.deepStrictEqual(X.reinfSpec('mine', 1, 1, 0, 3), X.reinfSpec('mine', 1, 1, 0, 3), 'déterministes');
@@ -378,4 +382,20 @@ test('mini-jeux : vitesse et vitesse d’attaque (butins des monstres) ; seau po
   const s = X.createSim({ room: { ...R, mobs: [] }, cls: 'paladin', hp: 99, max: 99, dmg: 10, crit: 0, armor: 0, shield: 20, pets: [], potions: 0, bag: [], bagCap: 5, cart: { items: [], cap: 10, here: true, skin: 'seau' } });
   for (let i = 0; i < 40; i++) X.stepSim(s, 0.05, { mx: 1, my: 0.3 });
   assert.deepStrictEqual({ x: s.cart.x, y: s.cart.y }, R.cart);
+});
+
+test('mini-jeux (simulation) : sprint (Maj) ×1,5 avec une jauge d’endurance qui s’épuise puis remonte', () => {
+  assert.strictEqual(M.BASE.speed, 150);
+  const walk = arena([]), run = arena([]);
+  for (let i = 0; i < 10; i++) { X.stepSim(walk, 0.05, { mx: 1 }); X.stepSim(run, 0.05, { mx: 1, sprint: true }); }
+  assert.ok(Math.abs((run.hero.x - 480) / (walk.hero.x - 480) - M.SPRINT.mult) < 0.01, 'vitesse ×1,5');
+  assert.ok(run.hero.stamina < M.BASE.stamina);
+  for (let i = 0; i < 200 && run.hero.stamina > 0; i++) X.stepSim(run, 0.05, { mx: i % 2 ? 1 : -1, sprint: true });
+  X.stepSim(run, 0.05, { mx: 1, sprint: true });
+  assert.ok(run.hero.stamina < 1 && !run.hero.sprinting, 'endurance épuisée : plus de sprint');
+  for (let i = 0; i < 60; i++) X.stepSim(run, 0.05, {});
+  assert.ok(run.hero.stamina > 30, 'elle remonte au repos');
+  // l'amélioration « Endurance » (butins) agrandit la jauge
+  assert.strictEqual(GD.miniStats({ endurance: 2 }).stamina, M.BASE.stamina + 2 * M.UPGRADES.endurance.per);
+  assert.strictEqual(arena([], null, { stamina: 150 }).hero.staminaMax, 150);
 });
