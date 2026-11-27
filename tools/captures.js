@@ -43,7 +43,7 @@ function startServer() {
     if (mode === 'stream') {
       const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
       const req = ctx.request;
-      await req.post(U + '/api/login', { data: { pseudo: 'admin', password: '123456' } });
+      await req.post(U + '/api/login', { data: { pseudo: 'admin', password: 'Malachene' } });
       await req.post(U + '/api/admin/game/start', { data: { wave: Number(A.manche || 3) } });
       const classes = A.classes ? String(A.classes).split(',') : [null];
       const n = Number(A.bots || 8);

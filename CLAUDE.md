@@ -18,7 +18,7 @@ npm run captures -- stream        # captures/stream-calme.png et stream-vague.pn
 npm run captures -- joueur --onglet=hero [--mobile]   # captures/joueur-<onglet>.png (--onglet=bastion pour l'accueil du Bastion)
 ```
 
-Pages : `/` (joueur), `/stream` (OBS, 1920×1080), `/admin` (compte `admin` / `123456`, recréé à chaque démarrage).
+Pages : `/` (joueur), `/stream` (OBS, 1920×1080), `/admin` (compte `admin` / `Malachene`, ou la variable `ADMIN_PASSWORD` ; créé au premier démarrage, l'ancien mot de passe par défaut `123456` est remplacé).
 
 ## Architecture
 

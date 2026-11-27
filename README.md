@@ -18,7 +18,7 @@ npm start
 | Stream | `http://localhost:3000/stream` | **source Navigateur OBS en 1920×1080** (publique, en lecture seule) |
 | Admin | `http://localhost:3000/admin` | lancer, mettre en pause ou arrêter une partie, aller à une manche, accélérer le temps (x1, x2, x3, pour les tests), régler, bots de test (classe et niveau au choix), comptes (donner de l'XP, des Grêlons ou des glaçons) |
 
-**Administration :** au premier démarrage, le compte **`admin`** est créé avec le mot de passe **`123456`**. C'est le **seul** compte qui a accès à `/admin` et à l'API d'administration ; la page redirige tous les autres vers l'accueil, et personne ne peut s'inscrire sous le pseudo « admin ». Change ce mot de passe dès la mise en ligne (onglet « Compte » de la page joueur, connecté en tant qu'`admin`).
+**Administration :** au premier démarrage, le compte **`admin`** est créé avec le mot de passe **`Malachene`** (ou celui de la variable d'environnement `ADMIN_PASSWORD`) ; un compte admin qui avait encore l'ancien mot de passe par défaut (`123456`) passe automatiquement au nouveau. C'est le **seul** compte qui a accès à `/admin` et à l'API d'administration ; la page redirige tous les autres vers l'accueil, et personne ne peut s'inscrire sous le pseudo « admin ». Change ce mot de passe dès la mise en ligne (onglet « Compte » de la page joueur, connecté en tant qu'`admin`).
 
 ### Variables d'environnement
 
@@ -28,9 +28,15 @@ npm start
 | `DATA_FILE` | `data/db.json` | fichier de sauvegarde (comptes, progression, réglages) |
 | `PUBLIC_URL` | hôte courant | adresse affichée sur le stream (« Rejoins la défense : … ») |
 | `SECURE_COOKIES` | `0` | à mettre à `1` derrière HTTPS |
+| `ADMIN_PASSWORD` | `Malachene` | mot de passe du compte `admin` à sa création |
 | `TRUST_PROXY` | (vide) | nombre de proxys de confiance devant le serveur (ex. `1` derrière Caddy, Nginx ou un hébergeur) : sans lui, tous les joueurs semblent venir de l'adresse du proxy (anti-triche : débit par adresse, comptes liés) |
 
 En production, placez le serveur derrière un proxy HTTPS (Caddy ou Nginx) qui transmet les WebSockets, et mettez `TRUST_PROXY=1`.
+
+### Mise en ligne gratuite (quelques testeurs)
+
+- **Le plus simple : depuis ton PC, avec un tunnel Cloudflare** (gratuit, sans compte, HTTPS et WebSockets compris). Lance le jeu (`npm start`), puis dans un autre terminal `cloudflared tunnel --url http://localhost:3000` : une adresse `https://….trycloudflare.com` s'affiche, à envoyer aux testeurs. Les comptes restent dans `data/db.json` sur ton PC. Le jeu n'est joignable que tant que le PC et les deux commandes tournent, et l'adresse change à chaque lancement du tunnel. Pour que l'anti-triche distingue les joueurs, lance plutôt le serveur avec `TRUST_PROXY=1 npm start`.
+- **Toujours en ligne : Render (offre gratuite)**. Crée un « Web Service » depuis le dépôt GitHub, avec la commande de build `npm install`, la commande de démarrage `npm start` et les variables `TRUST_PROXY=1` et `SECURE_COOKIES=1`. Limites de l'offre gratuite : le service s'endort après 15 min sans visite (environ une minute de réveil), et son disque n'est pas conservé, donc **les comptes et la progression sont effacés à chaque mise en veille ou redéploiement**. C'est suffisant pour une séance de test, pas au-delà.
 
 ## Le jeu
 

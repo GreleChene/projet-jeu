@@ -23,14 +23,15 @@ AC.setSalt(db.data.settings.ipSalt);
 
 // Compte administrateur unique : « admin ». Seul ce compte a accès à l'administration.
 const ADMIN_PSEUDO = 'admin';
-const ADMIN_DEFAULT_PASSWORD = '123456';
+// mot de passe par défaut (variable d'environnement ADMIN_PASSWORD pour en choisir un autre à la mise en ligne)
+const ADMIN_DEFAULT_PASSWORD = process.env.ADMIN_PASSWORD || 'Malachene';
 {
   const existing = db.userByPseudo(ADMIN_PSEUDO);
   if (!existing) {
     db.newUser(ADMIN_PSEUDO, bcrypt.hashSync(ADMIN_DEFAULT_PASSWORD, 10), 'admin');
     console.log(`Compte « ${ADMIN_PSEUDO} » créé (mot de passe par défaut : ${ADMIN_DEFAULT_PASSWORD}).`);
-  } else if (bcrypt.compareSync('1234', existing.passHash)) {
-    // ancien mot de passe par défaut, trop court : remplacé
+  } else if (['1234', '123456'].some((old) => bcrypt.compareSync(old, existing.passHash))) {
+    // anciens mots de passe par défaut : remplacés
     existing.passHash = bcrypt.hashSync(ADMIN_DEFAULT_PASSWORD, 10);
     db.deleteUserSessions(existing.id);
     console.log(`Mot de passe du compte « ${ADMIN_PSEUDO} » mis à jour : ${ADMIN_DEFAULT_PASSWORD}.`);
