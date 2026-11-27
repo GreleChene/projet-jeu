@@ -693,7 +693,7 @@
     treant: { name: 'Arbre déraciné', era: 1, from: 999, shape: 'treant', color: '#2f6b4a', hp: 130, dmg: 12, speed: 46, range: 30, cd: 1.4, size: 20, xp: 14, gold: 4, w: 0 },
     // mini-jeux uniquement (champ de baies) : jamais en défense de tour
     corbeau: { name: 'Corbeau', era: 1, from: 999, shape: 'bird', color: '#2c2c38', hp: 28, dmg: 5, speed: 120, range: 20, cd: 0.9, size: 11, xp: 5, gold: 1, w: 0 },
-    gelee_caverne: { name: 'Gelée des cavernes', era: 1, from: 999, shape: 'slime', color: '#7fa8c8', hp: 45, dmg: 5, speed: 50, range: 22, cd: 1.1, size: 12, onHit: { slow: 0.3, dur: 2 }, xp: 5, gold: 1, w: 0 },
+    gelee_caverne: { name: 'Gelée des cavernes', era: 1, from: 999, shape: 'slime', color: '#7fa8c8', hp: 36, dmg: 5, speed: 50, range: 22, cd: 1.1, size: 12, onHit: { slow: 0.3, dur: 2 }, xp: 5, gold: 1, w: 0 },
     araignee_cristal: { name: 'Araignée de cristal', era: 1, from: 999, shape: 'spider', color: '#6a4fa8', hp: 60, dmg: 8, speed: 90, range: 200, cd: 1.4, size: 12, ranged: 'frost', xp: 9, gold: 2, w: 0 },
     sentinelle_obsidienne: { name: 'Sentinelle d’obsidienne', era: 1, from: 999, shape: 'golem', color: '#3a2e44', hp: 220, dmg: 15, speed: 38, range: 30, cd: 1.6, size: 20, xp: 20, gold: 5, w: 0 },
     renard: { name: 'Renard', era: 1, from: 999, shape: 'wolf', color: '#d9772e', hp: 28, dmg: 5, speed: 115, range: 22, cd: 0.8, size: 12, xp: 4, gold: 1, w: 0 },
