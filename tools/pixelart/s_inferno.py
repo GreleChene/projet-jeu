@@ -2,7 +2,8 @@
 from gen import C
 
 SPIDER_PAL = {'F': '#3e4a2a', 'f': '#252e18', 'L': '#5a6a3e', 'R': '#c4281e', 'E': '#ff2a2a', 'k': '#120c0a', 'h': '#6a7a4e'}
-SPIDER_VAR = {'queen': {'F': '#2b3320', 'f': '#161c10', 'L': '#40502e'}}
+SPIDER_VAR = {
+  'crystal': {'F': '#6a4fa8', 'f': '#3e2a6a', 'L': '#9a7ad8', 'R': '#7fe8ff', 'E': '#7fe8ff', 'h': '#b8a0ff'},'queen': {'F': '#2b3320', 'f': '#161c10', 'L': '#40502e'}}
 def spider(frame=0):
     c = C(44, 24)
     k = [0, 1][frame % 2]

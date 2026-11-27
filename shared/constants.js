@@ -693,6 +693,15 @@
     treant: { name: 'Arbre déraciné', era: 1, from: 999, shape: 'treant', color: '#2f6b4a', hp: 130, dmg: 12, speed: 46, range: 30, cd: 1.4, size: 20, xp: 14, gold: 4, w: 0 },
     // mini-jeux uniquement (champ de baies) : jamais en défense de tour
     corbeau: { name: 'Corbeau', era: 1, from: 999, shape: 'bird', color: '#2c2c38', hp: 28, dmg: 5, speed: 120, range: 20, cd: 0.9, size: 11, xp: 5, gold: 1, w: 0 },
+    gelee_caverne: { name: 'Gelée des cavernes', era: 1, from: 999, shape: 'slime', color: '#7fa8c8', hp: 45, dmg: 5, speed: 50, range: 22, cd: 1.1, size: 12, onHit: { slow: 0.3, dur: 2 }, xp: 5, gold: 1, w: 0 },
+    araignee_cristal: { name: 'Araignée de cristal', era: 1, from: 999, shape: 'spider', color: '#6a4fa8', hp: 60, dmg: 8, speed: 90, range: 200, cd: 1.4, size: 12, ranged: 'frost', xp: 9, gold: 2, w: 0 },
+    sentinelle_obsidienne: { name: 'Sentinelle d’obsidienne', era: 1, from: 999, shape: 'golem', color: '#3a2e44', hp: 220, dmg: 15, speed: 38, range: 30, cd: 1.6, size: 20, xp: 20, gold: 5, w: 0 },
+    renard: { name: 'Renard', era: 1, from: 999, shape: 'wolf', color: '#d9772e', hp: 28, dmg: 5, speed: 115, range: 22, cd: 0.8, size: 12, xp: 4, gold: 1, w: 0 },
+    ours_noir: { name: 'Ours noir', era: 1, from: 999, shape: 'bear', color: '#2e2a30', hp: 150, dmg: 13, speed: 60, range: 28, cd: 1.3, size: 18, xp: 15, gold: 4, w: 0 },
+    squelette_maudit: { name: 'Squelette archer maudit', era: 1, from: 999, shape: 'skeleton', color: '#c8d0b8', hp: 55, dmg: 8, speed: 70, range: 220, cd: 1.5, size: 13, ranged: 'arrow', xp: 10, gold: 2, w: 0 },
+    mulot: { name: 'Mulot', era: 1, from: 999, shape: 'rat', color: '#a87a4e', hp: 20, dmg: 4, speed: 120, range: 18, cd: 0.8, size: 9, xp: 3, gold: 1, w: 0 },
+    lievre: { name: 'Lièvre', era: 1, from: 999, shape: 'rabbit', color: '#a8865a', hp: 40, dmg: 6, speed: 110, range: 20, cd: 0.9, size: 12, xp: 6, gold: 1, w: 0 },
+    feu_follet: { name: 'Feu follet', era: 1, from: 999, shape: 'wisp', color: '#e8902e', hp: 60, dmg: 10, speed: 70, range: 220, cd: 1.6, size: 13, ranged: 'fire', onHit: { burn: 3, dur: 3 }, xp: 12, gold: 3, w: 0 },
 
     // Ère 2 — corruption verte
     rampant: { name: 'Rampant putride', era: 2, from: 31, shape: 'crawler', color: '#7fd13b', hp: 80, dmg: 8, speed: 70, range: 22, cd: 1, size: 14, onHit: { poison: 3, dur: 4 }, xp: 10, gold: 3, w: 9 },
@@ -864,7 +873,7 @@
     ENERGY_HOURS: 6,        // 1 énergie toutes les 6 h ; une expédition coûte 1 énergie
     ESCAPE_EVERY: 3,        // toutes les 3 salles : remonter avec son butin ou continuer
     ELITE_EVERY: 5,         // toutes les 5 salles : un monstre d'élite et un choix de récompense
-    DEATH_LOSS: 0.75,       // mort : perte de 75 % des ressources de l'expédition (l'XP est gardée)
+    DEATH_LOSS: 0.5,        // mort : perte de 50 % des ressources de l'expédition (l'XP est gardée)
     LOOT_CHANCE: 0.35,      // chance qu'une salle normale contienne du butin plutôt que des monstres
     POTIONS: 2,             // potions de soin par expédition (soignent 35 % des PV)
     POTION_HEAL: 0.35,
@@ -883,7 +892,7 @@
           { name: 'Cavernes de cristal', subs: ['Grotte d’améthyste', 'Lac souterrain', 'Forêt de stalagmites', 'Géode géante', 'Pont de pierre', 'Veines bleues'] },
           { name: 'Profondeurs de magma', subs: ['Rivière de lave', 'Forge naine en ruine', 'Salle d’obsidienne', 'Cheminée volcanique', 'Trône du roi nain', 'Gouffre ardent'] }
         ],
-        mobs: [['gobelin', 'araignee'], ['golem_glace', 'esprit_givre'], ['chien_infernal', 'elementaire']], // chaque monstre n'existe que dans une zone
+        mobs: [['gobelin', 'araignee', 'gelee_caverne'], ['golem_glace', 'esprit_givre', 'araignee_cristal'], ['chien_infernal', 'elementaire', 'sentinelle_obsidienne']], // 3 monstres par zone, chacun dans une seule zone
         loot: 'Filon de pierre'
       },
       foret: {
@@ -894,7 +903,7 @@
           { name: 'Forêt profonde', subs: ['Chênes centenaires', 'Brume matinale', 'Marais', 'Racines géantes', 'Ruines oubliées', 'Cercle de pierres'] },
           { name: 'Bois maudit', subs: ['Arbres morts', 'Toiles d’araignée', 'Feux follets', 'Cimetière oublié', 'Tronc creux', 'Cœur de la forêt'] }
         ],
-        mobs: [['loup', 'sanglier'], ['loup_neige', 'treant'], ['mutant', 'champignon']],
+        mobs: [['loup', 'sanglier', 'renard'], ['loup_neige', 'treant', 'ours_noir'], ['mutant', 'champignon', 'squelette_maudit']],
         loot: 'Bois tombé'
       },
       champ: {
@@ -905,7 +914,7 @@
           { name: 'Collines sauvages', subs: ['Buissons épineux', 'Rochers moussus', 'Prairie fleurie', 'Pont de bois', 'Ferme abandonnée', 'Vieux puits'] },
           { name: 'Vallée crépusculaire', subs: ['Coucher de soleil', 'Champ de citrouilles', 'Buissons géants', 'Tour en ruine', 'Lucioles', 'Autel des récoltes'] }
         ],
-        mobs: [['corbeau', 'gobelin_archer'], ['crapaud', 'rampant'], ['diablotin', 'salamandre']],
+        mobs: [['corbeau', 'gobelin_archer', 'mulot'], ['crapaud', 'rampant', 'lievre'], ['diablotin', 'salamandre', 'feu_follet']],
         loot: 'Buisson chargé'
       }
     },
@@ -974,7 +983,7 @@
      *  freeze / stun : chance que la cible passe son prochain coup
      *  guard  : absorbe ce % du 1er coup reçu par le héros dans chaque salle
      *  heal   : soigne ce % des PV max du héros tous les 2 tours
-     *  taunt  : attire les coups (chance en plus d'être visé)        ranged : jamais visé
+     *  taunt  : attire les coups (chance en plus d'être visé)        ranged : à distance, seuls les monstres qui tirent le touchent
      *  loot   : +% de butin       sniff : flaire si la salle suivante contient du butin
      *  carry  : réduit la perte de ressources en cas de mort (points de %)    rally : +% de dégâts du héros */
     KINDS: {
@@ -1003,7 +1012,16 @@
       mutant: { hp: 170, fx: { taunt: 0.25 } },
       crapaud: { hp: 60, fx: { weaken: 0.12 } },
       champignon: { hp: 45, fx: { aoe: 0.08, weaken: 0.05 } },
-      corbeau: { hp: 40, fx: { mark: 0.1, loot: 0.06, ranged: 1 } }
+      corbeau: { hp: 40, fx: { mark: 0.1, loot: 0.06, ranged: 1 } },
+      gelee_caverne: { hp: 70, fx: { weaken: 0.08, taunt: 0.1 } },
+      araignee_cristal: { hp: 50, fx: { freeze: 0.1, ranged: 1 } },
+      sentinelle_obsidienne: { hp: 180, fx: { guard: 0.6, taunt: 0.2 } },
+      renard: { hp: 45, fx: { bite: 0.18, loot: 0.08 } },
+      ours_noir: { hp: 170, fx: { bite: 0.2, taunt: 0.15 } },
+      squelette_maudit: { hp: 50, fx: { bite: 0.22, mark: 0.05, ranged: 1 } },
+      mulot: { hp: 30, fx: { loot: 0.12, sniff: 1 } },
+      lievre: { hp: 45, fx: { heal: 0.025, rally: 0.04 } },
+      feu_follet: { hp: 45, fx: { burn: 0.12, aoe: 0.05, ranged: 1 } }
     }
   };
   const PET_CAPS = { freeze: 0.4, stun: 0.4, taunt: 0.5, guard: 1, heal: 0.08, carry: 0.3, loot: 0.5, mark: 0.5, weaken: 0.5, rally: 0.3 };
@@ -1027,7 +1045,7 @@
       mark: (v) => `marque la cible : +${p(v)} de dégâts subis`, weaken: (v) => `affaiblit la cible : −${p(v)} de dégâts`,
       freeze: (v) => `${p(v)} de chances de geler la cible (elle passe son coup)`, stun: (v) => `${p(v)} de chances d’étourdir la cible (elle passe son coup)`,
       guard: (v) => `absorbe ${p(v)} du premier coup reçu dans chaque salle`, heal: (v) => `soigne ${p(v)} de tes PV max tous les 2 tours`,
-      taunt: (v) => `attire les coups (+${p(v)} de chances d’être visé)`, ranged: () => 'reste à distance : jamais visé',
+      taunt: (v) => `attire les coups (+${p(v)} de chances d’être visé)`, ranged: () => 'reste à distance : seuls les monstres qui tirent peuvent le toucher',
       loot: (v) => `+${p(v)} de butin`, sniff: () => 'flaire si la salle suivante contient du butin',
       carry: (v) => `si tu tombes, ${p(v)} de ressources perdues en moins`, rally: (v) => `+${p(v)} de dégâts pour le héros`
     };

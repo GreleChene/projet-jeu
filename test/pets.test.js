@@ -99,3 +99,19 @@ test('mini-jeux : chaque monstre n’existe que dans une seule zone, et chacun p
   });
   assert.ok(!GD.MOBS.corbeau.w, 'le corbeau n’apparaît pas en défense de tour');
 });
+
+test('mini-jeux : les monstres qui tirent peuvent toucher les familiers à distance ; événements du tour', () => {
+  const u = user();
+  u.pets = { list: [{ id: 'x', kind: 'gobelin_archer', rarity: 0, level: 1, xp: 0, hp: 45, at: Date.now() }], active: ['x'], main: null };
+  const run = mini.start(u, 'mine', {}, { rnd: () => 0.99 });
+  const mob = run.mobs[0]; mob.hp = 9999;
+  mob.ranged = null; // corps à corps : ne peut pas viser l’archer
+  mini.act(u, { action: 'attack' }, { rnd: () => 0.1 });
+  assert.strictEqual(run.pets[0].hp, 45, 'un monstre de corps à corps ne touche pas un familier à distance');
+  mob.ranged = 'arrow'; // tireur : peut le viser
+  mini.act(u, { action: 'attack' }, { rnd: () => 0.1 });
+  assert.ok(run.pets[0].hp < 45, 'un monstre qui tire le touche');
+  const kinds = run.ev.map((e) => e.a);
+  assert.deepStrictEqual(kinds.slice(0, 2), ['hero', 'pet'], 'le héros puis les familiers');
+  assert.ok(run.ev.some((e) => e.a === 'mob' && e.k === 'shot' && e.to === 0), 'tir du monstre sur le familier');
+});

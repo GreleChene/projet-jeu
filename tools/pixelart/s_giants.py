@@ -60,6 +60,7 @@ def yeti(frame=0):
     for x in (4, 6, 8): c.px(x, 38, 'W')
     return c.rows()
 
+GHOST_VAR = {'wisp': {'Q': '#e8902e', 'q': '#a85a18', 'C': '#ffd27a', 'I': '#fff6d0', 'E': '#ffffff'}}
 GHOST_PAL = {'Q': '#5f7f95', 'q': '#3a5468', 'C': '#9fc8e0', 'I': '#e6f6ff', 'x': '#05060a', 'E': '#bff4ff', 'O': '#d8d0bc'}
 def ghost(frame=0):
     c = C(30, 36)

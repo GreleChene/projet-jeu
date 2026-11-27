@@ -2,6 +2,7 @@
 from gen import C
 from s_beasts import legs4
 
+RAT_VAR = {'field': {'F': '#a87a4e', 'f': '#7a5430', 'L': '#d9b98a', 'E': '#140c10'}}
 RAT_PAL = {'F': '#7d7684', 'f': '#55505c', 'L': '#a8a1ae', 'k': '#140c10', 'E': '#ff3d4a', 'P': '#e89aa8', 'W': '#f3ead7'}
 def rat(frame=0):
     c = C(28, 14)
@@ -16,6 +17,7 @@ def rat(frame=0):
     if frame == 2: c.line(24, 9, 27, 7, 'W')
     return c.rows()
 
+SLIME_VAR = {'cave': {'G': '#7fa8c8', 'g': '#4a6a8a', 'L': '#d0e8ff', 'B': '#5a80a8'}}
 SLIME_PAL = {'G': '#58c84a', 'g': '#2f8a2a', 'L': '#b8f0a0', 'k': '#0e1a0c', 'W': '#ffffff', 'B': '#3a9a34'}
 def slime(frame=0):
     c = C(22, 18)
@@ -29,6 +31,7 @@ def slime(frame=0):
     for (x, y) in ((5, 12), (16, 7)): c.px(x, y + sq, 'B')
     return c.rows()
 
+SKEL_VAR = {'cursed': {'O': '#c8d0b8', 'o': '#7a8a6a', 'E': '#c06bff', 'B': '#4a3a5a', 'b': '#2e2438', 'A': '#9a7ad8'}}
 SKEL_PAL = {'O': '#e8e2cf', 'o': '#a89c7e', 'x': '#0a0608', 'E': '#7dffd0', 'B': '#7a5a3a', 'b': '#5a3e24', 'A': '#c9a040', 'S': '#f3ead7'}
 def skeleton_archer(frame=0):
     c = C(28, 34)
@@ -107,6 +110,7 @@ def turtle(frame=0):
     for (x, d) in ((9, -st), (21, st)): c.rect(x + d, 13, 4, 3, 'H')
     return c.rows()
 
+RABBIT_VAR = {'hare': {'F': '#a8865a', 'f': '#7a5a38', 'L': '#e8d8b8'}}
 RABBIT_PAL = {'F': '#d9c8b4', 'f': '#a8947c', 'L': '#f3ead7', 'P': '#e89aa8', 'k': '#140c08', 'W': '#ffffff'}
 def rabbit(frame=0):
     c = C(24, 24)

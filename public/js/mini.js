@@ -71,6 +71,7 @@
       jackpot: (c) => { [659, 784, 988, 1319, 1568].forEach((f, i) => tone(c, f, 0.3, 'triangle', 0.12, i * 0.06)); tone(c, 2093, 0.5, 'sine', 0.06, 0.32); },
       // combat
       swing: (c) => { noise(c, 0.12, 0.18, 0, 1800, 'bandpass'); },
+      shoot: (c) => { tone(c, 520, 0.12, 'triangle', 0.1, 0, -300); noise(c, 0.08, 0.2, 0, 2600, 'highpass'); },
       hit: (c, w) => { const p = r(); noise(c, 0.08, 0.4, w, 1400 * p, 'lowpass'); tone(c, 160 * p, 0.1, 'square', 0.12, w, -60); },
       crit: (c, w) => { noise(c, 0.1, 0.5, w, 2200, 'bandpass'); tone(c, 880, 0.12, 'square', 0.1, w); tone(c, 1320, 0.16, 'triangle', 0.1, (w || 0) + 0.05); },
       skill: (c) => { tone(c, 330, 0.35, 'sawtooth', 0.08, 0, 660); noise(c, 0.25, 0.25, 0.05, 1200, 'bandpass'); tone(c, 990, 0.2, 'triangle', 0.1, 0.18); },
@@ -204,39 +205,153 @@
   }
   const act = (action, extra) => send('/api/mini/act', { action, target, ...(extra || {}) });
 
-  // Nombres flottants, animations et sons à partir de la différence entre deux états
+  // Animations et sons après une action : combat → événements rejoués ; sinon sons de transition
   function animate(a, b, action) {
     if (!a || !b) return;
+    if (a.room === b.room && a.state === 'fight' && b.ev && b.ev.length) { startPlayback(a, b); return; }
     if (b.state === 'over' && a.state !== 'over') Sound.play(b.over && b.over.dead ? 'death' : 'victory');
     if (a.room !== b.room) { Sound.play((b.mobs || []).some((m) => m.elite) ? 'elite' : 'room'); return; }
-    (b.pets || []).forEach((p, i) => {
-      const o = (a.pets || [])[i];
-      if (p.acted) petAnim[i] = 0.3;
-      if (o && p.hp < o.hp) { floaters.push({ x: petX(i), y: G - 60, s: '−' + (o.hp - p.hp), c: '#ff9a5a', t: 0 }); petHurt[i] = 0.3; }
-      if (o && p.hp > o.hp) floaters.push({ x: petX(i), y: G - 60, s: '+' + (p.hp - o.hp), c: '#7fe07a', t: 0 });
-      if (o && o.hp > 0 && p.hp <= 0) Sound.play('kill', 0.3);
-    });
-    const fresh = b.log.slice(Math.max(0, b.log.lastIndexOf(a.log[a.log.length - 1]) + 1));
-    if (action === 'attack') Sound.play('swing');
-    else if (action === 'skill') Sound.play('skill');
-    else if (action === 'defend') Sound.play('shield');
-    else if (action === 'potion') Sound.play('potion');
-    else if (action === 'reward') Sound.play('gain');
-    if (b.state === 'fight' && a.state !== 'fight' && (b.mobs || []).some((m) => m.elite)) Sound.play('elite');
-    const crit = fresh.some((l) => l.includes('critique'));
-    let hitSnd = false;
-    (b.mobs || []).forEach((m, i) => {
-      const o = a.mobs && a.mobs[i];
-      if (o && m.hp < o.hp) {
-        floaters.push({ x: mobX(i, b.mobs.length), y: G - 70, s: '−' + (o.hp - m.hp), c: crit ? '#ff9a3a' : '#ffe066', t: 0 }); heroAnim = 0.3;
-        if (!hitSnd) { Sound.play(crit ? 'crit' : 'hit', 0.06); hitSnd = true; }
-        if (m.hp <= 0) Sound.play('kill', 0.16);
-      }
-    });
-    if ((b.shield || 0) < (a.shield || 0)) { floaters.push({ x: HERO_X + 40, y: G - 120, s: `−${a.shield - b.shield} 🔰`, c: '#7fd0ff', t: 0 }); Sound.play('shield', 0.3); }
-    if (b.hp < a.hp) { floaters.push({ x: HERO_X, y: G - 90, s: '−' + (a.hp - b.hp), c: '#ff6a5a', t: 0 }); mobAnim = 0.3; shake = 6; Sound.play('hurt', 0.3); }
-    if (b.hp > a.hp) floaters.push({ x: HERO_X, y: G - 90, s: '+' + (b.hp - a.hp), c: '#7fe07a', t: 0 });
+    if (action === 'reward') Sound.play('gain');
     if (b.got > a.got) floaters.push({ x: W / 2, y: G - 120, s: `+${b.got - a.got} ${resIcon(b.mode)}`, c: '#ffffff', t: 0 });
+  }
+
+  /* ============================== Animations du combat ==============================
+   * Le serveur renvoie les événements du tour (run.ev : héros, familiers, monstres, poisons).
+   * La page les rejoue l'un après l'autre : le personnage se déplace et frappe, les flèches et sorts
+   * volent vers leur cible, puis les PV changent au moment de l'impact. */
+  let pb = null; // { ev, i, t, shown } : copie de l'état d'avant le tour, mise à jour au fil des impacts
+  const SPD = 0.9;
+  const DUR = { melee: 0.55, shot: 0.5, skill: 0.65, aoe: 0.6, defend: 0.35, potion: 0.45, heal: 0.45, skip: 0.45, dot: 0.3, unshield: 0.2 };
+  const IMPACT = { melee: 0.5, shot: 0.8, skill: 0.5, aoe: 0.55, defend: 0.3, potion: 0.5, heal: 0.5, skip: 0.2, dot: 0.15, unshield: 0.1 };
+  const evKind = (e) => (e.skip ? 'skip' : e.a === 'dot' ? 'dot' : e.a === 'unshield' ? 'unshield' : e.k === 'skill' && e.proj ? 'shot' : e.k);
+  const ease = (p) => p * p * (3 - 2 * p);
+  const petBaseY = (i) => G + (i === 0 ? 2 : 14);
+  const mobPos = (R, i) => ({ x: mobX(i, R.mobs.length), y: G + 6 });
+  function actorPos(R, e) {
+    if (e.a === 'hero') return { x: heroX, y: G + 6 };
+    if (e.a === 'pet') return { x: petX(e.p), y: petBaseY(e.p) };
+    return mobPos(R, e.m);
+  }
+  function targetPos(R, e) {
+    if (e.a === 'mob') return e.to === 'hero' ? { x: heroX, y: G + 6 } : { x: petX(e.to), y: petBaseY(e.to) };
+    const t = (e.t || [])[0];
+    return t !== undefined && t >= 0 && R.mobs[t] ? mobPos(R, t) : null;
+  }
+  function startPlayback(prevRun, run) {
+    pb = run.ev && run.ev.length ? { ev: run.ev.map((e) => ({ ...e })), i: 0, t: 0, shown: JSON.parse(JSON.stringify(prevRun)) } : null;
+  }
+  function endPlayback() {
+    const R = pb && pb.shown;
+    pb = null;
+    const r = state.run;
+    if (r && R && r.got > R.got) floaters.push({ x: W / 2, y: G - 120, s: `+${r.got - R.got} ${resIcon(r.mode)}`, c: '#ffffff', t: 0 });
+    if (r && r.state === 'over') Sound.play(r.over && r.over.dead ? 'death' : 'victory');
+    render();
+  }
+  // Barres de PV et de bouclier de la page, mises à jour pendant l'animation
+  function syncBars(R) {
+    const hp = $('#miniHpText'), hb = $('#miniHpBar'), st = $('#miniShText'), sb = $('#miniShBar');
+    const pct = Math.max(0, (100 * R.hp) / R.max), sm = R.shieldMax || M.BASE.shield;
+    if (hp) hp.textContent = `❤️ ${Math.max(0, R.hp)} / ${R.max}`;
+    if (hb) { hb.style.width = pct + '%'; hb.style.background = pct > 40 ? '#5cb84a' : '#e2504c'; }
+    if (st) st.textContent = `🔰 Bouclier ${R.shield || 0} / ${sm}`;
+    if (sb) sb.style.width = Math.min(100, (100 * (R.shield || 0)) / sm) + '%';
+  }
+  function puff(x, y, col, n) {
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = 80 + Math.random() * 160; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 120, life: 0.6 + Math.random() * 0.3, t: 0, c: col, s: 4, round: true }); }
+  }
+  function onStart(R, e) {
+    const k = evKind(e);
+    if (k === 'skip') { const p = mobPos(R, e.m); floaters.push({ x: p.x, y: G - 110, s: e.skip === 'gelé' ? '❄️ gelé' : '💫 étourdi', c: '#bfe8ff', t: 0 }); return; }
+    if (k === 'melee' || e.k === 'skill') Sound.play('swing');
+    else if (k === 'shot') Sound.play('shoot');
+    else if (k === 'aoe') Sound.play('skill');
+  }
+  function applyEv(R, e) {
+    if (e.a === 'hero' || e.a === 'pet') {
+      (e.t || []).forEach((mi, j) => {
+        const m = R.mobs[mi]; if (!m) return;
+        const p = mobPos(R, mi);
+        if (e.d && e.d[j] !== undefined) {
+          m.hp = Math.max(0, m.hp - e.d[j]);
+          floaters.push({ x: p.x + (e.a === 'pet' ? 18 : 0), y: G - 70, s: '−' + e.d[j], c: e.c ? '#ff9a3a' : e.a === 'pet' ? '#ffd0a0' : '#ffe066', t: 0 });
+          if (m.hp <= 0) { puff(p.x, G - 20, '#e8e0d0', 16); Sound.play('kill', 0.08); }
+        }
+      });
+      if (e.d && e.d.length) { Sound.play(e.c ? 'crit' : 'hit'); if (e.c || e.k === 'skill') shake = 5; }
+      if (e.fx && e.fx.length && e.t && e.t.length) { const p = mobPos(R, e.t[0]); e.fx.forEach((ic, j) => floaters.push({ x: p.x + 26, y: G - 105 - j * 22, s: ic, c: '#ffffff', t: 0 })); }
+      if (e.h) { R.hp = Math.min(R.max, R.hp + e.h); floaters.push({ x: heroX, y: G - 90, s: '+' + e.h, c: '#7fe07a', t: 0 }); puff(heroX, G - 40, '#7fe07a', 10); Sound.play('potion'); }
+      if (e.k === 'defend') { R.shield = e.s; R.shieldTurns = M.SHIELD_TURNS; Sound.play('shield'); }
+      if (e.k === 'aoe') shake = 5;
+    } else if (e.a === 'mob') {
+      if (e.skip) return;
+      if (e.to === 'hero') {
+        R.hp -= e.d;
+        if (e.abs) { R.shield = Math.max(0, (R.shield || 0) - e.abs); floaters.push({ x: heroX + 40, y: G - 120, s: `−${e.abs} 🔰`, c: '#7fd0ff', t: 0 }); }
+        if (e.guard) floaters.push({ x: heroX - 40, y: G - 120, s: `🛡️ ${e.guard}`, c: '#bfe8ff', t: 0 });
+        if (e.d > 0) { floaters.push({ x: heroX, y: G - 90, s: '−' + e.d, c: '#ff6a5a', t: 0 }); Sound.play('hurt'); shake = 6; } else Sound.play('shield');
+      } else {
+        const p = R.pets[e.to];
+        if (p) { p.hp = Math.max(0, p.hp - e.d); floaters.push({ x: petX(e.to), y: G - 60, s: '−' + e.d, c: '#ff9a5a', t: 0 }); petHurt[e.to] = 0.3; Sound.play(p.hp <= 0 ? 'kill' : 'hurt'); }
+      }
+    } else if (e.a === 'dot') {
+      const ic = e.kind === 'burn' ? '🔥' : '☠️';
+      if (e.to === 'hero') { R.hp -= e.d; R.shield = Math.max(0, (R.shield || 0) - (e.abs || 0)); floaters.push({ x: heroX, y: G - 90, s: `−${e.d} ${ic}`, c: '#c0f06a', t: 0 }); }
+      else { const m = R.mobs[e.to]; if (m) { m.hp = Math.max(0, m.hp - e.d); const p = mobPos(R, e.to); floaters.push({ x: p.x, y: G - 70, s: `−${e.d} ${ic}`, c: '#c0f06a', t: 0 }); if (m.hp <= 0) { puff(p.x, G - 20, '#e8e0d0', 16); Sound.play('kill'); } } }
+    } else if (e.a === 'unshield') R.shield = 0;
+    syncBars(R);
+  }
+  function stepPlayback(dt) {
+    if (!pb) return;
+    const e = pb.ev[pb.i];
+    if (!e) return endPlayback();
+    const k = evKind(e), dur = DUR[k] * SPD;
+    if (!e.started) { e.started = true; onStart(pb.shown, e); }
+    pb.t += dt;
+    if (!e.applied && pb.t >= dur * IMPACT[k]) { e.applied = true; applyEv(pb.shown, e); }
+    if (pb.t >= dur) { pb.i++; pb.t = 0; }
+  }
+  // Décalages (personnage qui fonce sur sa cible) et poses d'attaque de l'événement en cours
+  function offsets(R) {
+    const o = { hero: 0, heroAtk: 0, pet: [0, 0], petAtk: [0, 0], mob: [], mobAtk: [] };
+    const e = pb && pb.ev[pb.i];
+    if (!e || e.skip || e.a === 'dot' || e.a === 'unshield') return o;
+    const k = evKind(e), p = Math.min(1, pb.t / (DUR[k] * SPD));
+    const set = (dx, atk) => {
+      if (e.a === 'hero') { o.hero = dx; o.heroAtk = atk; } else if (e.a === 'pet') { o.pet[e.p] = dx; o.petAtk[e.p] = atk; } else { o.mob[e.m] = dx; o.mobAtk[e.m] = atk; }
+    };
+    if (k === 'melee' || k === 'skill') {
+      const a = actorPos(R, e), tp = targetPos(R, e);
+      if (!tp) return o;
+      const dir = tp.x > a.x ? 1 : -1, reach = Math.max(0, Math.abs(tp.x - a.x) - (e.a === 'hero' ? 75 : 60));
+      const go = p < 0.4 ? ease(p / 0.4) : p < 0.62 ? 1 : 1 - ease((p - 0.62) / 0.38);
+      set(dir * reach * go, p > 0.35 && p < 0.65 ? 1 : 0);
+    } else if (k === 'shot' || k === 'aoe' || k === 'potion' || k === 'heal' || k === 'defend') set(0, p < 0.35 ? 1 : 0);
+    return o;
+  }
+  // Projectiles et explosions de l'événement en cours
+  function drawEventFx(ctx, R, t) {
+    const e = pb && pb.ev[pb.i];
+    if (!e) return;
+    const k = evKind(e), p = Math.min(1, pb.t / (DUR[k] * SPD));
+    if (k === 'shot') {
+      const a = actorPos(R, e), tp = targetPos(R, e);
+      if (!tp) return;
+      const q = Math.max(0, Math.min(1, (p - 0.15) / (IMPACT.shot - 0.15)));
+      if (q <= 0 || q >= 1) return;
+      const sx = a.x + (tp.x > a.x ? 30 : -30), sy = a.y - 42, ex = tp.x, ey = tp.y - 40;
+      const x = sx + (ex - sx) * q, y = sy + (ey - sy) * q - Math.sin(q * Math.PI) * 30;
+      const ang = Math.atan2((ey - sy) - Math.cos(q * Math.PI) * 30 * Math.PI * 0.3, ex - sx);
+      ctx.save(); ctx.translate(x, y); ctx.scale(e.k === 'skill' ? 2.6 : 1.7, e.k === 'skill' ? 2.6 : 1.7); A.drawProjectile(ctx, e.proj || 'arrow', 0, 0, ang, t); ctx.restore();
+    } else if (k === 'aoe' && p > 0.3) {
+      const q = (p - 0.3) / 0.7;
+      for (const mi of e.t || []) {
+        const m = R.mobs[mi]; if (!m) continue;
+        const mp = mobPos(R, mi);
+        ctx.save(); ctx.globalAlpha = 1 - q; ctx.lineWidth = 6; ctx.strokeStyle = e.a === 'pet' ? '#ff9a3a' : '#c9a0ff';
+        ctx.beginPath(); ctx.ellipse(mp.x, G - 20, 14 + q * 60, 8 + q * 30, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      }
+    }
   }
 
   const resIcon = (mode) => GD.RESOURCES[M.MODES[mode].res].icon;
@@ -424,7 +539,7 @@
 
   let sceneCv = null;
   function runView() {
-    const r = state.run, mode = M.MODES[r.mode], dec = mode.decors[r.decor];
+    const r = pb ? pb.shown : state.run, mode = M.MODES[r.mode], dec = mode.decors[r.decor];
     sceneCv = el('canvas', { class: 'mini-scene', width: W, height: H });
     sceneCv.addEventListener('click', (e) => {
       const b = sceneCv.getBoundingClientRect(), x = ((e.clientX - b.left) / b.width) * W;
@@ -434,8 +549,8 @@
     const buffs = [r.buff.dmg ? `⚔️ +${Math.round(r.buff.dmg * 100)} %` : '', r.buff.hp ? `❤️ +${Math.round(r.buff.hp * 100)} %` : '', r.buff.crit ? `🎯 +${Math.round(r.buff.crit * 100)} %` : ''].filter(Boolean).join(' · ');
     const info = el('div', { class: 'mini-info' },
       el('div', {}, el('b', {}, `${mode.icon} Salle ${r.room}`), el('span', { class: 'small muted' }, ` · ${dec.name} — ${dec.subs[r.sub]}`)),
-      el('div', { class: 'mini-hp' }, el('span', { class: 'small' }, `❤️ ${r.hp} / ${r.max}`), el('div', { class: 'bar' }, el('span', { style: `width:${hpPct}%;background:${hpPct > 40 ? '#5cb84a' : '#e2504c'}` })),
-        el('span', { class: 'small' }, `🔰 Bouclier ${r.shield || 0} / ${r.shieldMax || M.BASE.shield}${r.shield > 0 ? ` · encore ${r.shieldTurns} tour${r.shieldTurns > 1 ? 's' : ''}` : ''}`), el('div', { class: 'bar mini-shield' }, el('span', { style: `width:${Math.min(100, (100 * (r.shield || 0)) / (r.shieldMax || M.BASE.shield))}%` }))),
+      el('div', { class: 'mini-hp' }, el('span', { class: 'small', id: 'miniHpText' }, `❤️ ${r.hp} / ${r.max}`), el('div', { class: 'bar' }, el('span', { id: 'miniHpBar', style: `width:${hpPct}%;background:${hpPct > 40 ? '#5cb84a' : '#e2504c'}` })),
+        el('span', { class: 'small', id: 'miniShText' }, `🔰 Bouclier ${r.shield || 0} / ${r.shieldMax || M.BASE.shield}${r.shield > 0 ? ` · encore ${r.shieldTurns} tour${r.shieldTurns > 1 ? 's' : ''}` : ''}`), el('div', { class: 'bar mini-shield' }, el('span', { id: 'miniShBar', style: `width:${Math.min(100, (100 * (r.shield || 0)) / (r.shieldMax || M.BASE.shield))}%` }))),
       (r.pets || []).length ? el('div', { class: 'small mini-pets' }, ...r.pets.map((p) => el('span', { class: 'chip', style: p.hp <= 0 ? 'opacity:.5' : '' }, `🐾 ${p.name} ${p.hp <= 0 ? 'K.-O.' : `${p.hp}/${p.max}`}`))) : '',
       el('div', { class: 'small' }, `${resIcon(r.mode)} ${r.got} · ✨ ${r.xp} XP · 🧪 ${r.potions}${r.grelons ? ` · 🌨️ ${r.grelons}` : ''}${buffs ? ' · ' + buffs : ''}${r.dot ? ` · ${r.dot.kind === 'burn' ? '🔥 brûlure' : '☠️ poison'}` : ''}`));
     return el('div', { class: 'panel' }, info, el('div', { class: 'mini-scene-wrap' }, sceneCv), actions(r),
@@ -443,7 +558,7 @@
   }
 
   function actions(r) {
-    const B = (label, fn, opts = {}) => el('button', { class: opts.cls || '', disabled: !!opts.disabled || busy, title: opts.title || '', onclick: fn }, label);
+    const B = (label, fn, opts = {}) => el('button', { class: opts.cls || '', disabled: !!opts.disabled || busy || !!pb, title: opts.title || '', onclick: fn }, label);
     const box = el('div', { class: 'mini-actions' });
     if (r.state === 'fight') {
       box.append(
@@ -483,9 +598,11 @@
     const view = $('[data-view="mini"]');
     if (!view || view.classList.contains('hidden')) { if (Sound.musicMode()) Sound.stopMusic(); return; }
     if (!sceneCv || !state || !state.run || !sceneCv.isConnected) return;
-    const ctx = sceneCv.getContext('2d'), r = state.run, t = performance.now() / 1000;
+    stepPlayback(1 / 60);
+    const ctx = sceneCv.getContext('2d'), r = pb ? pb.shown : state.run, t = performance.now() / 1000;
     heroAnim = Math.max(0, heroAnim - 1 / 60); mobAnim = Math.max(0, mobAnim - 1 / 60); shake = Math.max(0, shake - 0.4);
     stepHarvest(1 / 60);
+    const off = offsets(r);
     ctx.save();
     ctx.translate((Math.random() - 0.5) * shake, 0);
     drawScene(ctx, r.mode, r.decor, r.sub, t, r.room);
@@ -493,15 +610,15 @@
     // familiers (le premier derrière le héros, le second devant)
     (r.pets || []).forEach((p, i) => {
       petAnim[i] = Math.max(0, (petAnim[i] || 0) - 1 / 60); petHurt[i] = Math.max(0, (petHurt[i] || 0) - 1 / 60);
-      const lunge = petAnim[i] > 0 ? 40 * Math.sin((petAnim[i] / 0.3) * Math.PI) : 0, sh = petHurt[i] > 0 ? Math.sin(t * 80) * 4 : 0;
-      const x = petX(i) + lunge + sh, y = G + (i === 0 ? 2 : 14);
+      const sh = petHurt[i] > 0 ? Math.sin(t * 80) * 4 : 0;
+      const x = petX(i) + (off.pet[i] || 0) + sh, y = petBaseY(i);
       const lvl = ((state.pets || { list: [] }).list.find((q) => q.id === p.id) || {}).level || 1;
-      A.drawPet(ctx, GD.petSprite(p.kind), x, y, { size: petSize(p.kind) * 1.5, maxH: 62, t: t + i, facing: 0, stage: GD.petStage(lvl), moving: Math.abs(heroX - HERO_X) > 2, attack: petAnim[i], ko: p.hp <= 0 });
+      A.drawPet(ctx, GD.petSprite(p.kind), x, y, { size: petSize(p.kind) * 1.5, maxH: 62, t: t + i, facing: 0, stage: GD.petStage(lvl), moving: Math.abs(heroX - HERO_X) > 2 || Math.abs(off.pet[i] || 0) > 2, attack: Math.max(petAnim[i], off.petAtk[i] || 0), ko: p.hp <= 0 });
       if (p.hp > 0) { A.rrect(ctx, x - 22, G - 72 + (i === 0 ? 0 : 12), 44, 5, 2, '#2a1f22', 1.2); A.rrect(ctx, x - 21, G - 71 + (i === 0 ? 0 : 12), Math.max(0, 42 * p.hp / p.max), 3, 1, '#5cb84a', 0.01); }
     });
     // héros
     if (r.state === 'over' && r.over.dead) A.drawGrave(ctx, HERO_X, G + 6);
-    else if (me) A.drawHero(ctx, heroX + (heroAnim > 0 ? 18 * Math.sin((heroAnim / 0.3) * Math.PI) : 0), G + 6, { cls: me.cls, look: me.look, gear: window.PlayerApp.myGear(), t, scale: 2.2, facing: 0, moving: Math.abs(heroX - HERO_X) > 2 && Math.abs(heroX - (LOOT_X - 95)) > 2, attack: heroAnim });
+    else if (me) A.drawHero(ctx, heroX + off.hero, G + 6, { cls: me.cls, look: me.look, gear: window.PlayerApp.myGear(), t, scale: 2.2, facing: 0, moving: (Math.abs(heroX - HERO_X) > 2 && Math.abs(heroX - (LOOT_X - 95)) > 2) || (Math.abs(off.hero) > 2 && !off.heroAtk), attack: Math.max(heroAnim, off.heroAtk ? 0.3 : 0) });
     // bulle de bouclier autour du héros
     if (r.shield > 0 && r.state !== 'over') {
       const k = r.shield / (r.shieldMax || M.BASE.shield);
@@ -526,10 +643,10 @@
     }
     // monstres
     (r.mobs || []).forEach((m, i) => {
-      const x = mobX(i, r.mobs.length);
+      const x = mobX(i, r.mobs.length) + (off.mob[i] || 0); // la barre et le nom suivent le monstre quand il fonce
       if (m.hp <= 0) return;
       const d = GD.MOBS[m.type], s = (d.size || 14) * (m.elite ? 2.4 : 1.9);
-      A.drawMob(ctx, m.type, x - (mobAnim > 0 ? 14 * Math.sin((mobAnim / 0.3) * Math.PI) : 0), G + 6, { t: t + i, facing: Math.PI, size: s, elite: m.elite, attack: mobAnim > 0 ? 1 : 0 });
+      A.drawMob(ctx, m.type, x, G + 6, { t: t + i, facing: Math.PI, size: s, elite: m.elite, attack: off.mobAtk[i] ? 1 : 0 });
       const top = G + 6 - s * (A.mobTop(m.type) + 0.35) - 16;
       A.rrect(ctx, x - 34, top, 68, 7, 3, '#2a1f22', 1.5);
       A.rrect(ctx, x - 33, top + 1, Math.max(0, 66 * m.hp / m.max), 5, 2, m.elite ? '#f2c14e' : '#e2504c', 0.01);
@@ -537,6 +654,8 @@
       ctx.strokeText(m.name, x, top - 5); ctx.fillText(m.name, x, top - 5);
       if (i === target && r.mobs.filter((q) => q.hp > 0).length > 1) { ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.moveTo(x - 7, top - 30); ctx.lineTo(x + 7, top - 30); ctx.lineTo(x, top - 21); ctx.closePath(); ctx.fill(); ctx.stroke(); }
     });
+    // flèches, sorts et explosions du combat
+    drawEventFx(ctx, r, t);
     // éclats de récolte (gravité) et étoiles du coup de chance
     for (let i = parts.length - 1; i >= 0; i--) {
       const p = parts[i]; p.t += 1 / 60;

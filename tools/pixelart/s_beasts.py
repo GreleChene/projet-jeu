@@ -16,6 +16,7 @@ WOLF_VAR = {
   'snow': {'F': '#dfe8f0', 'f': '#9fb0c0', 'L': '#ffffff', 'N': '#7d8fa0', 'E': '#7fe8ff'},
   'alpha': {'F': '#55504a', 'f': '#2f2b28', 'L': '#857d72', 'N': '#1f1c1a', 'E': '#ff5a2a'},
   'ally': {'F': '#9a8a74', 'f': '#6b5d4a', 'L': '#c9b89c', 'N': '#4a3e30', 'E': '#7dff8a'},
+  'fox': {'F': '#d9772e', 'f': '#9a4a18', 'L': '#f3ead7', 'N': '#5a2e10', 'E': '#ffd23f'},
 }
 def wolf(frame=0, hell=False):
     c = C(44, 26)
@@ -76,6 +77,7 @@ def boar(frame=0):
     c.px(4, 12, 'f'); c.line(5, 11, 6, 13, 'f')
     return c.rows()
 
+BEAR_VAR = {'black': {'F': '#2e2a30', 'f': '#17141a', 'L': '#4a444e', 'N': '#0e0c10', 'M': '#8a7a6a'}}
 BEAR_PAL = {'F': '#6b4a2e', 'f': '#3e2a18', 'L': '#9a7450', 'k': '#140c08', 'E': '#1a1010', 'W': '#e8dcc0', 'N': '#2e1e10', 'M': '#b08860'}
 def bear(frame=0):
     c = C(40, 28)

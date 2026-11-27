@@ -4,7 +4,8 @@
  *   - mine (pierre), forêt (bois), champ de baies (baies) ; une expédition coûte 1 énergie (1 toutes les 6 h, 3 au plus)
  *   - chaque salle : du butin, ou des monstres (1 ressource et de l'XP par monstre tué)
  *   - toutes les 5 salles : un monstre d'élite et un choix de récompense
- *   - toutes les 3 salles : remonter avec son butin, ou continuer (mort = 75 % des ressources perdues)
+ *   - toutes les 3 salles : remonter avec son butin, ou continuer (mort = 50 % des ressources perdues)
+ *   - chaque action enregistre les événements du tour (run.ev) : la page les rejoue l'un après l'autre (animations)
  * L'état de l'expédition est gardé dans le profil (u.mini.run) : on peut fermer la page et reprendre.
  */
 const GD = require('../shared/constants');
@@ -21,6 +22,10 @@ const pick = (arr, rnd) => arr[Math.floor(rnd() * arr.length)];
 const alivePets = (run) => (run.pets || []).filter((p) => p.hp > 0);
 const petFx = (p) => GD.petPower(p.kind, p.rarity);
 const fxSum = (run, k) => alivePets(run).reduce((s, p) => s + (petFx(p)[k] || 0), 0);
+const petShot = (p) => (petFx(p).ranged ? (GD.MOBS[p.kind] && GD.MOBS[p.kind].ranged) || 'arrow' : null);
+// Événement du tour (rejoué en animation par la page) ; mi = index d'un monstre
+const ev = (run, e) => { (run.ev ||= []).push(e); };
+const mobIdx = (run, mob) => run.mobs.indexOf(mob);
 
 // Données mini-jeux du profil, avec régénération de l'énergie
 function ensure(u, now = Date.now()) {
@@ -56,6 +61,7 @@ function makeMob(mode, room, elite, rnd) {
   const dot = d.onHit && (d.onHit.poison || d.onHit.burn) ? (d.onHit.burn ? 'burn' : 'poison') : null;
   return {
     type, name: d.name + (elite ? ' d’élite' : ''), hp, max: hp, elite: !!elite, dot,
+    ranged: d.ranged || null, // projectile des monstres qui tirent (flèche, givre, feu…)
     dmg: Math.round(7 * (1 + 0.09 * (room - 1)) * dmgW * (elite ? 1.3 : 1)),
     xp: Math.round(d.xp * (1 + 0.12 * room) * (elite ? 5 : 1))
   };
@@ -133,17 +139,23 @@ function petsAct(run, target, rnd) {
     if (!alive.length) return;
     const f = petFx(p), tgt = target && target.hp > 0 ? target : alive[0];
     const base = run.dmg * (1 + run.buff.dmg + fxSum(run, 'rally'));
-    const hit = (mob, pct) => { const d = Math.max(1, Math.round(base * pct * (1 + (mob.mark || 0)))); mob.hp = Math.max(0, mob.hp - d); mob.hit = (mob.hit || 0) + 1; return d; };
+    const E = { a: 'pet', p: run.pets.indexOf(p), k: f.aoe ? 'aoe' : petShot(p) ? 'shot' : 'melee', proj: petShot(p), t: [], d: [], fx: [] };
+    const hit = (mob, pct) => { const d = Math.max(1, Math.round(base * pct * (1 + (mob.mark || 0)))); mob.hp = Math.max(0, mob.hp - d); mob.hit = (mob.hit || 0) + 1; E.t.push(mobIdx(run, mob)); E.d.push(d); return d; };
     const parts = [];
-    if (f.mark && !(tgt.mark >= f.mark)) { tgt.mark = f.mark; parts.push(`marque ${tgt.name}`); }
+    if (f.mark && !(tgt.mark >= f.mark)) { tgt.mark = f.mark; parts.push(`marque ${tgt.name}`); E.fx.push('🎯'); }
     if (f.bite) parts.push(`mord ${tgt.name} (−${hit(tgt, f.bite)})`);
     if (f.aoe) { for (const x of alive) hit(x, f.aoe); parts.push('frappe tous les monstres'); }
-    if ((f.poison || f.burn) && tgt.hp > 0) { tgt.pdot = { dmg: Math.max(1, Math.round(base * (f.poison || f.burn))), turns: 2, kind: f.burn ? 'burn' : 'poison' }; parts.push(`${f.burn ? 'brûle' : 'empoisonne'} ${tgt.name}`); }
-    if (f.weaken && tgt.hp > 0 && !(tgt.weak >= f.weaken)) { tgt.weak = f.weaken; parts.push(`affaiblit ${tgt.name}`); }
-    if (f.freeze && tgt.hp > 0 && rnd() < f.freeze) { tgt.skip = 'gelé'; parts.push(`gèle ${tgt.name}`); }
-    if (f.stun && tgt.hp > 0 && rnd() < f.stun) { tgt.skip = 'étourdi'; parts.push(`étourdit ${tgt.name}`); }
-    if (f.heal && ++p.healT % 2 === 0 && run.hp < run.max) { const h = Math.max(1, Math.round(run.max * f.heal)); run.hp = Math.min(run.max, run.hp + h); parts.push(`te soigne (+${h} PV)`); }
-    if (parts.length) { log(run, `${p.name} ${parts.join(', ')}`); p.acted = true; }
+    if ((f.poison || f.burn) && tgt.hp > 0) { tgt.pdot = { dmg: Math.max(1, Math.round(base * (f.poison || f.burn))), turns: 2, kind: f.burn ? 'burn' : 'poison' }; parts.push(`${f.burn ? 'brûle' : 'empoisonne'} ${tgt.name}`); E.fx.push(f.burn ? '🔥' : '☠️'); }
+    if (f.weaken && tgt.hp > 0 && !(tgt.weak >= f.weaken)) { tgt.weak = f.weaken; parts.push(`affaiblit ${tgt.name}`); E.fx.push('⬇️'); }
+    if (f.freeze && tgt.hp > 0 && rnd() < f.freeze) { tgt.skip = 'gelé'; parts.push(`gèle ${tgt.name}`); E.fx.push('❄️'); }
+    if (f.stun && tgt.hp > 0 && rnd() < f.stun) { tgt.skip = 'étourdi'; parts.push(`étourdit ${tgt.name}`); E.fx.push('💫'); }
+    if (f.heal && ++p.healT % 2 === 0 && run.hp < run.max) { const h = Math.max(1, Math.round(run.max * f.heal)); run.hp = Math.min(run.max, run.hp + h); parts.push(`te soigne (+${h} PV)`); E.h = h; }
+    if (parts.length) {
+      log(run, `${p.name} ${parts.join(', ')}`); p.acted = true;
+      if (!E.t.length && E.fx.length) E.t.push(mobIdx(run, tgt)); // effet sans dégâts (marque, gel…) : vise quand même la cible
+      if (!E.t.length && E.h) E.k = 'heal';
+      ev(run, E);
+    }
   }
 }
 
@@ -159,48 +171,54 @@ function collectKills(run) {
 function mobsTurn(run, rnd) {
   for (const mob of run.mobs) {
     if (mob.hp <= 0) continue;
-    if (mob.skip) { log(run, `${mob.name} est ${mob.skip} et passe son tour`); mob.skip = null; continue; }
+    const mi = mobIdx(run, mob), k = mob.ranged ? 'shot' : 'melee';
+    if (mob.skip) { log(run, `${mob.name} est ${mob.skip} et passe son tour`); ev(run, { a: 'mob', m: mi, skip: mob.skip }); mob.skip = null; continue; }
     const raw = Math.max(1, Math.round(mob.dmg * (1 - (mob.weak || 0)) * (0.85 + rnd() * 0.3)));
-    // 20 % de chances (plus avec la provocation) de viser un familier plutôt que le héros
-    const targets = alivePets(run).filter((p) => !petFx(p).ranged);
+    // 20 % de chances (plus avec la provocation) de viser un familier plutôt que le héros ;
+    // les familiers à distance ne peuvent être touchés que par les monstres qui tirent
+    const targets = alivePets(run).filter((p) => !petFx(p).ranged || mob.ranged);
     const chance = Math.min(0.6, GD.PETS.HIT_CHANCE + targets.reduce((s, p) => s + (petFx(p).taunt || 0), 0));
     if (targets.length && rnd() < chance) {
       const w = targets.map((p) => 1 + 4 * (petFx(p).taunt || 0));
       let x = rnd() * w.reduce((a, b) => a + b, 0), pet = targets[targets.length - 1];
       for (let i = 0; i < targets.length; i++) { x -= w[i]; if (x <= 0) { pet = targets[i]; break; } }
       pet.hp = Math.max(0, pet.hp - raw); pet.hurt = (pet.hurt || 0) + raw;
-      log(run, `${mob.name} frappe ${pet.name} : −${raw} PV${pet.hp <= 0 ? ` — ${pet.name} est K.-O. !` : ''}`);
+      log(run, `${mob.name} ${mob.ranged ? 'tire sur' : 'frappe'} ${pet.name} : −${raw} PV${pet.hp <= 0 ? ` — ${pet.name} est K.-O. !` : ''}`);
+      ev(run, { a: 'mob', m: mi, k, proj: mob.ranged, to: run.pets.indexOf(pet), d: raw });
       continue;
     }
-    let dmg = Math.max(1, Math.round(raw * (1 - run.armor)));
+    let dmg = Math.max(1, Math.round(raw * (1 - run.armor))), guard = 0;
     // garde (tortue, golem…) : absorbe une part du premier coup reçu dans la salle
     if (!run.guardUsed) {
       const g = Math.min(1, fxSum(run, 'guard'));
-      if (g > 0) { run.guardUsed = true; const a = Math.round(dmg * g); dmg -= a; const gp = alivePets(run).find((p) => petFx(p).guard); log(run, `${gp.name} s’interpose : ${a} dégâts absorbés`); }
+      if (g > 0) { run.guardUsed = true; guard = Math.round(dmg * g); dmg -= guard; const gp = alivePets(run).find((p) => petFx(p).guard); log(run, `${gp.name} s’interpose : ${guard} dégâts absorbés`); }
     }
     const abs = absorb(run, dmg);
     run.hp -= dmg - abs;
-    log(run, `${mob.name} frappe : −${dmg - abs} PV${abs ? ` (${abs} absorbés par le bouclier)` : ''}`);
+    log(run, `${mob.name} ${mob.ranged ? 'tire' : 'frappe'} : −${dmg - abs} PV${abs ? ` (${abs} absorbés par le bouclier)` : ''}`);
+    ev(run, { a: 'mob', m: mi, k, proj: mob.ranged, to: 'hero', d: dmg - abs, abs, guard });
     if (mob.dot && rnd() < 0.5) { run.dot = { turns: 2, dmg: Math.max(1, Math.round(mob.dmg * 0.3)), kind: mob.dot }; }
   }
   // poisons et brûlures posés par les familiers
   for (const mob of run.mobs) if (mob.hp > 0 && mob.pdot) {
     mob.hp = Math.max(0, mob.hp - mob.pdot.dmg);
     log(run, `${mob.name} subit ${mob.pdot.kind === 'burn' ? 'sa brûlure' : 'le poison'} : −${mob.pdot.dmg}`);
+    ev(run, { a: 'dot', to: mobIdx(run, mob), d: mob.pdot.dmg, kind: mob.pdot.kind });
     if (--mob.pdot.turns <= 0) mob.pdot = null;
   }
   if (run.dot && run.dot.turns > 0 && run.hp > 0) {
     const abs = absorb(run, run.dot.dmg);
     run.hp -= run.dot.dmg - abs; run.dot.turns--;
     log(run, `${run.dot.kind === 'burn' ? 'Brûlure' : 'Poison'} : −${run.dot.dmg - abs} PV`);
+    ev(run, { a: 'dot', to: 'hero', d: run.dot.dmg - abs, abs, kind: run.dot.kind });
     if (run.dot.turns <= 0) run.dot = null;
   }
   // le bouclier ne tient que SHIELD_TURNS tours de monstres (jamais invulnérable entre deux boucliers)
-  if (run.shield > 0 && --run.shieldTurns <= 0) { run.shield = 0; log(run, 'Ton bouclier se dissipe.'); }
+  if (run.shield > 0 && --run.shieldTurns <= 0) { run.shield = 0; log(run, 'Ton bouclier se dissipe.'); ev(run, { a: 'unshield' }); }
   run.turn = (run.turn || 0) + 1;
 }
 
-// Fin de l'expédition : ressources gardées (75 % perdues en cas de mort), XP versée
+// Fin de l'expédition : ressources gardées (50 % perdues en cas de mort), XP versée
 function finish(u, m, run, dead, grantXp) {
   const res = MINI.MODES[run.mode].res;
   const lossPct = Math.max(0, MINI.DEATH_LOSS - Math.min(0.3, fxSum(run, 'carry'))); // porteur : perte réduite
@@ -233,7 +251,8 @@ function start(u, mode, gear, opts = {}) {
     aoe: fam === 'mage' || fam === 'menestrel',
     buff: { dmg: 0, hp: 0, crit: 0 }, potions: MINI.POTIONS + (m.up.potion || 0), skillCd: 0,
     got: 0, xp: 0, grelons: 0, kills: 0, log: [], mobs: [], loot: null, rewards: null, dot: null,
-    pets: pets.forRun(u), luck: m.up['luck_' + mode] || 0
+    pets: pets.forRun(u), luck: m.up['luck_' + mode] || 0,
+    proj: (GD.CLASSES[u.cls] && GD.CLASSES[u.cls].projectile) || null, ev: []
   };
   log(m.run, `${MINI.MODES[mode].icon} ${MINI.MODES[mode].verb}…${m.run.pets.length ? ` avec ${m.run.pets.map((p) => p.name).join(' et ')}` : ''}`);
   enterRoom(m, m.run, rnd);
@@ -253,15 +272,24 @@ function act(u, body, opts = {}) {
     const alive = run.mobs.filter((x) => x.hp > 0);
     if (!alive.length) { roomCleared(run, rnd); return run; }
     const target = run.mobs[body.target] && run.mobs[body.target].hp > 0 ? run.mobs[body.target] : alive[0];
+    run.ev = [];
     run.mobs.forEach((x) => { x.hit = 0; });
     (run.pets || []).forEach((p) => { p.acted = false; p.hurt = 0; });
     if (a === 'attack') {
       const r = heroHit(run, target, 1, rnd);
       log(run, `Tu frappes ${target.name} : −${r.dmg}${r.crit ? ' (critique !)' : ''}`);
+      ev(run, { a: 'hero', k: run.proj ? 'shot' : 'melee', proj: run.proj, t: [mobIdx(run, target)], d: [r.dmg], c: r.crit });
     } else if (a === 'skill') {
       if (run.skillCd > 0) fail('Compétence pas encore prête');
-      if (run.aoe) { for (const x of alive) heroHit(run, x, 1.2, rnd); log(run, 'Explosion arcanique : tous les ennemis sont touchés !'); }
-      else { const r = heroHit(run, target, 2.2, rnd); log(run, `Coup puissant sur ${target.name} : −${r.dmg}${r.crit ? ' (critique !)' : ''}`); }
+      if (run.aoe) {
+        const E = { a: 'hero', k: 'aoe', t: [], d: [] };
+        for (const x of alive) { const r = heroHit(run, x, 1.2, rnd); E.t.push(mobIdx(run, x)); E.d.push(r.dmg); }
+        log(run, 'Explosion arcanique : tous les ennemis sont touchés !'); ev(run, E);
+      } else {
+        const r = heroHit(run, target, 2.2, rnd);
+        log(run, `Coup puissant sur ${target.name} : −${r.dmg}${r.crit ? ' (critique !)' : ''}`);
+        ev(run, { a: 'hero', k: 'skill', proj: run.proj, t: [mobIdx(run, target)], d: [r.dmg], c: r.crit });
+      }
       run.skillCd = MINI.SKILL_CD + 1;
     } else if (a === 'defend') {
       if (run.shieldCd > 0) fail('Bouclier pas encore prêt');
@@ -269,11 +297,14 @@ function act(u, body, opts = {}) {
       run.shieldCd = MINI.SHIELD_CD + 1;
       run.shieldTurns = MINI.SHIELD_TURNS;
       log(run, `Tu lèves ton bouclier : ${run.shield} points de protection`);
+      ev(run, { a: 'hero', k: 'defend', s: run.shield });
     } else if (a === 'potion') {
       if (run.potions <= 0) fail('Plus de potions');
       run.potions--;
+      const before = run.hp;
       run.hp = Math.min(run.max, run.hp + Math.round(run.max * MINI.POTION_HEAL));
       log(run, 'Tu bois une potion de soin');
+      ev(run, { a: 'hero', k: 'potion', h: run.hp - before });
     } else fail('Action inconnue');
     if (run.skillCd > 0) run.skillCd--;
     if (run.shieldCd > 0) run.shieldCd--;
@@ -286,6 +317,7 @@ function act(u, body, opts = {}) {
     if (run.mobs.every((x) => x.hp <= 0)) roomCleared(run, rnd);
     return run;
   }
+  run.ev = [];
   if (run.state === 'loot' && a === 'take') {
     const bonus = Math.round(run.loot.amount * fxSum(run, 'loot'));
     run.got += run.loot.amount + bonus;

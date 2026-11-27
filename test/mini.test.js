@@ -27,7 +27,7 @@ test('mini-jeux : énergie (1 toutes les 6 h, 3 au plus), une expédition coûte
   assert.strictEqual(u.mini.energy, 3, 'plafond de 3');
 });
 
-test('mini-jeux : remonter toutes les 3 salles, élite toutes les 5 salles, mort = 75 % perdus', () => {
+test('mini-jeux : remonter toutes les 3 salles, élite toutes les 5 salles, mort = 50 % perdus', () => {
   const u = user();
   // rnd élevé : salles de monstres, pas de critiques ; on vide les salles en tuant les monstres
   const run = mini.start(u, 'mine', {}, { rnd: fixed(0.99) });
@@ -47,15 +47,15 @@ test('mini-jeux : remonter toutes les 3 salles, élite toutes les 5 salles, mort
   const got = run.got;
   mini.act(u, { action: 'reward', id: run.rewards[0] });
   assert.strictEqual(run.state, 'cleared');
-  // mort : 75 % des ressources perdues, XP gardée
+  // mort : 50 % des ressources perdues, XP gardée
   mini.act(u, { action: 'next' }, { rnd: fixed(0.99) });
   run.got = 40; run.hp = 1; run.mobs.forEach((m) => { m.hp = 9999; m.dmg = 9999; });
   let xpGiven = 0;
   mini.act(u, { action: 'attack' }, { rnd: fixed(0.99), grantXp: (p, xp) => { xpGiven = xp; return 0; } });
   assert.strictEqual(run.state, 'over');
   assert.ok(run.over.dead);
-  assert.strictEqual(run.over.banked, 10);
-  assert.strictEqual(u.mini.res.pierre, 10);
+  assert.strictEqual(run.over.banked, 20);
+  assert.strictEqual(u.mini.res.pierre, 20);
   assert.ok(xpGiven > 0 && got >= 0);
 });
 
