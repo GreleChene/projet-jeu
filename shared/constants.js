@@ -865,38 +865,63 @@
   const costText = (cost) => Object.entries(cost).map(([r, n]) => `${RESOURCES[r].icon} ${n}`).join(' + ');
 
   /* ------------------------------------------------------------------ */
-  /* Mini-jeux solo (onglet « Mini-jeux ») : expéditions tour par tour   */
-  /* de salle en salle. Chaque mode rapporte une ressource au compte.    */
+  /* Mini-jeux solo (onglet « Mini-jeux ») : expéditions en temps réel, */
+  /* vues du dessus, de salle en salle (simulation : expedition.js).     */
+  /* Chaque mode rapporte une ressource et des butins au compte.         */
   /* ------------------------------------------------------------------ */
   const MINI = {
     ENERGY_MAX: 3,          // charges d'énergie au plus
     ENERGY_HOURS: 6,        // 1 énergie toutes les 6 h ; une expédition coûte 1 énergie
-    ESCAPE_EVERY: 3,        // toutes les 3 salles : remonter avec son butin ou continuer
-    ELITE_EVERY: 5,         // toutes les 5 salles : un monstre d'élite et un choix de récompense
-    DEATH_LOSS: 0.5,        // mort : perte de 50 % des ressources de l'expédition (l'XP est gardée)
-    LOOT_CHANCE: 0.35,      // chance qu'une salle normale contienne du butin plutôt que des monstres
-    POTIONS: 2,             // potions de soin par expédition (soignent 35 % des PV)
+    ELITE_EVERY: 5,         // toutes les 5 salles : une salle d'élite (la sortie apparaît une fois l'élite vaincue)
+    BOSS_EVERY: 10,         // toutes les 10 salles : le gardien de la zone (au changement de décor)
+    DECOR_ROOMS: 10,        // un nouveau décor toutes les 10 salles (3 décors, puis le dernier se répète)
+    POTIONS: 2,             // potions de soin par expédition (touche A : 35 % des PV)
     POTION_HEAL: 0.35,
-    SKILL_CD: 3,            // la compétence revient tous les 3 tours
-    SHIELD_CD: 3,           // « Se protéger » : bouclier qui absorbe les dégâts, utilisable tous les 3 tours
-    SHIELD_TURNS: 2,        // … il ne dure que 2 tours de monstres (et disparaît à chaque nouvelle salle)
     // Statistiques d'expédition (propres aux mini-jeux, améliorées avec les ressources du compte)
     BASE: { hp: 100, dmg: 10, armor: 0, crit: 0.05, shield: 20 },
-    DECOR_ROOMS: 10,        // un nouveau décor toutes les 10 salles (3 décors, puis le dernier se répète)
+    // Arène vue du dessus (une salle = un écran)
+    ARENA: { W: 960, H: 600, WALL: 40 },
+    // shotDmg : les tirs et sorts (classes à distance) font 60 % des dégâts d'un coup d'arme, en échange de la sécurité
+    HERO: { speed: 175, radius: 14, atkCd: 0.42, shotCd: 0.5, shotDmg: 0.6, meleeRange: 64, meleeArc: 1.1, shotSpeed: 540, shotRange: 380, harvestReach: 66, skillCd: 6 },
+    // Bouclier (clic droit maintenu) : il encaisse les coups avec ses points ; parade parfaite = coup reçu juste après l'avoir levé
+    SHIELD: { parryWindow: 0.22, regen: 0.25, regenDelay: 1, breakTime: 2, slow: 0.5 },
+    HARVEST: { perHit: 2, slot: 15 },        // ressources par coup de récolte ; une case du sac = 15 ressources ou 1 butin
+    BAG: { base: 5, per: 5, pocket: 5 },     // sac : 5 cases (+5 par niveau) ; au niveau max, poche sécurisée de 5 cases
+    CART: { base: 10, per: 10, away: 2 },    // seau / charrette : 10 cases (+10 par niveau) ; renvoyé(e), revient 2 salles plus tard
+    DEATH_KEEP: 0.25,       // mort : on ne garde que 25 % des ressources du sac (rien du reste non renvoyé)
+    REINFORCE: { after: 45, every: 10, count: 2 }, // 45 s après l'ouverture de la sortie, des renforts arrivent toutes les 10 s
+    ROOMS: {
+      normal: { name: 'Salle', icon: '🗡️', exit: 10, nodes: [4, 6], mobs: true },
+      riche: { name: 'Salle riche', icon: '🌟', exit: 20, nodes: [10, 13], mobs: true, chance: 0.12 },
+      repos: { name: 'Salle de repos', icon: '⛲', exit: 10, nodes: [2, 2], mobs: false, chance: 0.06 },
+      elite: { name: 'Salle d’élite', icon: '⚔️', exit: 0, nodes: [3, 3], mobs: true },
+      gardien: { name: 'Gardien de zone', icon: '👑', exit: 0, nodes: [2, 2], mobs: true }
+    },
+    // Butins des monstres (1 case du sac chacun) : servent à améliorer le sac et le seau / la charrette
+    TROPHIES: {
+      os: { name: 'Os', icon: '🦴', zone: 'mine' }, cristal: { name: 'Éclat de cristal', icon: '💠', zone: 'mine' },
+      obsidienne: { name: 'Cœur d’obsidienne', icon: '🔮', zone: 'mine', rare: true },
+      peau: { name: 'Peau de bête', icon: '🐾', zone: 'foret' }, croc: { name: 'Croc', icon: '🦷', zone: 'foret' },
+      crane: { name: 'Crâne maudit', icon: '💀', zone: 'foret', rare: true },
+      plume: { name: 'Plume', icon: '🪶', zone: 'champ' }, ecaille: { name: 'Écaille', icon: '🐚', zone: 'champ' },
+      braise: { name: 'Braise de feu follet', icon: '🔥', zone: 'champ', rare: true }
+    },
+    DROPS: { normal: 0.2, eliteCommons: 2, eliteRare: 0.25, bossCommons: 3 }, // butins : 20 % par monstre ; élite 2 (+ rare 25 %) ; gardien : rare + 3
     MODES: {
       mine: {
-        name: 'Exploration de mine', icon: '⛏️', res: 'pierre', verb: 'Descendre dans la mine',
-        desc: 'Descends de galerie en galerie : filons de pierre et monstres des profondeurs.',
+        name: 'Exploration de la caverne', icon: '⛏️', res: 'pierre', verb: 'Descendre dans la caverne', exit: 'hole', cart: 'seau',
+        desc: 'Descends de cavité en cavité : filons de pierre et monstres des profondeurs.',
         decors: [
           { name: 'Galeries de terre', subs: ['Entrée étayée', 'Puits aux lanternes', 'Rails abandonnés', 'Salle des wagonnets', 'Boyau étroit', 'Éboulis'] },
           { name: 'Cavernes de cristal', subs: ['Grotte d’améthyste', 'Lac souterrain', 'Forêt de stalagmites', 'Géode géante', 'Pont de pierre', 'Veines bleues'] },
           { name: 'Profondeurs de magma', subs: ['Rivière de lave', 'Forge naine en ruine', 'Salle d’obsidienne', 'Cheminée volcanique', 'Trône du roi nain', 'Gouffre ardent'] }
         ],
         mobs: [['gobelin', 'araignee', 'gelee_caverne'], ['golem_glace', 'esprit_givre', 'araignee_cristal'], ['chien_infernal', 'elementaire', 'sentinelle_obsidienne']], // 3 monstres par zone, chacun dans une seule zone
-        loot: 'Filon de pierre'
+        bosses: [{ type: 'araignee_reine', abil: ['volley', 'summon'] }, { type: 'golem_ancien', abil: ['slam', 'charge'] }, { type: 'golem_obsidienne', abil: ['slam', 'summon', 'charge'] }],
+        trophies: { common: ['os', 'cristal'], rare: 'obsidienne' }
       },
       foret: {
-        name: 'Visite de la forêt', icon: '🌲', res: 'bois', verb: 'Entrer dans la forêt',
+        name: 'Visite de la forêt', icon: '🌲', res: 'bois', verb: 'Entrer dans la forêt', exit: 'side', cart: 'charrette',
         desc: 'Avance de clairière en clairière : bois de qualité et bêtes sauvages.',
         decors: [
           { name: 'Sous-bois', subs: ['Clairière', 'Sentier moussu', 'Ruisseau', 'Souche géante', 'Ronds de champignons', 'Cabane de bûcheron'] },
@@ -904,10 +929,11 @@
           { name: 'Bois maudit', subs: ['Arbres morts', 'Toiles d’araignée', 'Feux follets', 'Cimetière oublié', 'Tronc creux', 'Cœur de la forêt'] }
         ],
         mobs: [['loup', 'sanglier', 'renard'], ['loup_neige', 'treant', 'ours_noir'], ['mutant', 'champignon', 'squelette_maudit']],
-        loot: 'Bois tombé'
+        bosses: [{ type: 'loup_alpha', abil: ['charge', 'summon'] }, { type: 'treant_colossal', abil: ['slam', 'summon'] }, { type: 'abomination', abil: ['charge', 'slam'] }],
+        trophies: { common: ['peau', 'croc'], rare: 'crane' }
       },
       champ: {
-        name: 'Récolte du champ de baies', icon: '🫐', res: 'baies', verb: 'Partir aux champs',
+        name: 'Récolte de la clairière', icon: '🫐', res: 'baies', verb: 'Partir dans la clairière', exit: 'side', cart: 'charrette',
         desc: 'Traverse haies et collines : buissons chargés de baies et nuisibles affamés.',
         decors: [
           { name: 'Champs ensoleillés', subs: ['Haies de mûres', 'Meules de foin', 'Épouvantail', 'Moulin', 'Ruches', 'Verger'] },
@@ -915,36 +941,41 @@
           { name: 'Vallée crépusculaire', subs: ['Coucher de soleil', 'Champ de citrouilles', 'Buissons géants', 'Tour en ruine', 'Lucioles', 'Autel des récoltes'] }
         ],
         mobs: [['corbeau', 'gobelin_archer', 'mulot'], ['crapaud', 'rampant', 'lievre'], ['diablotin', 'salamandre', 'feu_follet']],
-        loot: 'Buisson chargé'
+        bosses: [{ type: 'crapaud_roi', abil: ['volley', 'summon'] }, { type: 'salamandre_ancienne', abil: ['volley', 'charge'] }, { type: 'phenix_noir', abil: ['volley', 'summon', 'slam'] }],
+        trophies: { common: ['plume', 'ecaille'], rare: 'braise' }
       }
     },
-    // Récompenses d'élite (3 tirées au hasard) : { kind, …valeurs }
+    // Récompenses d'élite et de gardien (3 tirées au hasard ; l'œuf a 10 % de chances d'en faire partie)
     ELITE_REWARDS: {
       dmg: { name: 'Force du vainqueur', icon: '⚔️', desc: '+20 % de dégâts jusqu’à la fin de l’expédition' },
       hp: { name: 'Endurance', icon: '❤️', desc: '+20 % de PV max (et soin de ce bonus) jusqu’à la fin de l’expédition' },
       crit: { name: 'Œil vif', icon: '🎯', desc: '+10 % de chances de critique jusqu’à la fin de l’expédition' },
       heal: { name: 'Repos', icon: '💚', desc: 'Soigne tous les PV' },
-      res: { name: 'Trésor de l’élite', icon: '💰', desc: 'Un gros tas de la ressource du mode' },
+      res: { name: 'Trésor de l’élite', icon: '💰', desc: 'Un gros tas de la ressource de la zone, à ramasser' },
       grelons: { name: 'Bourse de Grêlons', icon: '🌨️', desc: 'Des Grêlons tout de suite (gardés même en cas de mort)' },
       potion: { name: 'Fiole', icon: '🧪', desc: '+1 potion de soin' },
       egg: { name: 'Œuf mystérieux', icon: '🥚', desc: 'Un œuf de familier (monstre de cette zone, rareté au hasard) : il éclot 30 min plus tard, même si tu tombes' }
     },
-    // Améliorations achetées avec les ressources du compte
-    // mode : amélioration d'un mini-jeu (payée avec sa ressource) ; all : payée avec les trois ressources
+    // Améliorations du compte (ressources, ou butins des monstres pour le sac et le seau / la charrette)
     UPGRADES: {
       // statistiques d'expédition (stat : statistique améliorée, per : gain par niveau)
-      vie: { stat: 'hp', per: 15, name: 'Vitalité', icon: '❤️', desc: '+15 PV max en expédition', res: 'baies', cost: 12, growth: 1.17, max: 20 },
-      force: { stat: 'dmg', per: 2, name: 'Force', icon: '⚔️', desc: '+2 dégâts en expédition', res: 'bois', cost: 12, growth: 1.17, max: 20 },
-      armure: { stat: 'armor', per: 0.03, name: 'Armure', icon: '🛡️', desc: '+3 % de réduction des dégâts en expédition', res: 'pierre', cost: 15, growth: 1.2, max: 15 },
-      precision: { stat: 'crit', per: 0.02, name: 'Précision', icon: '🎯', desc: '+2 % de chances de critique en expédition', res: 'bois', cost: 15, growth: 1.22, max: 10 },
-      bouclier: { stat: 'shield', per: 10, name: 'Bouclier', icon: '🔰', desc: '+10 points de bouclier quand tu te protèges', res: 'pierre', cost: 15, growth: 1.22, max: 10 },
-      luck: { perMode: true, name: 'Flair', icon: '🔎', desc: '+5 % de chances qu’une salle contienne du butin', cost: 15, growth: 1.6, max: 6 },
-      bounty: { perMode: true, name: 'Gros butin', icon: '💎', desc: '+15 % de ressources dans le butin', cost: 20, growth: 1.6, max: 6 },
-      jackpot: { perMode: true, name: 'Coup de chance', icon: '🍀', desc: '+4 % de chances qu’un butin soit multiplié (×1,5, plus avec « Fortune »)', cost: 25, growth: 1.65, max: 5 },
-      fortune: { perMode: true, name: 'Fortune', icon: '👑', desc: 'Le coup de chance multiplie le butin par 0,5 de plus (×1,5 → ×3)', cost: 60, growth: 2, max: 3 },
-      potion: { name: 'Sacoche de potions', icon: '🧪', desc: '+1 potion de soin par expédition', res: 'baies', cost: 40, growth: 2, max: 3 },
+      vie: { stat: 'hp', per: 15, name: 'Vitalité', icon: '❤️', desc: '+15 PV max en expédition', res: 'baies', cost: 70, growth: 1.17, max: 20 },
+      force: { stat: 'dmg', per: 2, name: 'Force', icon: '⚔️', desc: '+2 dégâts en expédition', res: 'bois', cost: 70, growth: 1.17, max: 20 },
+      armure: { stat: 'armor', per: 0.03, name: 'Armure', icon: '🛡️', desc: '+3 % de réduction des dégâts en expédition', res: 'pierre', cost: 90, growth: 1.2, max: 15 },
+      precision: { stat: 'crit', per: 0.02, name: 'Précision', icon: '🎯', desc: '+2 % de chances de critique en expédition', res: 'bois', cost: 90, growth: 1.22, max: 10 },
+      bouclier: { stat: 'shield', per: 10, name: 'Bouclier', icon: '🔰', desc: '+10 points de bouclier (parade au clic droit)', res: 'pierre', cost: 90, growth: 1.22, max: 10 },
+      // sac et seau / charrette : payés avec les butins des monstres (costs[niveau actuel])
+      sac: { trophy: true, name: 'Sac', icon: '🎒', desc: '+5 cases de sac ; au niveau max, poche sécurisée (5 cases jamais perdues)', max: 5,
+        costs: [{ os: 5, peau: 5 }, { plume: 8, cristal: 8 }, { croc: 12, ecaille: 12 }, { os: 16, peau: 16, obsidienne: 1 }, { plume: 20, cristal: 20, crane: 1, braise: 1 }] },
+      chariot: { trophy: true, name: 'Seau / charrette', icon: '🛒', desc: '+10 cases (seau dans la caverne, charrette dans la forêt et la clairière)', max: 5,
+        costs: [{ ecaille: 5, cristal: 5 }, { croc: 8, plume: 8 }, { os: 12, peau: 12 }, { braise: 1, cristal: 16, croc: 16 }, { obsidienne: 1, crane: 1, ecaille: 20, peau: 20 }] },
+      luck: { perMode: true, name: 'Flair', icon: '🔎', desc: '+8 % de points de récolte par salle', cost: 80, growth: 1.6, max: 6 },
+      bounty: { perMode: true, name: 'Gros butin', icon: '💎', desc: '+15 % de ressources par point de récolte', cost: 110, growth: 1.6, max: 6 },
+      jackpot: { perMode: true, name: 'Coup de chance', icon: '🍀', desc: '+4 % de chances qu’un point de récolte soit doré (×1,5, plus avec « Fortune »)', cost: 140, growth: 1.65, max: 5 },
+      fortune: { perMode: true, name: 'Fortune', icon: '👑', desc: 'Les points dorés donnent 0,5× de plus (×1,5 → ×3)', cost: 350, growth: 2, max: 3 },
+      potion: { name: 'Sacoche de potions', icon: '🧪', desc: '+1 potion de soin par expédition', res: 'baies', cost: 200, growth: 2, max: 3 },
       // une amélioration de récolte par ressource (harvest_pierre, harvest_bois, harvest_baies), payée avec cette ressource
-      harvest: { perRes: true, name: 'Récolteur', icon: '🧺', desc: '+10 % de récolte de cette ressource pour ton héros en défense de tour', cost: 30, growth: 1.5, max: 10 }
+      harvest: { perRes: true, name: 'Récolteur', icon: '🧺', desc: '+10 % de récolte de cette ressource pour ton héros en défense de tour', cost: 150, growth: 1.5, max: 10 }
     }
   };
   // Identifiant d'une amélioration de mini-jeu (luck_mine, potion, harvest…) et son coût au niveau lvl
@@ -952,14 +983,18 @@
     const [key, suf] = id.split('_');
     const u = MINI.UPGRADES[key];
     if (!u || (u.perMode && !MINI.MODES[suf]) || (u.perRes && !RESOURCES[suf])) return null;
+    if (u.trophy) return u.costs[lvl || 0] ? { ...u.costs[lvl || 0] } : null; // butins des monstres
     const v = Math.round(u.cost * Math.pow(u.growth, lvl || 0));
     return { [u.perMode ? MINI.MODES[suf].res : u.perRes ? suf : u.res]: v };
   }
+  // Texte d'un coût : ressources (🪨 12) ou butins des monstres (🦴 5)
+  const miniCostText = (cost) => Object.entries(cost || {}).map(([k, n]) => `${(RESOURCES[k] || MINI.TROPHIES[k] || { icon: k }).icon} ${n}`).join(' + ');
+  const isTrophyCost = (id) => !!(MINI.UPGRADES[id.split('_')[0]] || {}).trophy;
   const miniUpgradeIds = () => Object.entries(MINI.UPGRADES).flatMap(([k, u]) => (u.perMode ? Object.keys(MINI.MODES).map((m) => `${k}_${m}`) : u.perRes ? RES_IDS.map((r) => `${k}_${r}`) : [k]));
 
   /* ------------------------------------------------------------------ */
   /* Familiers (mini-jeux) : achetés au chenil (Grêlons) ou éclos d'un œuf (récompense d'élite rare). */
-  /* 2 familiers actifs par expédition ; ils agissent seuls après le héros. Leurs PV ne remontent      */
+  /* 2 familiers actifs par expédition ; ils suivent le héros et se battent seuls. Leurs PV ne remontent*/
   /* qu'avec le temps ; un familier K.-O. se repose jusqu'à 50 % de ses PV avant de repartir.          */
   /* ------------------------------------------------------------------ */
   const PETS = {
@@ -968,7 +1003,7 @@
     REST_PCT: 0.5,            // un familier K.-O. doit remonter à 50 % de ses PV avant d'être réutilisé
     REGEN_PER_HOUR: 0.1,      // hors expédition : +10 % des PV max par heure
     KENNEL_PRICE: GLACONS.PRICE * 10, // prix d'un animal du chenil : 10 glaçons
-    EGG_CHANCE: 0.01,         // chance que « Œuf mystérieux » fasse partie des récompenses d'élite
+    EGG_CHANCE: 0.1,          // chance que « Œuf mystérieux » fasse partie des récompenses d'élite et de gardien
     INCUBATION_MIN: 30,       // un œuf éclot 30 minutes après avoir été trouvé
     DUP_RES: [5, 8, 12, 17, 23, 30], // œuf en double : ressources de la zone selon la rareté (30 au plus)
     MAX_LEVEL: 20,
@@ -977,15 +1012,15 @@
     xpForLevel: (l) => 60 + 30 * l,
     expeditionXp: (room) => 20 + 10 * room,
     /* Effets (valeurs de rareté commune ; multipliées par la rareté pour les œufs) :
-     *  bite   : morsure, % des dégâts du héros à la cible chaque tour     aoe    : % des dégâts du héros à tous les monstres
-     *  poison / burn : la cible subit ce % des dégâts du héros pendant 2 tours
+     *  bite   : morsure, % des dégâts du héros à chaque attaque du familier   aoe : % des dégâts du héros aux monstres proches (toutes les 3 s)
+     *  poison / burn : la cible subit ce % des dégâts du héros par seconde pendant 2 s
      *  mark   : la cible subit +% de dégâts       weaken : la cible inflige −% de dégâts
-     *  freeze / stun : chance que la cible passe son prochain coup
+     *  freeze / stun : chance de geler (1,2 s) ou d'étourdir (1 s) la cible
      *  guard  : absorbe ce % du 1er coup reçu par le héros dans chaque salle
-     *  heal   : soigne ce % des PV max du héros tous les 2 tours
+     *  heal   : soigne ce % des PV max du héros toutes les 4 s
      *  taunt  : attire les coups (chance en plus d'être visé)        ranged : à distance, seuls les monstres qui tirent le touchent
-     *  loot   : +% de butin       sniff : flaire si la salle suivante contient du butin
-     *  carry  : réduit la perte de ressources en cas de mort (points de %)    rally : +% de dégâts du héros */
+     *  loot   : +% de ressources à chaque récolte       sniff : récolte seul les points proches
+     *  carry  : cases de sac en plus (× 30)    rally : +% de dégâts du héros */
     KINDS: {
       // chenil (un peu moins puissants que l'idée de départ ; toujours en rareté commune)
       k_loup: { size: 14, name: 'Loup', icon: '🐺', sprite: 'ally_wolf', kennel: true, hp: 70, fx: { bite: 0.25 } },
@@ -1040,14 +1075,14 @@
   function petFxText(kind, rarity) {
     const f = petPower(kind, rarity), p = (v) => `${Math.round(v * 100)} %`;
     const T = {
-      bite: (v) => `mord la cible : ${p(v)} de tes dégâts chaque tour`, aoe: (v) => `frappe tous les monstres : ${p(v)} de tes dégâts`,
-      poison: (v) => `empoisonne la cible : ${p(v)} de tes dégâts pendant 2 tours`, burn: (v) => `brûle la cible : ${p(v)} de tes dégâts pendant 2 tours`,
-      mark: (v) => `marque la cible : +${p(v)} de dégâts subis`, weaken: (v) => `affaiblit la cible : −${p(v)} de dégâts`,
-      freeze: (v) => `${p(v)} de chances de geler la cible (elle passe son coup)`, stun: (v) => `${p(v)} de chances d’étourdir la cible (elle passe son coup)`,
-      guard: (v) => `absorbe ${p(v)} du premier coup reçu dans chaque salle`, heal: (v) => `soigne ${p(v)} de tes PV max tous les 2 tours`,
+      bite: (v) => `mord les monstres : ${p(v)} de tes dégâts par attaque`, aoe: (v) => `frappe les monstres autour de lui (toutes les 3 s) : ${p(v)} de tes dégâts`,
+      poison: (v) => `empoisonne : ${p(v)} de tes dégâts par seconde pendant 2 s`, burn: (v) => `brûle : ${p(v)} de tes dégâts par seconde pendant 2 s`,
+      mark: (v) => `marque sa cible : +${p(v)} de dégâts subis`, weaken: (v) => `affaiblit sa cible : −${p(v)} de dégâts`,
+      freeze: (v) => `${p(v)} de chances de geler sa cible (1,2 s)`, stun: (v) => `${p(v)} de chances d’étourdir sa cible (1 s)`,
+      guard: (v) => `absorbe ${p(v)} du premier coup reçu dans chaque salle`, heal: (v) => `soigne ${p(v)} de tes PV max toutes les 4 s`,
       taunt: (v) => `attire les coups (+${p(v)} de chances d’être visé)`, ranged: () => 'reste à distance : seuls les monstres qui tirent peuvent le toucher',
-      loot: (v) => `+${p(v)} de butin`, sniff: () => 'flaire si la salle suivante contient du butin',
-      carry: (v) => `si tu tombes, ${p(v)} de ressources perdues en moins`, rally: (v) => `+${p(v)} de dégâts pour le héros`
+      loot: (v) => `+${p(v)} de ressources à chaque récolte`, sniff: () => 'récolte tout seul les points proches',
+      carry: (v) => `+${Math.round(v * 30)} cases de sac`, rally: (v) => `+${p(v)} de dégâts pour le héros`
     };
     return Object.entries(f).map(([k, v]) => (T[k] ? T[k](v) : k));
   }
@@ -1127,5 +1162,5 @@
     MF: { ELITE: 1, BOSS: 2, ATTACK: 4, SLOW: 8, POISON: 16, BURN: 32, CHARGE: 64, FROZEN: 128, CHARM: 256, MARK: 512, BLIND: 1024 }
   };
 
-  return { PETS, petPower, petMaxHp, petStage, petName, petSprite, petFxText, MINI, miniStats, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { miniCostText, isTrophyCost, PETS, petPower, petMaxHp, petStage, petName, petSprite, petFxText, MINI, miniStats, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

@@ -10,7 +10,7 @@
     });
     let data = {};
     try { data = await res.json(); } catch (e) { /* vide */ }
-    if (!res.ok) { const err = new Error(data.error || 'Erreur ' + res.status); err.status = res.status; throw err; }
+    if (!res.ok) { const err = new Error(data.error || 'Erreur ' + res.status); err.status = res.status; err.data = data; throw err; }
     return data;
   }
   const $ = (sel, root) => (root || document).querySelector(sel);

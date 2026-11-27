@@ -522,6 +522,13 @@
   }  function glowEye(ctx, x, y, r, col) { glowDot(ctx, x, y, r, col, 2.3); }
 
   // hauteur visuelle d'un monstre (en tailles) pour placer la barre de vie et la couronne de boss
+  // paramètre « size » de drawMob / drawPet pour que le sprite tienne dans maxH × maxW pixels (vue du dessus des mini-jeux)
+  function mobFit(type, maxH, maxW) {
+    const ps = pixelSprite(type);
+    if (!ps) return maxH / 2.2;
+    const rows = ps.sp.frames[0], H = rows.length, W = Math.max(...rows.map((r) => r.length));
+    return Math.min(maxH / ps.sp.h, (maxW * H) / (W * ps.sp.h));
+  }
   function mobTop(type) { const d = GD.MOBS[type]; if (!d) return 2.2; const ps = pixelSprite(type); return ps ? ps.sp.h + (ps.sp.float ? 0.2 : 0) : 2.2; }
 
   /* ------------------------------ monstres en pixel art ------------------------------
@@ -605,6 +612,36 @@
         ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(sx, sy - r * 1.8); ctx.lineTo(sx + r * 0.6, sy); ctx.lineTo(sx, sy + r * 1.8); ctx.lineTo(sx - r * 0.6, sy); ctx.closePath(); ctx.fill();
       }
       if (st === 2) drawCrown(ctx, 0, top - 3, Math.max(5, s * 0.3));
+    }
+    ctx.restore();
+  }
+
+  /* Seau (caverne) ou charrette (forêt, clairière) qui suit le héros dans les mini-jeux.
+   * o : { skin: 'seau' | 'charrette', fill (0-1), res (ressource du tas), t, moving } */
+  const HEAP = { pierre: ['#9aa3ae', '#c4cbd4'], bois: ['#a8703f', '#d9b07a'], baies: ['#5a4fd6', '#c0306a'] };
+  function drawCart(ctx, x, y, o) {
+    const t = o.t || 0, bob = o.moving ? Math.abs(Math.sin(t * 9)) * 1.5 : 0, fill = Math.max(0, Math.min(1, o.fill || 0)), hc = HEAP[o.res] || HEAP.pierre;
+    ctx.save(); ctx.translate(x, y - bob);
+    shadow(ctx, 0, 4 + bob, 26, 7);
+    const wheel = (wx, wy, r) => { circle(ctx, wx, wy, r, '#5e3a1f', 2); ctx.save(); ctx.translate(wx, wy); ctx.rotate(o.moving ? t * 8 : 0); line(ctx, -r + 2, 0, r - 2, 0, '#2a1a10', 1); line(ctx, 0, -r + 2, 0, r - 2, '#2a1a10', 1); ctx.restore(); };
+    if (o.skin === 'seau') {
+      // wagonnet de mine : seau en métal sur petites roues
+      wheel(-13, 2, 5); wheel(13, 2, 5);
+      poly(ctx, [-20, -26, 20, -26, 15, 0, -15, 0], '#8d96a3', 2.5);
+      ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(4, -25, 11, 24);
+      ellipse(ctx, 0, -26, 20, 6, '#5a626e', 2);
+      if (fill > 0) { ctx.save(); ctx.beginPath(); ctx.ellipse(0, -26, 18, 5, 0, 0, TAU); ctx.clip(); ctx.fillStyle = hc[0]; ctx.fillRect(-20, -32, 40, 12); ctx.restore(); for (let i = 0; i < Math.ceil(fill * 5); i++) circle(ctx, -12 + i * 6, -28 - fill * 6 + (i % 2) * 3, 4, hc[i % 2], 1.2); }
+      ctx.strokeStyle = OL; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(0, -26, 17, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+      ctx.strokeStyle = '#c4cbd4'; ctx.lineWidth = 1.2; ctx.stroke();
+      for (const yy of [-18, -8]) line(ctx, -17 + (yy + 26) * 0.12, yy, 17 - (yy + 26) * 0.12, yy, '#6b7480', 1);
+    } else {
+      // charrette en bois à deux roues, avec son timon
+      line(ctx, -26, -6, -40, -2, P.wood[2], 3);
+      rrect(ctx, -24, -22, 48, 22, 3, P.wood[0], 2.5);
+      ctx.fillStyle = 'rgba(29,22,38,.25)'; for (const px of [-12, 0, 12]) ctx.fillRect(px, -21, 1.5, 20);
+      rrect(ctx, -24, -24, 48, 5, 2, P.wood[1], 2);
+      if (fill > 0) { const hh = 4 + fill * 12; ctx.beginPath(); ctx.ellipse(0, -24, 20, hh, 0, Math.PI, 0); ctx.closePath(); ctx.fillStyle = hc[0]; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = OL; ctx.stroke(); for (let i = 0; i < 4; i++) circle(ctx, -12 + i * 8, -26 - hh * 0.5 + (i % 2) * 3, 3.2, hc[1], 1); }
+      wheel(-16, 2, 8); wheel(16, 2, 8);
     }
     ctx.restore();
   }
@@ -1863,5 +1900,5 @@
     ctx.restore();
   }
 
-  window.Art = { mobTop, heroPortrait, heroTop: (s, mounted) => 29 * Math.max(1, Math.round(s * 1.45)) + (mounted ? MOUNT_LIFT * Math.max(1, Math.round(Math.max(1, Math.round(s * 1.45)) * 0.8)) : 0), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawDamage, drawResNode, drawPet, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
+  window.Art = { mobTop, mobFit, heroPortrait, heroTop: (s, mounted) => 29 * Math.max(1, Math.round(s * 1.45)) + (mounted ? MOUNT_LIFT * Math.max(1, Math.round(Math.max(1, Math.round(s * 1.45)) * 0.8)) : 0), drawBuilding, shade, rgba, circle, ellipse, rrect, poly, line, shadow, glow, drawHero, drawGrave, drawMob, drawTower, drawDamage, drawResNode, drawPet, drawCart, drawProjectile, drawCrown, buildTerrain, drawLavaGlow, drawWeapon };
 })();

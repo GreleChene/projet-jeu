@@ -174,7 +174,8 @@ function miniReply(res, u, fn) {
     db.markDirty();
     res.json({ mini: mini.publicState(u), user: publicUser(u) });
   } catch (e) {
-    if (e instanceof mini.MiniError || e instanceof pets.PetError) return res.status(400).json({ error: e.message });
+    // refus : le rapport de la page a pu être pris en compte avant l'action, on renvoie l'état à jour
+    if (e instanceof mini.MiniError || e instanceof pets.PetError) { db.markDirty(); return res.status(400).json({ error: e.message, mini: mini.publicState(u) }); }
     throw e;
   }
 }
@@ -182,7 +183,8 @@ app.get('/api/mini', auth, (req, res) => res.json({ mini: mini.publicState(req.u
 app.post('/api/mini/start', auth, (req, res) => miniReply(res, req.user, () => mini.start(req.user, String((req.body || {}).mode), db.gearOf(req.user))));
 app.post('/api/mini/act', auth, (req, res) => {
   const b = req.body || {};
-  miniReply(res, req.user, () => mini.act(req.user, { action: String(b.action), target: Number(b.target) || 0, id: String(b.id || '') }, { grantXp: (u, xp) => game.grantXp(u, xp) }));
+  const report = b.report && typeof b.report === 'object' ? b.report : null;
+  miniReply(res, req.user, () => mini.act(req.user, { action: String(b.action), report, slot: b.slot === 'all' ? 'all' : Number(b.slot) || 0, id: String(b.id || '') }, { grantXp: (u, xp) => game.grantXp(u, xp) }));
 });
 // Familiers : chenil (Grêlons), familiers actifs (2 au plus), familier principal (stream, niveau 10+)
 app.post('/api/pets/buy', auth, (req, res) => miniReply(res, req.user, () => pets.buy(req.user, String((req.body || {}).kind))));

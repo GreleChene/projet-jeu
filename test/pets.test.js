@@ -2,6 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const GD = require('../shared/constants');
+const X = require('../shared/expedition');
 const mini = require('../server/mini');
 const pets = require('../server/pets');
 
@@ -44,10 +45,10 @@ test('familiers : PV gardés après l’expédition, repos jusqu’à 50 %, rég
   pets.buy(u, 'k_loup');
   const run = mini.start(u, 'mine', {}, { rnd: fixed(0.99) });
   assert.strictEqual(run.pets.length, 1);
-  run.pets[0].hp = 0; // K.-O. pendant l’expédition
-  // fin de l’expédition (mort du héros)
-  run.mobs.forEach((m) => { m.hp = 9999; m.dmg = 9999; }); run.hp = 1;
-  mini.act(u, { action: 'attack' }, { rnd: fixed(0.99) });
+  // le familier est K.-O. pendant l’expédition (rapport de la page), puis le héros tombe
+  mini.act(u, { action: 'sync', report: { pets: [999] } });
+  assert.strictEqual(run.pets[0].hp, GD.petMaxHp('k_loup', 0), 'les PV rapportés ne peuvent pas remonter');
+  mini.act(u, { action: 'die', report: { hp: 0, pets: [0] } });
   assert.strictEqual(run.state, 'over');
   const p = u.pets.list[0];
   assert.ok(p.ko && p.hp === 0, 'K.-O. : se repose');
@@ -63,17 +64,34 @@ test('familiers : PV gardés après l’expédition, repos jusqu’à 50 %, rég
   assert.deepStrictEqual(u.pets.active, [p.id]);
 });
 
+// petite salle de simulation : un monstre à côté du héros et des familiers
+function duel(mobType, petKind, mx = 560, my = 300) {
+  const room = { mode: 'mine', room: 1, type: 'normal', tier: 0, seed: 1, decor: 0, sub: 0, entry: { x: 480, y: 300, side: null }, exit: { kind: 'hole', x: 860, y: 520, r: 30 },
+    fountain: null, nodes: [], mobs: [{ i: 0, ...X.mobStats(mobType, 1, ''), hp: 9999, max: 9999, x: mx, y: my, drops: [], abil: null }], exitDelay: 10, boss: -1 };
+  const max = GD.petMaxHp(petKind, 0);
+  return X.createSim({ room, cls: 'paladin', hp: 100, max: 100, dmg: 10, crit: 0, armor: 0, shield: 20, potions: 0, bag: [], bagCap: 5, cart: null,
+    pets: [{ id: 'a', kind: petKind, rarity: 0, name: GD.petName(petKind), hp: max, max }] });
+}
+// Math.random fixé le temps d'une simulation (choix des cibles)
+function withRandom(v, fn) { const r = Math.random; Math.random = () => v; try { return fn(); } finally { Math.random = r; } }
+
 test('familiers : 20 % des coups visent un familier ; morsure ; principal seulement niveau 10+', () => {
+  assert.strictEqual(GD.PETS.HIT_CHANCE, 0.2);
+  withRandom(0.1, () => { // 0,1 < 20 % : le monstre vise le familier
+    const s = duel('sanglier', 'k_loup'), max = s.pets[0].max;
+    for (let i = 0; i < 100; i++) X.stepSim(s, 0.05, {});
+    assert.ok(s.pets[0].hp < max, 'le familier est touché');
+    assert.strictEqual(s.hero.hp, 100, 'pas le héros');
+    assert.ok(s.mobs[0].hp < 9999, 'le loup a mordu');
+  });
+  withRandom(0.5, () => { // 0,5 ≥ 20 % : le monstre vise le héros
+    const s = duel('sanglier', 'k_loup'), max = s.pets[0].max;
+    for (let i = 0; i < 100; i++) X.stepSim(s, 0.05, {});
+    assert.strictEqual(s.pets[0].hp, max);
+    assert.ok(s.hero.hp < 100);
+  });
   const u = user();
   pets.buy(u, 'k_loup');
-  const run = mini.start(u, 'mine', {}, { rnd: fixed(0.99) });
-  const mob = run.mobs[0]; mob.hp = 9999;
-  // rnd = 0,1 : < 20 % → le monstre frappe le familier
-  const hp0 = run.hp, php0 = run.pets[0].hp;
-  mini.act(u, { action: 'defend' }, { rnd: fixed(0.1) });
-  assert.ok(run.pets[0].hp < php0, 'le familier est touché');
-  assert.strictEqual(run.hp, hp0, 'pas le héros');
-  assert.ok(mob.hp < 9999, 'le loup a mordu');
   assert.throws(() => pets.setMain(u, u.pets.list[0].id), /niveau 10/);
   u.pets.list[0].level = 10;
   pets.setMain(u, u.pets.list[0].id);
@@ -100,18 +118,22 @@ test('mini-jeux : chaque monstre n’existe que dans une seule zone, et chacun p
   assert.ok(!GD.MOBS.corbeau.w, 'le corbeau n’apparaît pas en défense de tour');
 });
 
-test('mini-jeux : les monstres qui tirent peuvent toucher les familiers à distance ; événements du tour', () => {
-  const u = user();
-  u.pets = { list: [{ id: 'x', kind: 'gobelin_archer', rarity: 0, level: 1, xp: 0, hp: 45, at: Date.now() }], active: ['x'], main: null };
-  const run = mini.start(u, 'mine', {}, { rnd: () => 0.99 });
-  const mob = run.mobs[0]; mob.hp = 9999;
-  mob.ranged = null; // corps à corps : ne peut pas viser l’archer
-  mini.act(u, { action: 'attack' }, { rnd: () => 0.1 });
-  assert.strictEqual(run.pets[0].hp, 45, 'un monstre de corps à corps ne touche pas un familier à distance');
-  mob.ranged = 'arrow'; // tireur : peut le viser
-  mini.act(u, { action: 'attack' }, { rnd: () => 0.1 });
-  assert.ok(run.pets[0].hp < 45, 'un monstre qui tire le touche');
-  const kinds = run.ev.map((e) => e.a);
-  assert.deepStrictEqual(kinds.slice(0, 2), ['hero', 'pet'], 'le héros puis les familiers');
-  assert.ok(run.ev.some((e) => e.a === 'mob' && e.k === 'shot' && e.to === 0), 'tir du monstre sur le familier');
+test('mini-jeux : les monstres qui tirent peuvent toucher les familiers à distance ; les autres non', () => {
+  withRandom(0.1, () => {
+    // corps à corps : ne peut pas viser l’archer (familier à distance)
+    const s = duel('sanglier', 'gobelin_archer'), max = s.pets[0].max;
+    for (let i = 0; i < 100; i++) X.stepSim(s, 0.05, {});
+    assert.strictEqual(s.pets[0].hp, max, 'un monstre de corps à corps ne touche pas un familier à distance');
+    assert.ok(s.hero.hp < 100, 'il frappe le héros');
+    // tireur (placé pour que le héros ne soit pas sur la trajectoire) : peut le viser
+    const t = duel('gobelin_archer', 'gobelin_archer', 470, 120);
+    for (let i = 0; i < 160; i++) X.stepSim(t, 0.05, {});
+    assert.ok(t.pets[0].hp < max, 'un monstre qui tire le touche');
+  });
+  // l’écureuil et le mulot récoltent seuls les points proches
+  const s = duel('sanglier', 'k_ecureuil');
+  s.mobs[0].dead = true;
+  s.nodes.push({ i: 0, x: 420, y: 330, k: 0, r: 24, gold: 0, amt: 20, left: 20, shake: 0 });
+  for (let i = 0; i < 200; i++) X.stepSim(s, 0.05, {});
+  assert.ok(s.ops.some((o) => o[0] === 'h') && s.bag.length === 1, 'récolte automatique');
 });

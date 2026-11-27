@@ -136,6 +136,13 @@ function migrateUser(u) {
     if (u.mini.run && u.mini.run.state !== 'over') u.mini.run.mobs = u.mini.run.mobs || [];
     u.miniV2 = true;
   }
+  // v3 : mini-jeux en temps réel — butins des monstres sur le compte ; une expédition au tour par tour en cours
+  // est abandonnée (sans perte : son énergie est rendue)
+  if (!u.miniV3) {
+    u.mini.trophies ||= {};
+    if (u.mini.run && u.mini.run.v !== 2) { if (u.mini.run.state !== 'over') u.mini.energy = Math.min(99, (u.mini.energy || 0) + 1); u.mini.run = null; }
+    u.miniV3 = true;
+  }
   // familiers des mini-jeux (chenil, œufs)
   if (!u.petsV1) { u.pets = { list: [], active: [], main: null, ...(u.pets || {}) }; u.petsV1 = true; }
   return u;
