@@ -21,23 +21,32 @@ function spotsNearPath(G) {
 // une partie riche, pour tester les règles sans se soucier du coût
 const rich = (zone = 'mine', seed = 1234, unlocked = []) => { const G = BS.newGame(zone, seed, unlocked); G.res = { or: 99999, bois: 9999, pierre: 9999 }; return G; };
 
-test('bastion : cartes aléatoires valides et reproductibles (chemin continu qui ne se touche pas, tour principale, place pour construire)', () => {
+test('bastion : cartes aléatoires valides et reproductibles (tour au milieu, chemin depuis un bord, continu, qui ne se touche pas)', () => {
+  const sides = new Set();
   for (const zone of Object.keys(B.ZONES)) for (let s = 1; s <= 60; s++) {
     const seed = s * 104729;
     const m = BS.genMap(zone, seed);
     assert.deepStrictEqual(BS.genMap(zone, seed), m, 'même graine, même carte');
+    assert.deepStrictEqual(m.castle, { c: B.COLS / 2 - 1, r: B.ROWS / 2 - 1 }, 'tour principale au milieu');
     const p = m.path;
+    assert.ok(p.length >= B.PATH.min && p.length <= B.PATH.max, `longueur ${p.length}`);
     for (let i = 1; i < p.length; i++) assert.strictEqual(Math.abs(p[i][0] - p[i - 1][0]) + Math.abs(p[i][1] - p[i - 1][1]), 1, 'chemin continu');
     for (let i = 0; i < p.length; i++) for (let j = i + 2; j < p.length; j++) assert.ok(Math.abs(p[i][0] - p[j][0]) + Math.abs(p[i][1] - p[j][1]) > 1, `${zone} ${seed} : le chemin ne se touche pas`);
-    assert.strictEqual(p[0][0], 0, 'entrée à gauche');
+    const [c0, r0] = p[0];
+    assert.ok(c0 === 0 || r0 === 0 || c0 === B.COLS - 1 || r0 === B.ROWS - 1, 'entrée sur un bord');
+    sides.add(c0 === 0 ? 'gauche' : c0 === B.COLS - 1 ? 'droite' : r0 === 0 ? 'haut' : 'bas');
     const last = p[p.length - 1];
-    assert.strictEqual(last[0], m.castle.c - 1, 'le chemin arrive à la tour principale');
-    assert.ok(last[1] === m.castle.r || last[1] === m.castle.r + 1);
+    assert.strictEqual(BS.castleDist(m.castle, last[0], last[1]), 1, 'le chemin arrive à une porte de la tour');
+    assert.ok(p.slice(0, -1).every(([c, r]) => BS.castleDist(m.castle, c, r) >= 2), 'il ne longe pas la tour');
     const G = BS.newGame(zone, seed, []);
     assert.ok(spotsNearPath(G).length >= 4, 'de la place près du chemin dès le début');
     assert.ok(G.cells.filter((v) => v === BS.FILON).length >= 1, 'au moins un filon d’or');
   }
-  assert.notDeepStrictEqual(BS.genMap('mine', 1).path, BS.genMap('mine', 2).path, 'cartes différentes d’une partie à l’autre');
+  assert.strictEqual(sides.size, 4, 'l’entrée peut être sur les 4 bords');
+  assert.notDeepStrictEqual(BS.genMap('champ', 1).path, BS.genMap('champ', 2).path, 'cartes différentes d’une partie à l’autre');
+  // la tour principale tire presque sur tout le territoire de départ
+  const G = BS.newGame('champ', 9, []);
+  assert.ok(BS.castleStats(G).range >= B.CASTLE.territory[0] + 0.5);
 });
 
 test('bastion : construction (territoire, chemin, filon, coût), défrichage contre de l’or, vente remboursée', () => {
@@ -47,7 +56,7 @@ test('bastion : construction (territoire, chemin, filon, coût), défrichage con
   assert.strictEqual(BS.act(G, ['b', 'archers', c, r]), null);
   assert.strictEqual(G.res.or, or0 - GD.bastionCost('archers', 1).or);
   assert.match(BS.act(G, ['b', 'archers', c, r]), /occupée/);
-  assert.match(BS.canBuild(G, 'catapulte', c, r), /débloqué/, 'catapulte à débloquer dans l’atelier');
+  assert.match(BS.canBuild(G, 'catapulte', c, r), /Plan à trouver.*Clairière/, 'catapulte : son plan se trouve dans la clairière');
   const [pc, pr] = G.path[G.path.length - 2];
   assert.match(BS.act(G, ['b', 'archers', pc, pr]), /barricade/, 'sur le chemin : seulement une barricade');
   // hors du territoire
@@ -90,7 +99,7 @@ test('bastion : niveaux plafonnés par la tour principale, spécialisation débl
   assert.strictEqual(BS.act(G, ['u', b.id]), null, 'niveau 3');
   assert.match(BS.act(G, ['s', b.id, 'elite']), /niveau 3/, 'spécialisation : tour principale niveau 3');
   BS.act(G, ['c']);
-  assert.match(BS.act(G, ['s', b.id, 'arbaletes']), /atelier/, 'spécialisation non débloquée');
+  assert.match(BS.act(G, ['s', b.id, 'arbaletes']), /Plan à trouver/, 'spécialisation sans son plan');
   const before = BS.stats(G, b).range;
   assert.strictEqual(BS.act(G, ['s', b.id, 'elite']), null);
   assert.ok(BS.stats(G, b).range > before && BS.stats(G, b).crit > 0);
@@ -172,12 +181,15 @@ test('bastion : composition des vagues (gardien toutes les 10 manches, types qui
   assert.ok(!BS.waveSpec('foret', 30, 3).some((s) => s.role === 'volant'), 'pas de volant dans la forêt');
 });
 
-test('bastion (serveur) : 50 Grêlons, actions renvoyées sans doublon, vague rejouée, fin trop rapide refusée, capacité impossible signalée', () => {
+test('bastion (serveur) : 50 Grêlons, zones dans l’ordre, actions renvoyées sans doublon, vague rejouée, fin trop rapide refusée, capacité impossible signalée', () => {
   const u = user(120), T = 1e12;
-  assert.throws(() => bastion.start(u, 'foret', { now: T }), /Caverne/, 'forêt verrouillée');
-  const run = bastion.start(u, 'mine', { now: T, rnd: () => 0.25 });
+  assert.deepStrictEqual(Object.keys(B.ZONES), ['champ', 'foret', 'mine'], 'Clairière, puis Forêt, puis Caverne');
+  assert.ok(B.ZONES.champ.hp < B.ZONES.foret.hp && B.ZONES.foret.hp < B.ZONES.mine.hp, 'chaque zone plus difficile que la précédente');
+  assert.throws(() => bastion.start(u, 'foret', { now: T }), /Clairière/, 'forêt verrouillée');
+  assert.throws(() => bastion.start(u, 'mine', { now: T }), /Forêt/, 'caverne verrouillée');
+  const run = bastion.start(u, 'champ', { now: T, rnd: () => 0.25 });
   assert.strictEqual(u.gold, 70);
-  assert.throws(() => bastion.start(u, 'mine', { now: T }), /déjà en cours/);
+  assert.throws(() => bastion.start(u, 'champ', { now: T }), /déjà en cours/);
   const page = BS.clone(run.G);
   const ops = spotsNearPath(page).slice(0, 2).map(([c, r]) => ['b', 'archers', c, r]);
   for (const op of ops) assert.strictEqual(BS.act(page, op), null);
@@ -196,33 +208,39 @@ test('bastion (serveur) : 50 Grêlons, actions renvoyées sans doublon, vague re
   const r2 = bastion.endWave(u, { now: T + 600e3, grantXp: grant });
   assert.ok(r2.ok);
   assert.deepStrictEqual(run.G, page, 'le serveur trouve le même résultat que la page');
-  assert.strictEqual(run.xp, GD.bastionXp('mine', 1));
+  assert.strictEqual(run.xp, GD.bastionXp('champ', 1));
 });
 
-test('bastion (serveur) : remboursement à la manche 30, plans et œuf aux gardiens, victoire (zone suivante, plans), mode infini, fin de partie', () => {
+test('bastion (serveur) : remboursement à la manche 30, plans de la zone et œuf aux gardiens, victoire (zone suivante), mode infini, fin de partie', () => {
   const u = user(100), T = 1e12;
-  const run = bastion.start(u, 'mine', { now: T, rnd: () => 0.5 });
+  const run = bastion.start(u, 'champ', { now: T, rnd: () => 0.5 });
+  const pool = GD.bastionPlanKeys('champ');
   // gardien de la manche 10 vaincu (le serveur rejoue la vague : on rend la tour principale solide)
   run.G.wave = 9; run.G.castle.hp = 1e9;
   bastion.launch(u, T);
   bastion.endWave(u, { now: T + 3600e3, rnd: () => 0 }); // œuf garanti (rnd = 0)
   assert.strictEqual(run.G.wave, 10);
-  assert.strictEqual(u.bastion.plans, B.PLANS.boss.mine);
+  assert.strictEqual(u.bastion.unlocked.length, B.PLANS.boss, 'un plan');
+  assert.ok(u.bastion.unlocked.every((k) => pool.includes(k)), 'un plan de la clairière');
+  assert.ok(run.G.unlocked.includes(u.bastion.unlocked[0]), 'utilisable tout de suite');
   assert.strictEqual(u.pets.eggs.length, 1, 'œuf de familier');
-  assert.strictEqual(u.pets.eggs[0].mode, 'mine');
+  assert.strictEqual(u.pets.eggs[0].mode, 'champ');
   // manche 29 gagnée : la manche 30 est atteinte, les Grêlons sont remboursés
   run.G.wave = 28; run.G.castle.hp = 1e9;
   const gold = u.gold;
   bastion.launch(u, T); bastion.endWave(u, { now: T + 7200e3, rnd: () => 0.9 });
   assert.strictEqual(u.gold, gold + B.PRICE);
   assert.ok(run.refunded);
-  // manche 30 : victoire
+  // manche 30 : victoire (gardien final : 2 plans, première victoire : 1 de plus)
   run.G.castle.hp = 1e9;
   bastion.launch(u, T); bastion.endWave(u, { now: T + 9000e3, rnd: () => 0.9 });
   assert.strictEqual(run.G.phase, 'won');
-  assert.strictEqual(u.bastion.wins.mine, 1);
-  assert.ok(bastion.zoneOpen(u.bastion, 'foret'), 'la forêt est débloquée');
-  assert.strictEqual(u.bastion.plans, 2 * B.PLANS.boss.mine + B.PLANS.firstWin, 'plans : gardiens des manches 10 et 30 + première victoire');
+  assert.strictEqual(u.bastion.wins.champ, 1);
+  assert.ok(bastion.zoneOpen(u.bastion, 'foret') && !bastion.zoneOpen(u.bastion, 'mine'), 'la forêt est débloquée, pas encore la caverne');
+  assert.strictEqual(u.bastion.unlocked.length, B.PLANS.boss + B.PLANS.final + B.PLANS.firstWin);
+  assert.strictEqual(new Set(u.bastion.unlocked).size, u.bastion.unlocked.length, 'aucun doublon');
+  assert.ok(u.bastion.unlocked.every((k) => pool.includes(k)));
+  assert.deepStrictEqual(run.found, u.bastion.unlocked);
   assert.strictEqual(u.gold, gold + B.PRICE, 'remboursé une seule fois');
   // mode infini puis fin : XP versée, record, succès
   bastion.act(u, 'continue');
@@ -232,29 +250,50 @@ test('bastion (serveur) : remboursement à la manche 30, plans et œuf aux gardi
   bastion.act(u, 'victory', { grantXp: grant });
   assert.ok(run.over && run.over.won);
   assert.strictEqual(u.xp, xp);
-  assert.strictEqual(u.bastion.best.mine, 30);
+  assert.strictEqual(u.bastion.best.champ, 30);
+  assert.strictEqual(run.over.found.length, u.bastion.unlocked.length);
   bastion.act(u, 'close');
   assert.strictEqual(u.bastion.run, null);
 });
 
-test('bastion (serveur) : atelier des plans (bâtiment puis spécialisation), débloqué aussi dans la partie en cours, classement', () => {
-  const u = user(500);
-  u.bastion = { plans: 3 };
+test('bastion (serveur) : plans propres à chaque zone, jamais en double, spécialisation seulement si son bâtiment est disponible', () => {
+  // chaque plan n'appartient qu'à une zone ; toutes les zones en ont
+  const all = GD.bastionPlanKeys();
+  assert.strictEqual(new Set(all).size, all.length);
+  for (const z of Object.keys(B.ZONES)) assert.ok(GD.bastionPlanKeys(z).length >= 10, `${z} : ses plans`);
+  assert.strictEqual(Object.keys(B.ZONES).reduce((n, z) => n + GD.bastionPlanKeys(z).length, 0), all.length, 'chaque plan dans une seule zone');
+  // tirage : jamais un plan déjà trouvé, jusqu'à épuisement de la zone
+  const S = { unlocked: [] };
+  bastion.ensure({ bastion: S });
+  let rolls = 0;
+  for (;;) {
+    const before = S.unlocked.length;
+    const got = bastion.dropPlans(S, 'foret', 1, Math.random);
+    if (!got.length) break;
+    rolls++;
+    assert.strictEqual(S.unlocked.length, before + 1);
+    const [t, sp] = got[0].split('/');
+    if (sp && B.BUILDINGS[t].plan) assert.ok(S.unlocked.indexOf(t) < S.unlocked.indexOf(got[0]), 'le bâtiment avant sa spécialisation');
+  }
+  assert.strictEqual(rolls, GD.bastionPlanKeys('foret').length, 'toute la réserve de la forêt, puis plus rien');
+  assert.strictEqual(new Set(S.unlocked).size, S.unlocked.length, 'aucun doublon');
+  assert.ok(S.unlocked.every((k) => GD.bastionPlanZone(k) === 'foret'), 'seulement des plans de la forêt');
+  assert.deepStrictEqual(bastion.planCandidates(S, 'foret'), []);
+  // un gardien peut lâcher des plans différents (tirage au hasard)
+  const seen = new Set();
+  for (let i = 0; i < 40; i++) { const T2 = { unlocked: [] }; seen.add(bastion.dropPlans(T2, 'champ', 1, Math.random)[0]); }
+  assert.ok(seen.size > 3);
+  // anciens plans « à dépenser » convertis en plans trouvés ; admin : tous les plans
+  const u = user(); u.bastion = { plans: 4, unlocked: ['catapulte'] };
   bastion.ensure(u);
-  assert.throws(() => bastion.unlock(u, 'archers'), /inconnu/, 'bâtiment de base : rien à débloquer');
-  assert.throws(() => bastion.unlock(u, 'mage/foudre'), /bâtiment/, 'la spécialisation demande le bâtiment');
-  const run = bastion.start(u, 'mine', { now: 1e12 });
-  bastion.unlock(u, 'mage');
-  assert.strictEqual(u.bastion.plans, 1);
-  assert.ok(run.G.unlocked.includes('mage') && BS.isUnlocked(run.G, 'mage'), 'utilisable tout de suite');
-  bastion.unlock(u, 'archers/elite');
-  assert.strictEqual(u.bastion.plans, 0);
-  assert.throws(() => bastion.unlock(u, 'mage/foudre'), /plan/);
-  // abandon : les manches gagnées comptent
-  bastion.act(u, 'abandon', { grantXp: grant });
-  assert.strictEqual(run.over.reason, 'abandon');
-  const v = user(); v.id = 'v'; v.pseudo = 'Autre'; v.bastion = { best: { mine: 12 } };
-  const w = user(); w.id = 'w'; w.pseudo = 'Meilleur'; w.bastion = { best: { mine: 25 }, wins: {} };
+  assert.strictEqual(u.bastion.unlocked.length, 5);
+  assert.strictEqual(u.bastion.plans, undefined);
+  bastion.givePlans(u, 'tous');
+  assert.strictEqual(u.bastion.unlocked.length, all.length);
+  assert.deepStrictEqual(bastion.givePlans(u, 3), [], 'plus rien à donner');
+  // classement
+  const v = user(); v.id = 'v'; v.pseudo = 'Autre'; v.bastion = { best: { champ: 12 } };
+  const w = user(); w.id = 'w'; w.pseudo = 'Meilleur'; w.bastion = { best: { champ: 25 }, wins: {} };
   const L = bastion.ladder([u, v, w]);
-  assert.deepStrictEqual(L.mine.map((x) => x.pseudo), ['Meilleur', 'Autre']);
+  assert.deepStrictEqual(L.champ.map((x) => x.pseudo), ['Meilleur', 'Autre']);
 });

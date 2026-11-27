@@ -7,9 +7,10 @@
  *     ordre), lance la vague, envoie les capacités utilisées (avec leur instant) puis demande la fin de la vague :
  *     le serveur REJOUE la vague entière à partir de son propre état — son résultat fait foi ;
  *   - une vague ne peut pas se terminer plus vite que la vitesse ×3 ne le permet (temps réel écoulé) ;
- *   - récompenses : XP (manches gagnées, versée en fin de partie), plans (manches de gardien, première victoire d'une zone),
+ *   - récompenses : XP (manches gagnées, versée en fin de partie), plans (chaque gardien lâche des plans de SA zone, tirés au
+ *     hasard parmi ceux qui ne sont pas encore trouvés : jamais de doublon ; +1 à la première victoire dans une zone),
  *     œufs de familier (15 % à chaque manche de gardien). Aucune ressource des mini-jeux.
- * État : u.bastion = { run, best (meilleure manche survécue par zone), wins, plans, plansTotal, unlocked, games }.
+ * État : u.bastion = { run, best (meilleure manche survécue par zone), wins, unlocked (plans trouvés), games }.
  */
 const GD = require('../shared/constants');
 const BS = require('../shared/bastion');
@@ -27,12 +28,46 @@ function ensure(u) {
   const S = u.bastion;
   S.best ||= {}; S.wins ||= {};
   if (!Array.isArray(S.unlocked)) S.unlocked = [];
-  S.plans ||= 0; S.plansTotal ||= 0; S.games ||= 0;
+  S.unlocked = S.unlocked.filter((k, i, a) => GD.bastionPlanZone(k) && a.indexOf(k) === i);
+  S.games ||= 0;
+  // anciens plans « à dépenser » : convertis en plans trouvés (dans l'ordre des zones)
+  if (S.plans > 0) { for (const z of Object.keys(B.ZONES)) S.plans -= dropPlans(S, z, S.plans, Math.random).length; S.plans = 0; }
+  delete S.plans; delete S.plansTotal;
   if (S.run === undefined) S.run = null;
   return S;
 }
 const zoneOpen = (S, zone) => { const Z = B.ZONES[zone]; return !!Z && (!Z.unlock || (S.wins[Z.unlock] || 0) > 0); };
 const live = (S) => (S.run && !S.run.over ? S.run : null);
+
+// Plans d'une zone encore à trouver : jamais un plan déjà trouvé ; une spécialisation seulement si son bâtiment est disponible
+function planCandidates(S, zone) {
+  return GD.bastionPlanKeys(zone).filter((k) => {
+    if (S.unlocked.includes(k)) return false;
+    const [t, sp] = k.split('/');
+    return !sp || !B.BUILDINGS[t].plan || S.unlocked.includes(t);
+  });
+}
+// Tire n plans de la zone (au hasard, sans doublon) ; renvoie les clés trouvées
+function dropPlans(S, zone, n, rnd) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const cand = planCandidates(S, zone);
+    if (!cand.length) break;
+    const k = cand[Math.floor(rnd() * cand.length)];
+    S.unlocked.push(k); out.push(k);
+  }
+  return out;
+}
+// plans trouvés pendant une partie : utilisables tout de suite
+function grantPlans(u, S, run, keys) {
+  for (const k of keys) {
+    run.found.push(k);
+    if (!run.G.unlocked.includes(k)) run.G.unlocked.push(k);
+    if (run.next && !run.next.G.unlocked.includes(k)) run.next.G.unlocked.push(k);
+    log(run, `📜 Plan trouvé : ${GD.bastionPlanName(k)}`);
+  }
+  if (keys.length) ach.add(u, 'bastionPlans', keys.length);
+}
 
 function start(u, zone, opts = {}) {
   const now = opts.now || Date.now(), rnd = opts.rnd || Math.random;
@@ -43,7 +78,7 @@ function start(u, zone, opts = {}) {
   if ((u.gold || 0) < B.PRICE) fail(`Il faut ${B.PRICE} Grêlons pour lancer une partie`);
   u.gold -= B.PRICE;
   const seed = Math.floor(rnd() * 2147483647) >>> 0;
-  S.run = { v: 1, zone, G: BS.newGame(zone, seed, S.unlocked), nops: 0, abil: [], launchAt: 0, startedAt: now, xp: 0, plans: 0, eggs: 0, refunded: false, log: [], over: null, next: null };
+  S.run = { v: 2, zone, G: BS.newGame(zone, seed, S.unlocked), nops: 0, abil: [], launchAt: 0, startedAt: now, xp: 0, found: [], eggs: 0, refunded: false, log: [], over: null, next: null };
   return S.run;
 }
 
@@ -113,10 +148,10 @@ function afterWave(u, S, run, opts = {}) {
   const w = G.wave, Z = B.ZONES[run.zone];
   run.xp += GD.bastionXp(run.zone, w);
   S.best[run.zone] = Math.max(S.best[run.zone] || 0, w);
-  if (w % 10 === 0) { // gardien vaincu : plans, et parfois un œuf de familier de la zone
-    const n = B.PLANS.boss[run.zone] || 1;
-    S.plans += n; S.plansTotal += n; run.plans += n; ach.add(u, 'bastionPlans', n);
-    log(run, `Manche ${w} : gardien vaincu, +${n} plan${n > 1 ? 's' : ''} 📜`);
+  if (w % 10 === 0) { // gardien vaincu : plans de la zone (jamais en double), et parfois un œuf de familier de la zone
+    const keys = dropPlans(S, run.zone, w === B.WIN_WAVE ? B.PLANS.final : B.PLANS.boss, rnd);
+    if (keys.length) grantPlans(u, S, run, keys);
+    else log(run, `Manche ${w} : gardien vaincu (tous les plans de la zone « ${Z.name} » sont déjà trouvés)`);
     if (rnd() < B.EGG_CHANCE) {
       pets.addEgg(u, run.zone, Math.min(2, Math.floor((w - 1) / 10)), now);
       run.eggs++;
@@ -131,9 +166,9 @@ function afterWave(u, S, run, opts = {}) {
     const first = !(S.wins[run.zone] > 0);
     S.wins[run.zone] = (S.wins[run.zone] || 0) + 1;
     ach.add(u, 'bastionWins');
-    if (first) { S.plans += B.PLANS.firstWin; S.plansTotal += B.PLANS.firstWin; run.plans += B.PLANS.firstWin; ach.add(u, 'bastionPlans', B.PLANS.firstWin); }
     const next = Object.entries(B.ZONES).find(([, z]) => z.unlock === run.zone);
-    log(run, `Victoire dans la zone « ${Z.name} » !${first ? ` +${B.PLANS.firstWin} plans 📜` : ''}${first && next ? ` La zone « ${next[1].name} » est débloquée.` : ''}`);
+    log(run, `Victoire dans la zone « ${Z.name} » !${first && next ? ` La zone « ${next[1].name} » est débloquée.` : ''}`);
+    if (first) grantPlans(u, S, run, dropPlans(S, run.zone, B.PLANS.firstWin, rnd));
   }
 }
 
@@ -145,7 +180,7 @@ function finish(u, S, run, reason, opts = {}) {
   ach.add(u, 'bastionGames'); ach.add(u, 'bastionBuilt', G.st.built); ach.add(u, 'bastionKills', G.st.kills); ach.setMax(u, 'bastionSynergy', G.st.syn || 0);
   run.over = {
     reason, zone: run.zone, wave: G.wave, lostAt: G.lostAt || null, won: G.wave >= B.WIN_WAVE, xp: run.xp, levels,
-    plans: run.plans, eggs: run.eggs, refunded: run.refunded, kills: G.st.kills, built: G.st.built, syn: G.st.syn || 0
+    found: run.found || [], eggs: run.eggs, refunded: run.refunded, kills: G.st.kills, built: G.st.built, syn: G.st.syn || 0
   };
   run.next = null;
 }
@@ -167,29 +202,23 @@ function act(u, action, opts = {}) {
   fail('Action inconnue');
 }
 
-// Atelier : débloquer un bâtiment (« catapulte ») ou une spécialisation (« archers/elite ») avec des plans
-function unlock(u, key) {
+// Admin (tests) : donner des plans au hasard (n), ou tous ; renvoie les clés données
+function givePlans(u, n) {
   const S = ensure(u);
-  key = String(key || '');
-  const cost = GD.bastionPlanCost(key);
-  if (!cost) fail('Plan inconnu');
-  if (S.unlocked.includes(key)) fail('Déjà débloqué');
-  const [t, s] = key.split('/');
-  if (s && B.BUILDINGS[t].plan && !S.unlocked.includes(t)) fail(`Débloque d’abord le bâtiment « ${B.BUILDINGS[t].name} »`);
-  if (S.plans < cost) fail(`Il faut ${cost} plan${cost > 1 ? 's' : ''}`);
-  S.plans -= cost;
-  S.unlocked.push(key);
+  const out = [];
+  if (n === 'tous') for (const k of GD.bastionPlanKeys()) { if (!S.unlocked.includes(k)) { S.unlocked.push(k); out.push(k); } }
+  else for (const z of Object.keys(B.ZONES)) out.push(...dropPlans(S, z, Math.max(0, n - out.length), Math.random));
   const run = live(S);
-  if (run) { run.G.unlocked.push(key); if (run.next) run.next.G.unlocked.push(key); }
-  return S;
+  if (run) for (const k of out) if (!run.G.unlocked.includes(k)) run.G.unlocked.push(k);
+  return out;
 }
 
 function publicState(u, now = Date.now()) {
   const S = ensure(u), run = S.run;
   return {
-    price: B.PRICE, gold: u.gold || 0, plans: S.plans, plansTotal: S.plansTotal, unlocked: S.unlocked, best: S.best, wins: S.wins, games: S.games,
+    price: B.PRICE, gold: u.gold || 0, unlocked: S.unlocked, best: S.best, wins: S.wins, games: S.games,
     open: Object.fromEntries(Object.keys(B.ZONES).map((z) => [z, zoneOpen(S, z)])),
-    run: run ? { zone: run.zone, G: run.G, nops: run.nops, abil: run.abil, elapsed: run.launchAt ? now - run.launchAt : 0, xp: run.xp, plans: run.plans, eggs: run.eggs, refunded: run.refunded, log: run.log, over: run.over } : null
+    run: run ? { zone: run.zone, G: run.G, nops: run.nops, abil: run.abil, elapsed: run.launchAt ? now - run.launchAt : 0, xp: run.xp, found: run.found || [], eggs: run.eggs, refunded: run.refunded, log: run.log, over: run.over } : null
   };
 }
 
@@ -200,4 +229,4 @@ function ladder(users) {
     .slice(0, 10).map((u) => ({ pseudo: u.pseudo, title: ach.titleOf(u), wave: u.bastion.best[z], wins: (u.bastion.wins || {})[z] || 0 }))]));
 }
 
-module.exports = { BastionError, ensure, start, applyOps, launch, ability, endWave, act, unlock, publicState, ladder, zoneOpen };
+module.exports = { BastionError, ensure, start, applyOps, launch, ability, endWave, act, givePlans, dropPlans, planCandidates, publicState, ladder, zoneOpen };

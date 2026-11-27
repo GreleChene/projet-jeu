@@ -12,7 +12,7 @@
 
   let S = null;        // état du serveur (accueil, plans, partie)
   let V = null;        // partie affichée
-  let busy = false, ladder = null, ladderZone = 'mine', atelierCat = 'attaque';
+  let busy = false, ladder = null, ladderZone = Object.keys(B.ZONES)[0], plansZone = Object.keys(B.ZONES)[0];
   let queue = Promise.resolve(); // requêtes envoyées une par une, dans l'ordre
   const enqueue = (fn) => (queue = queue.then(fn).catch((e) => console.warn('Bastion', e)));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -98,11 +98,13 @@
       const mine = V.G;
       V.G = BS.clone(run.G);
       for (const op of V.pending) BS.act(V.G, op); // actions pas encore envoyées
-      if (checkSync && !V.pending.length && JSON.stringify(mine) !== JSON.stringify(V.G)) console.warn('Bastion : état local différent de celui du serveur, resynchronisé');
+      // (les plans trouvés sur un gardien sont ajoutés par le serveur : on ne les compare pas)
+      const same = (g) => JSON.stringify({ ...g, unlocked: 0 });
+      if (checkSync && !V.pending.length && same(mine) !== same(V.G)) console.warn('Bastion : état local différent de celui du serveur, resynchronisé');
       V.acked = run.nops;
     }
     V.staticKey = ''; hudCache = '';
-    const ab = $('#bsAtelierBtn'); if (ab) ab.textContent = `📜 ${S.plans}`;
+    const ab = $('#bsPlansBtn'); if (ab) ab.textContent = `📜 ${S.unlocked.length}`;
     if (run.over) { showOver(); return; }
     if (run.G.phase === 'won') showWon();
     renderPanel(); renderBars();
@@ -128,12 +130,13 @@
       if (!V || V.key !== runKey(run)) startView(run);
       root.replaceChildren(gameView());
       hudCache = '';
-      fitCanvas();
+      setLand(V.land, false);
       if (!V.raf) V.raf = requestAnimationFrame(loop);
       renderPanel(); renderBars();
       if (run.over) showOver(); else if (run.G.phase === 'won') showWon();
     } else {
       V = null;
+      document.body.classList.remove('bs-noscroll');
       root.replaceChildren(lobby());
       if (!ladder) loadLadder();
     }
@@ -142,7 +145,7 @@
   /* ------------------------------ accueil ------------------------------ */
   const thumbs = {};
   function thumbCanvas(zone) {
-    const c = el('canvas', { class: 'bs-thumb', width: 480, height: 270 });
+    const c = el('canvas', { class: 'bs-thumb', width: 480, height: Math.round((480 * MH) / MW) });
     requestAnimationFrame(() => {
       if (!thumbs[zone]) {
         const map = BS.genMap(zone, 20240 + zone.length), G = { zone, cells: map.cells, path: map.path, castle: { ...map.castle, lvl: 2, hp: B.CASTLE.hp[1] }, b: [] };
@@ -169,7 +172,7 @@
         items.sort((a, b2) => a[0] - b2[0]).forEach((it) => it[1]());
         thumbs[zone] = cv;
       }
-      c.getContext('2d').drawImage(thumbs[zone], 0, 0, 480, 270);
+      c.getContext('2d').drawImage(thumbs[zone], 0, 0, c.width, c.height);
     });
     return c;
   }
@@ -184,7 +187,7 @@
         el('h3', {}, `${Z.icon} ${Z.name}`),
         el('p', { class: 'small' }, Z.desc),
         el('p', { class: 'small muted' }, `Monstres : ${roles}. Gardiens aux manches 10, 20 et 30.`),
-        el('p', { class: 'small' }, `🏆 Record : ${best ? `${best} manche${best > 1 ? 's' : ''}` : '—'} · victoires : ${wins}${Z.xp > 1 ? ` · XP ×${String(Z.xp).replace('.', ',')}` : ''}`),
+        el('p', { class: 'small' }, `🏆 Record : ${best ? `${best} manche${best > 1 ? 's' : ''}` : '—'} · victoires : ${wins}${Z.xp > 1 ? ` · XP ×${String(Z.xp).replace('.', ',')}` : ''} · 📜 plans : ${planCount(k)}`),
         open ? el('button', { class: 'primary', disabled: busy || (S.gold || 0) < B.PRICE, onclick: () => startGame(k) }, `Lancer une partie (${B.PRICE} ${hail})`)
           : el('p', { class: 'small bs-lock' }, `🔒 Gagne une partie dans la zone « ${B.ZONES[Z.unlock].name} » pour débloquer cette zone.`));
     });
@@ -193,10 +196,10 @@
         el('div', {}, el('h2', { style: 'margin:0' }, '🏰 Bastion'), el('p', { class: 'small muted', style: 'margin:4px 0 0' }, 'Défense de tour solo : une carte différente à chaque partie, des bâtiments à placer, améliorer et combiner entre les vagues.')),
         el('div', { class: 'mini-res' },
           el('span', { class: 'chip gold' }, `${hail} ${S.gold} Grêlons`),
-          el('span', { class: 'chip' }, `📜 ${S.plans} plan${S.plans > 1 ? 's' : ''}`),
+          el('span', { class: 'chip' }, `📜 ${S.unlocked.length} / ${GD.bastionPlanKeys().length} plans`),
           el('span', { class: 'chip' }, `🎮 ${S.games} partie${S.games > 1 ? 's' : ''}`))),
       el('div', { class: 'grid three' }, ...cards),
-      atelier(),
+      plansPanel(),
       el('div', { class: 'panel' }, el('h2', {}, '🏆 Meilleurs bastions'), el('nav', { class: 'tabs', id: 'bsLadderTabs' }), el('div', { class: 'table-wrap' }, el('table', { id: 'bsLadder' }))),
       rulesPanel());
   }
@@ -207,55 +210,45 @@
     send('/api/bastion/start', { zone });
   }
 
-  // Atelier des plans : débloquer des bâtiments et des spécialisations
-  function atelier() {
-    const cats = Object.entries(B.CATS);
-    const tabs = el('nav', { class: 'tabs' }, ...cats.map(([k, c]) => el('button', { class: atelierCat === k ? 'active' : '', onclick: () => { atelierCat = k; refreshAtelier(); } }, `${c.icon} ${c.name}`)));
-    const unlocked = (key) => !GD.bastionPlanCost(key) || S.unlocked.includes(key);
-    const list = Object.entries(B.BUILDINGS).filter(([, T]) => T.cat === atelierCat).map(([t, T]) => {
-      const own = unlocked(t);
-      const status = !T.plan ? el('span', { class: 'chip ok' }, 'De base') : own ? el('span', { class: 'chip ok' }, '✓ Débloqué')
-        : el('button', { class: 'small primary', disabled: busy || S.plans < T.plan, onclick: () => unlockKey(t) }, `Débloquer (${T.plan} 📜)`);
-      const specs = Object.entries(T.specs).map(([s, sp]) => {
-        const key = `${t}/${s}`, have = S.unlocked.includes(key);
+  // Plans : collection par zone (les gardiens de chaque zone lâchent les plans de cette zone, jamais en double)
+  const planCount = (zone) => { const all = GD.bastionPlanKeys(zone); return `${all.filter((k) => S.unlocked.includes(k)).length}/${all.length}`; };
+  const planHint = (key) => { const z = B.ZONES[GD.bastionPlanZone(key)]; return z ? `plan à trouver sur les gardiens de la zone ${z.icon} ${z.name}` : 'plan à trouver'; };
+  function plansPanel() {
+    const tabs = el('nav', { class: 'tabs' }, ...Object.entries(B.ZONES).map(([k, Z]) => el('button', { class: plansZone === k ? 'active' : '', onclick: () => { plansZone = k; refreshPlans(); } }, `${Z.icon} ${Z.name} · ${planCount(k)}`)));
+    const list = Object.entries(B.BUILDINGS).filter(([, T]) => T.zone === plansZone).map(([t, T]) => {
+      const own = !T.plan || S.unlocked.includes(t);
+      const status = !T.plan ? el('span', { class: 'chip ok' }, 'De base') : own ? el('span', { class: 'chip ok' }, '✓ Plan trouvé') : el('span', { class: 'chip muted' }, '🔒 À trouver');
+      const specs = Object.entries(T.specs).map(([sk, sp]) => {
+        const have = S.unlocked.includes(`${t}/${sk}`);
         return el('div', { class: 'bs-spec' + (have ? ' on' : '') },
           el('span', {}, `${sp.icon} `, el('b', {}, sp.name), el('span', { class: 'small muted' }, ` — ${sp.desc}`)),
-          have ? el('span', { class: 'chip ok small' }, '✓') : el('button', { class: 'small', disabled: busy || !own || S.plans < 1, title: own ? '' : 'Débloque d’abord le bâtiment', onclick: () => unlockKey(key) }, '1 📜'));
+          el('span', { class: 'chip small' + (have ? ' ok' : ' muted') }, have ? '✓' : '🔒'));
       });
       return el('div', { class: 'bs-atelier-item' + (own ? '' : ' locked') },
-        el('div', { class: 'bs-atelier-top' }, BA.iconCanvas(t, 3, null, 56), el('div', { class: 'bs-atelier-txt' }, el('b', {}, `${T.icon} ${T.name}`), el('div', { class: 'small muted' }, T.desc)), status),
-        el('div', { class: 'small muted' }, 'Spécialisations (niveau 4, tour principale niveau 3) :'), ...specs);
+        el('div', { class: 'bs-atelier-top' }, BA.iconCanvas(t, 3, null, 56),
+          el('div', { class: 'bs-atelier-txt' }, el('div', { class: 'row', style: 'gap:6px' }, el('b', {}, `${T.icon} ${T.name}`), status), el('div', { class: 'small muted' }, `${B.CATS[T.cat].icon} ${B.CATS[T.cat].name} — ${T.desc}`))),
+        el('div', { class: 'small muted' }, 'Spécialisations :'), ...specs);
     });
-    return el('div', { class: 'panel' },
-      el('div', { class: 'row' }, el('h2', { style: 'margin:0' }, '📜 Atelier des plans'), el('span', { class: 'spacer' }), el('span', { class: 'chip' }, `📜 ${S.plans} plan${S.plans > 1 ? 's' : ''} · ${S.plansTotal} gagné${S.plansTotal > 1 ? 's' : ''} en tout`)),
-      el('p', { class: 'small muted' }, `Les plans se gagnent au Bastion : ${B.PLANS.boss.mine} par gardien vaincu (manches 10, 20, 30… ; ${B.PLANS.boss.champ} dans la clairière) et ${B.PLANS.firstWin} pour la première victoire dans une zone. Un bâtiment débloqué l’est pour toutes les parties, même celle en cours.`),
+    return el('div', { class: 'panel', id: 'bsPlans' },
+      el('div', { class: 'row' }, el('h2', { style: 'margin:0' }, '📜 Plans'), el('span', { class: 'spacer' }), el('span', { class: 'chip' }, `📜 ${S.unlocked.length} / ${GD.bastionPlanKeys().length} trouvés`)),
+      el('p', { class: 'small muted' }, `Chaque zone a ses plans : ses gardiens (manches 10, 20, 30…) en lâchent un, tiré au hasard parmi ceux que tu n’as pas encore — jamais de doublon (${B.PLANS.final} pour le gardien de la manche ${B.WIN_WAVE}, ${B.PLANS.firstWin} de plus à la première victoire dans la zone). Un plan débloque un bâtiment ou une spécialisation pour toutes tes parties, même celle en cours ; la spécialisation d’un bâtiment à plan ne tombe qu’une fois son plan trouvé. Les bâtiments « De base » sont disponibles dès le départ : seules leurs spécialisations sont à trouver.`),
       tabs, el('div', { class: 'bs-atelier' }, ...list));
   }
-
-  // l'atelier est affiché à l'accueil, ou par-dessus la carte pendant une partie
-  function refreshAtelier() { if (V && $('#bsOverlay') && !$('#bsOverlay').classList.contains('hidden') && V.atelier) openAtelier(); else render(); }
-  function openAtelier() {
+  // la collection est affichée à l'accueil, ou par-dessus la carte pendant une partie
+  function refreshPlans() { if (V && V.plansOpen) openPlans(); else render(); }
+  function openPlans() {
     if (!V) return;
-    V.atelier = true;
-    overlay([atelier(), el('div', { class: 'mini-panel-btns' }, el('span', { class: 'spacer' }), el('button', { class: 'primary', onclick: () => { V.atelier = false; $('#bsOverlay').classList.add('hidden'); renderPanel(); } }, 'Fermer'))], true);
+    V.plansOpen = true;
+    overlay([plansPanel(), el('div', { class: 'mini-panel-btns' }, el('span', { class: 'spacer' }), el('button', { class: 'primary', onclick: closeOverlay }, 'Fermer'))], true);
   }
-  function unlockKey(key) {
-    if (busy) return;
-    busy = true;
-    if (V) { clearTimeout(flushTimer); enqueue(flushOps); }
-    enqueue(async () => {
-      try {
-        const r = await api('/api/bastion/unlock', { body: { key } });
-        busy = false;
-        S = r.bastion;
-        if (r.user && window.PlayerApp) window.PlayerApp.setUser(r.user);
-        if (V && S.run) V.G.unlocked = S.run.G.unlocked.slice();
-        toast('📜 Débloqué !'); Sound.play('upgrade');
-        if (V && V.atelier) { openAtelier(); const btn = $('#bsAtelierBtn'); if (btn) btn.textContent = `📜 ${S.plans}`; renderPanel(); }
-        else render();
-      } catch (e) { busy = false; toast(e.message); }
+  // confirmation affichée dans la partie (elle suit la rotation du mode paysage)
+  function confirmIn(title, text, ok) {
+    return new Promise((resolve) => {
+      const done = (v) => { closeOverlay(); resolve(v); };
+      overlay([el('h3', {}, title), el('p', {}, text), el('div', { class: 'mini-panel-btns' }, el('span', { class: 'spacer' }), el('button', { onclick: () => done(false) }, 'Annuler'), el('button', { class: 'danger', onclick: () => done(true) }, ok))]);
     });
   }
+  function closeOverlay() { if (V) V.plansOpen = false; const o = $('#bsOverlay'); if (o) o.classList.add('hidden'); renderPanel(); }
 
   async function loadLadder() {
     try { ladder = (await api('/api/bastion/ladder')).ladder; renderLadder(); } catch (e) { /* hors ligne */ }
@@ -271,16 +264,17 @@
   }
 
   function rulesPanel() {
+    const zones = Object.values(B.ZONES).map((z) => `${z.icon} ${z.name}`).join(', puis ');
     return el('div', { class: 'panel small' }, el('h2', {}, 'Comment ça marche'),
       el('ul', {},
         el('li', {}, `Une partie coûte ${B.PRICE} Grêlons ; atteindre la manche ${B.REFUND_WAVE} (survivre aux ${B.REFUND_WAVE - 1} premières) les rembourse. Survivre à la manche ${B.WIN_WAVE}, c’est la victoire : la zone suivante se débloque, et tu peux continuer en mode infini.`),
-        el('li', {}, 'La carte est tirée au hasard à chaque partie : un chemin mène de l’entrée (à gauche) à ta tour principale (à droite), entouré d’herbe, d’arbres, de rochers et de filons d’or.'),
+        el('li', {}, `Zones, de plus en plus difficiles : ${zones}. La carte (${B.COLS} × ${B.ROWS} cases) est tirée au hasard à chaque partie : ta tour principale est au milieu, et un chemin sinueux y mène depuis un bord, entouré d’herbe, d’arbres, de rochers et de filons d’or.`),
         el('li', {}, 'Entre deux vagues, prends tout ton temps : construis, améliore (3 niveaux, puis une spécialisation au choix), vends (remboursé en entier tant que la vague suivante n’a pas commencé, 70 % ensuite), défriche un arbre ou un rocher (contre de l’or) et améliore la tour principale : plus de PV, un tir plus fort, un territoire plus grand, des bâtiments de plus haut niveau et des capacités à lancer pendant les vagues.'),
-        el('li', {}, 'Les bâtiments d’attaque frappent dans leur zone d’attaque (affichée quand tu les choisis). Les bâtiments de support ralentissent, révèlent les camouflés, bloquent le chemin ou soignent ; la production donne du bois et de la pierre, la richesse de l’or, après chaque vague.'),
+        el('li', {}, 'La tour principale tire sur une grande zone, presque tout le territoire de départ. Les bâtiments d’attaque frappent dans leur zone d’attaque (affichée quand tu les choisis). Les bâtiments de support ralentissent, révèlent les camouflés, bloquent le chemin ou soignent ; la production donne du bois et de la pierre, la richesse de l’or, après chaque vague.'),
         el('li', {}, 'Synergies : deux bâtiments qui se touchent (côté commun) se renforcent — bannière et phare pour les tours voisines, scierie et arbres, carrière et rochers, marché entouré de commerces, fermes et tavernes pour les casernes… Les liens actifs sont affichés sur la carte.'),
         el('li', {}, 'Monstres : normaux, rapides, blindés (armure : la magie l’ignore), volants (droit vers la tour, hors de portée des catapultes), séparateurs, soigneurs et camouflés (il faut un phare). Un gardien toutes les 10 manches. Chaque monstre qui atteint la tour lui fait perdre des PV.'),
-        el('li', {}, `Récompenses : de l’XP pour ton héros à chaque manche gagnée (versée en fin de partie), des plans pour l’atelier et parfois un œuf de familier (${Math.round(B.EGG_CHANCE * 100)} %) à chaque gardien vaincu. Les ressources de la partie (or, bois, pierre) disparaissent à la fin : le Bastion ne rapporte pas de ressources des mini-jeux.`),
-        el('li', {}, 'Commandes : clic sur une case · Espace : lancer la vague (pendant une vague : pause) · 1, 2, 3 : vitesse · Z : afficher toutes les zones d’attaque · Échap : annuler.')));
+        el('li', {}, `Plans : chaque zone a les siens (bâtiments et spécialisations) ; chaque gardien vaincu en lâche un, tiré au hasard parmi ceux que tu n’as pas encore (jamais de doublon). Récompenses aussi : de l’XP à chaque manche gagnée (versée en fin de partie) et parfois un œuf de familier (${Math.round(B.EGG_CHANCE * 100)} %) sur un gardien. Les ressources de la partie (or, bois, pierre) disparaissent à la fin : le Bastion ne rapporte pas de ressources des mini-jeux.`),
+        el('li', {}, 'Commandes : clic (ou toucher) sur une case · glisser pour déplacer la carte zoomée · 🔍 / Ctrl + molette / deux doigts : zoom · ⛶ plein écran (sur téléphone : en paysage, la carte est tournée si le téléphone reste en portrait) · Espace : lancer la vague (pendant une vague : pause) · 1, 2, 3 : vitesse · Z : toutes les zones d’attaque · Échap : annuler.')));
   }
 
   /* ------------------------------ vue de la partie ------------------------------ */
@@ -288,7 +282,8 @@
     V = {
       key: runKey(run), G: BS.clone(run.G), acked: run.nops, pending: [], speed: V ? V.speed : 1, paused: false,
       sel: null, hover: null, targeting: null, abilQueue: [], ev: [], fx: [], texts: [], prev: new Map(), prevP: new Map(), face: new Map(), projStart: new Map(),
-      acc: 0, t: 0, last: 0, shake: 0, banner: null, ending: false, zones: false, logSeen: run.log.length, staticKey: '', raf: 0, panelKey: ''
+      acc: 0, t: 0, last: 0, shake: 0, banner: null, ending: false, zones: false, logSeen: run.log.length, staticKey: '', raf: 0, panelKey: '',
+      cam: V && V.cam ? V.cam : { z: 1, x: 0, y: 0 }, land: V ? V.land : isPhone(), k: 1
     };
     if (V.G.phase === 'wave') resumeWave(run);
   }
@@ -305,38 +300,134 @@
     else toast('Vague reprise');
   }
 
+  // téléphone : écran tactile et petit écran
+  const isPhone = () => !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches && Math.min(window.screen.width, window.screen.height) < 700);
   function gameView() {
     const run = S.run, Z = B.ZONES[run.zone];
     const canvas = el('canvas', { class: 'bs-canvas', width: MW, height: MH });
     V.canvas = canvas; V.ctx = canvas.getContext('2d');
-    canvas.addEventListener('mousemove', (e) => { V.hover = cellFromEvent(e); V.mouse = posFromEvent(e); });
-    canvas.addEventListener('mouseleave', () => { V.hover = null; V.mouse = null; });
-    canvas.addEventListener('click', (e) => onCellClick(cellFromEvent(e)));
-    canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); cancel(); });
+    bindInput(canvas);
     const top = el('div', { class: 'bs-top' },
       el('b', { class: 'bs-zone' }, `${Z.icon} ${Z.name}`),
       el('span', { class: 'chip', id: 'bsWave' }), el('span', { class: 'chip gold', id: 'bsOr' }), el('span', { class: 'chip', id: 'bsBois' }), el('span', { class: 'chip', id: 'bsPierre' }),
       el('div', { class: 'bs-hp' }, el('span', { class: 'small' }, '🏰'), el('div', { class: 'bar' }, el('span', { id: 'bsHpBar' }), el('div', { class: 'label', id: 'bsHpLabel' }))),
       el('span', { class: 'spacer' }),
-      el('button', { class: 'small', title: 'Afficher toutes les zones d’attaque (Z)', onclick: () => { V.zones = !V.zones; renderBars(); }, id: 'bsZonesBtn' }, '👁️ Zones'),
-      el('button', { class: 'small', title: 'Atelier : débloquer des bâtiments avec tes plans', onclick: openAtelier, id: 'bsAtelierBtn' }, `📜 ${S.plans}`),
+      el('button', { class: 'small', title: 'Afficher toutes les zones d’attaque (Z)', onclick: () => { V.zones = !V.zones; renderBars(); }, id: 'bsZonesBtn' }, '👁️'),
+      el('button', { class: 'small', title: 'Plans trouvés (bâtiments et spécialisations débloqués)', onclick: openPlans, id: 'bsPlansBtn' }, `📜 ${S.unlocked.length}`),
       el('button', { class: 'small', title: 'Son', id: 'bsMute', onclick: () => { Sound.toggle(); renderBars(); } }, Sound.muted ? '🔇' : '🔊'),
       el('button', { class: 'small', title: 'Abandonner la partie', onclick: abandon }, '🏳️'));
     const bottom = el('div', { class: 'bs-bottom', id: 'bsBottom' });
-    return el('div', { class: 'bs-game' },
-      el('div', { class: 'panel bs-wrap' }, top,
-        el('div', { class: 'bs-stage' }, canvas, el('div', { class: 'bs-panel', id: 'bsPanel' }), el('div', { class: 'mini-overlay hidden', id: 'bsOverlay' })),
-        bottom));
+    const stage = el('div', { class: 'bs-stage' }, canvas, el('div', { class: 'bs-panel hidden', id: 'bsPanel' }), el('div', { class: 'mini-overlay hidden', id: 'bsOverlay' }));
+    V.stage = stage;
+    // la carte suit la place disponible (barres qui changent, rotation, redimensionnement)
+    if (V.ro) V.ro.disconnect();
+    if (window.ResizeObserver) { V.ro = new ResizeObserver(() => fitCanvas()); V.ro.observe(stage); }
+    return (V.root = el('div', { class: 'bs-game' + (V.land ? ' bs-land' : '') }, el('div', { class: 'panel bs-wrap' }, top, stage, bottom)));
   }
-  function fitCanvas() { /* la taille d’affichage suit le CSS (16:9) */ }
-  function posFromEvent(e) {
+  // Plein écran : la partie occupe tout l'écran ; sur téléphone tenu en portrait, elle est tournée (paysage) pour de plus grandes cases
+  async function setLand(on, gesture) {
+    if (!V) return;
+    V.land = on;
+    if (V.root) V.root.classList.toggle('bs-land', on);
+    document.body.classList.toggle('bs-noscroll', on);
+    const btn = $('#bsLandBtn');
+    if (btn) { btn.textContent = on ? '✕' : '⛶'; btn.title = on ? 'Quitter le plein écran' : 'Plein écran (en paysage sur téléphone)'; }
+    if (gesture) {
+      try {
+        if (on && !document.fullscreenElement && document.documentElement.requestFullscreen && isPhone()) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+        if (!on && document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen();
+      } catch (e) { /* plein écran refusé : la rotation CSS suffit */ }
+      try { if (on && isPhone() && screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (e) { /* verrouillage impossible (iPhone…) */ }
+    }
+    if (on && isPhone() && V.cam.z < 1.6) { V.cam.z = 1.6; centerOn((V.G.castle.c + 1) * CELL, (V.G.castle.r + 1) * CELL); }
+    fitCanvas();
+  }
+  function fitCanvas() {
+    if (!V || !V.canvas) return;
+    const c = V.canvas;
+    if (V.land && V.stage) {
+      const W = V.stage.clientWidth, H = V.stage.clientHeight;
+      if (W && H) { const w = Math.min(W, (H * MW) / MH); c.style.width = Math.floor(w) + 'px'; c.style.height = Math.floor((w * MH) / MW) + 'px'; }
+    } else { c.style.width = ''; c.style.height = ''; }
+    V.k = MW / (c.clientWidth || MW); // pixels de la carte par pixel affiché (pour garder les textes lisibles)
+  }
+  window.addEventListener('resize', () => fitCanvas());
+  window.addEventListener('orientationchange', () => setTimeout(fitCanvas, 300));
+
+  /* ------------------------------ caméra (zoom, déplacement) ------------------------------ */
+  function clampCam() {
+    const c = V.cam;
+    c.z = Math.max(1, Math.min(3, c.z));
+    c.x = Math.max(0, Math.min(MW - MW / c.z, c.x)); c.y = Math.max(0, Math.min(MH - MH / c.z, c.y));
+  }
+  // zoom de f autour du point (sx, sy) du canvas, qui reste sous le doigt ou la souris
+  function zoomAt(f, sx, sy) {
+    if (!V) return;
+    const c = V.cam, wx = c.x + sx / c.z, wy = c.y + sy / c.z;
+    c.z = Math.max(1, Math.min(3, c.z * f));
+    c.x = wx - sx / c.z; c.y = wy - sy / c.z;
+    clampCam();
+  }
+  function centerOn(wx, wy) { V.cam.x = wx - MW / V.cam.z / 2; V.cam.y = wy - MH / V.cam.z / 2; clampCam(); }
+  // point du canvas (avant la caméra) sous le pointeur ; en paysage tourné, l'image est pivotée de 90°
+  function local(e) {
     const r = V.canvas.getBoundingClientRect();
-    return { x: ((e.clientX - r.left) / r.width) * MW, y: ((e.clientY - r.top) / r.height) * MH };
+    const rot = V.land && window.innerHeight > window.innerWidth;
+    const fx = rot ? (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width;
+    const fy = rot ? (r.right - e.clientX) / r.width : (e.clientY - r.top) / r.height;
+    return { sx: fx * MW, sy: fy * MH, k: MW / ((rot ? r.height : r.width) || MW) };
   }
-  function cellFromEvent(e) {
-    const p = posFromEvent(e);
-    const c = Math.floor(p.x / CELL), r = Math.floor(p.y / CELL);
-    return BS.inside(c, r) ? { c, r } : null;
+  const toWorld = (p) => ({ x: V.cam.x + p.sx / V.cam.z, y: V.cam.y + p.sy / V.cam.z });
+  function cellOf(p) { const w = toWorld(p), c = Math.floor(w.x / CELL), r = Math.floor(w.y / CELL); return BS.inside(c, r) ? { c, r } : null; }
+  // souris et doigts : toucher / cliquer = choisir une case ; glisser = déplacer la carte (zoomée) ; deux doigts = zoom
+  function bindInput(canvas) {
+    const ptrs = new Map();
+    let g = null;
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* */ }
+      const p = local(e);
+      ptrs.set(e.pointerId, p);
+      if (ptrs.size === 1) g = { kind: 'tap', moved: 0 };
+      else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; g = { kind: 'pinch', d0: Math.hypot(a.sx - b.sx, a.sy - b.sy) || 1, z0: V.cam.z, mid: null }; }
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!V) return;
+      const p = local(e);
+      V.mouse = toWorld(p);
+      if (e.pointerType === 'mouse') V.hover = cellOf(p);
+      if (!ptrs.has(e.pointerId) || !g) return;
+      const prev = ptrs.get(e.pointerId);
+      ptrs.set(e.pointerId, p);
+      if (g.kind === 'pinch' && ptrs.size >= 2) {
+        const [a, b] = [...ptrs.values()];
+        const d = Math.hypot(a.sx - b.sx, a.sy - b.sy) || 1, mx = (a.sx + b.sx) / 2, my = (a.sy + b.sy) / 2;
+        zoomAt((g.z0 * d) / g.d0 / V.cam.z, mx, my);
+        if (g.mid) { V.cam.x -= (mx - g.mid[0]) / V.cam.z; V.cam.y -= (my - g.mid[1]) / V.cam.z; clampCam(); }
+        g.mid = [mx, my];
+        return;
+      }
+      g.moved += Math.abs(p.sx - prev.sx) + Math.abs(p.sy - prev.sy);
+      if (g.kind === 'tap' && g.moved > 14 * p.k) g.kind = 'pan';
+      if (g.kind === 'pan') { V.cam.x -= (p.sx - prev.sx) / V.cam.z; V.cam.y -= (p.sy - prev.sy) / V.cam.z; clampCam(); }
+    });
+    const end = (e) => {
+      const p = ptrs.get(e.pointerId);
+      ptrs.delete(e.pointerId);
+      if (g && g.kind === 'tap' && !ptrs.size && e.type === 'pointerup' && p) onCellClick(cellOf(p));
+      if (!ptrs.size) g = null; else if (g && g.kind === 'pinch') g = { kind: 'pan', moved: 99 };
+    };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+    canvas.addEventListener('pointerleave', (e) => { if (V && e.pointerType === 'mouse') { V.hover = null; V.mouse = null; } });
+    canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); cancel(); });
+    // molette : zoom avec Ctrl (pavé tactile : pincer), ou toujours en plein écran
+    canvas.addEventListener('wheel', (e) => {
+      if (!V || (!e.ctrlKey && !V.land)) return;
+      e.preventDefault();
+      const p = local(e);
+      zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, p.sx, p.sy);
+    }, { passive: false });
   }
   const isCastle = (G, c, r) => c >= G.castle.c && c <= G.castle.c + 1 && r >= G.castle.r && r <= G.castle.r + 1;
 
@@ -428,7 +519,7 @@
   async function abandon() {
     if (!V || !S.run || S.run.over) return;
     const inf = V.G.infinite;
-    if (!(await ask(inf ? 'Terminer la partie (mode infini) ? Tes récompenses sont gardées.' : 'Abandonner la partie ? Les manches déjà gagnées comptent (XP, record) ; une vague en cours est perdue.', { title: inf ? '🏁 Terminer' : '🏳️ Abandonner', ok: inf ? 'Terminer' : 'Abandonner', danger: !inf }))) return;
+    if (!(await confirmIn(inf ? '🏁 Terminer la partie ?' : '🏳️ Abandonner la partie ?', inf ? 'Mode infini : tes récompenses sont gardées.' : 'Les manches déjà gagnées comptent (XP, record) ; une vague en cours est perdue.', inf ? 'Terminer' : 'Abandonner'))) return;
     clearTimeout(flushTimer);
     enqueue(flushOps);
     await queue;
@@ -552,14 +643,21 @@
       const b = BS.byId(G, L.to);
       if (!b) continue;
       const x = ((b.c + L.c) / 2 + 0.5) * CELL, y = ((b.r + L.r) / 2 + 0.5) * CELL;
-      const [ch, col] = SYN_ICON[L.fx] || ['+', '#fff'];
+      const [, col] = SYN_ICON[L.fx] || ['+', '#ffd34d'];
       const strong = focusId && (focusId === b.id || (BS.bAt(G, L.c, L.r) || {}).id === focusId);
       ctx.save();
       ctx.globalAlpha = focusId && !strong ? 0.45 : 1;
       ctx.translate(x + (L.c < b.c ? 6 : L.c > b.c ? -6 : 0), y + (L.r < b.r ? 6 : L.r > b.r ? -6 : 0));
-      ctx.fillStyle = OL; ctx.beginPath(); ctx.arc(0, 0, strong ? 11 : 9, 0, TAU); ctx.fill();
-      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, strong ? 8.5 : 6.5, 0, TAU); ctx.fill();
-      ctx.fillStyle = OL; ctx.font = `bold ${strong ? 12 : 10}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ch, 0, 1);
+      const sc = Math.min(1.8, Math.max(1, (V.k || 1) / V.cam.z));
+      ctx.scale(sc, sc);
+      const R0 = strong ? 11 : 9;
+      ctx.fillStyle = OL; ctx.beginPath(); ctx.arc(0, 0, R0, 0, TAU); ctx.fill();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, R0 - 2, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fff8e8'; ctx.beginPath(); ctx.arc(0, 0, R0 - 4, 0, TAU); ctx.fill();
+      // maillons
+      ctx.lineWidth = 2.2; ctx.strokeStyle = '#8a6410';
+      ctx.beginPath(); ctx.ellipse(-2.2, 0, 3.2, 2, -0.7, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(2.2, 0, 3.2, 2, -0.7, 0, TAU); ctx.stroke();
       ctx.restore();
     }
   }
@@ -572,8 +670,10 @@
   }
 
   function draw() {
-    const ctx = V.ctx, G = V.G, W = G.W, t = V.t, a = Math.min(1, V.acc / DT);
+    const ctx = V.ctx, G = V.G, W = G.W, t = V.t, a = Math.min(1, V.acc / DT), cam = V.cam;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (cam.z > 1) { ctx.fillStyle = '#120c0a'; ctx.fillRect(0, 0, MW, MH); }
+    ctx.setTransform(cam.z, 0, 0, cam.z, -cam.x * cam.z, -cam.y * cam.z);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(staticLayer(), 0, 0);
     // case survolée et sélection
@@ -649,7 +749,9 @@
       ctx.save(); ctx.beginPath(); ctx.arc((c + 0.5) * CELL, (r + 0.5) * CELL, Ab.radius * CELL, 0, TAU);
       ctx.fillStyle = 'rgba(255,120,60,.18)'; ctx.fill(); ctx.setLineDash([8, 6]); ctx.lineWidth = 3; ctx.strokeStyle = '#ff9a6a'; ctx.stroke(); ctx.restore();
     }
-    // bandeau (début / fin de vague, gardien)
+    // bandeaux et textes dans le repère de l'écran (lisibles quelle que soit la taille d'affichage)
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const ks = Math.min(2.2, Math.max(1, V.k || 1));
     if (V.banner) {
       const k = (t - V.banner.t0) / 2.4;
       if (k > 1) V.banner = null;
@@ -657,18 +759,18 @@
         const al = Math.min(1, k * 6, (1 - k) * 4);
         ctx.save(); ctx.globalAlpha = al;
         ctx.fillStyle = V.banner.boss ? 'rgba(120,20,30,.78)' : 'rgba(18,12,10,.62)';
-        ctx.fillRect(0, MH / 2 - 54, MW, V.banner.sub ? 104 : 84);
-        ctx.font = `900 46px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.lineWidth = 8; ctx.strokeStyle = OL; ctx.strokeText(V.banner.text, MW / 2, MH / 2 - 14); ctx.fillStyle = V.banner.boss ? '#ffb0a0' : '#ffd34d'; ctx.fillText(V.banner.text, MW / 2, MH / 2 - 14);
-        if (V.banner.sub) { ctx.font = `800 26px ${FONT}`; ctx.lineWidth = 6; ctx.strokeText(V.banner.sub, MW / 2, MH / 2 + 28); ctx.fillStyle = '#fff8e8'; ctx.fillText(V.banner.sub, MW / 2, MH / 2 + 28); }
+        ctx.fillRect(0, MH / 2 - 54 * ks, MW, (V.banner.sub ? 104 : 84) * ks);
+        ctx.font = `900 ${Math.round(42 * ks)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineWidth = 8 * ks; ctx.strokeStyle = OL; ctx.strokeText(V.banner.text, MW / 2, MH / 2 - 14 * ks); ctx.fillStyle = V.banner.boss ? '#ffb0a0' : '#ffd34d'; ctx.fillText(V.banner.text, MW / 2, MH / 2 - 14 * ks);
+        if (V.banner.sub) { ctx.font = `800 ${Math.round(24 * ks)}px ${FONT}`; ctx.lineWidth = 6 * ks; ctx.strokeText(V.banner.sub, MW / 2, MH / 2 + 28 * ks); ctx.fillStyle = '#fff8e8'; ctx.fillText(V.banner.sub, MW / 2, MH / 2 + 28 * ks); }
         ctx.restore();
       }
     }
     if (V.paused && G.phase === 'wave') {
       ctx.fillStyle = 'rgba(18,12,10,.35)'; ctx.fillRect(0, 0, MW, MH);
-      ctx.font = `900 54px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 8; ctx.strokeStyle = OL; ctx.strokeText('Pause', MW / 2, MH / 2); ctx.fillStyle = '#fff8e8'; ctx.fillText('Pause', MW / 2, MH / 2);
+      ctx.font = `900 ${Math.round(50 * ks)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 8 * ks; ctx.strokeStyle = OL; ctx.strokeText('Pause', MW / 2, MH / 2); ctx.fillStyle = '#fff8e8'; ctx.fillText('Pause', MW / 2, MH / 2);
     }
-    if (V.ending) { ctx.font = `800 20px ${FONT}`; ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.lineWidth = 5; ctx.strokeStyle = OL; ctx.strokeText('Validation de la manche…', MW - 14, 12); ctx.fillStyle = '#fff8e8'; ctx.fillText('Validation de la manche…', MW - 14, 12); }
+    if (V.ending) { ctx.font = `800 ${Math.round(18 * ks)}px ${FONT}`; ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.lineWidth = 5 * ks; ctx.strokeStyle = OL; ctx.strokeText('Validation de la manche…', MW - 14, 12); ctx.fillStyle = '#fff8e8'; ctx.fillText('Validation de la manche…', MW - 14, 12); }
   }
   function hpBar(ctx, x, y, w, f, col) {
     ctx.fillStyle = OL; ctx.fillRect(Math.round(x - w / 2) - 2, Math.round(y) - 2, w + 4, 8);
@@ -706,7 +808,8 @@
       ctx.restore();
     }
     V.texts = V.texts.filter((x) => t - x.t0 <= x.dur);
-    ctx.font = `900 18px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const fs = Math.round((15 * Math.min(2.2, Math.max(1, V.k || 1))) / V.cam.z);
+    ctx.font = `900 ${fs}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     for (const x of V.texts) {
       const k = (t - x.t0) / x.dur;
       ctx.globalAlpha = Math.min(1, (1 - k) * 2);
@@ -753,10 +856,14 @@
     const G = V.G, wave = G.phase === 'wave';
     const zb = $('#bsZonesBtn'); if (zb) zb.classList.toggle('selected', V.zones);
     const mb = $('#bsMute'); if (mb) mb.textContent = Sound.muted ? '🔇' : '🔊';
-    const k = [G.phase, G.wave, G.castle.lvl, V.speed, V.paused, V.ending, V.targeting].join('|');
+    const k = [G.phase, G.wave, G.castle.lvl, V.speed, V.paused, V.ending, V.targeting, V.land].join('|');
     if (bottom.dataset.k === k) return;
     bottom.dataset.k = k;
-    const speeds = el('div', { class: 'bs-speeds' }, ...B.SPEEDS.map((s) => el('button', { class: 'small' + (V.speed === s ? ' selected' : ''), onclick: () => { V.speed = s; renderBars(); } }, `×${s}`)),
+    const speeds = el('div', { class: 'bs-speeds' },
+      el('button', { class: 'small', title: 'Zoom arrière (Ctrl + molette, deux doigts)', onclick: () => zoomAt(1 / 1.35, MW / 2, MH / 2) }, '🔍−'),
+      el('button', { class: 'small', title: 'Zoom avant (Ctrl + molette, deux doigts) ; glisser pour déplacer la carte', onclick: () => zoomAt(1.35, MW / 2, MH / 2) }, '🔍+'),
+      el('button', { class: 'small', title: V.land ? 'Quitter le plein écran' : 'Plein écran (en paysage sur téléphone)', id: 'bsLandBtn', onclick: () => setLand(!V.land, true) }, V.land ? '✕' : '⛶'),
+      ...B.SPEEDS.map((s) => el('button', { class: 'small' + (V.speed === s ? ' selected' : ''), onclick: () => { V.speed = s; renderBars(); } }, `×${s}`)),
       el('button', { class: 'small', disabled: !wave, onclick: () => { V.paused = !V.paused; renderBars(); } }, V.paused ? '▶️ Reprendre' : '⏸️ Pause'));
     const abil = Object.entries(B.ABILITIES).map(([id, Ab]) => {
       const ok = G.castle.lvl >= Ab.level;
@@ -765,7 +872,7 @@
     });
     const launch = G.phase === 'build'
       ? el('button', { class: 'primary bs-launch', disabled: V.ending, onclick: launchWave, title: 'Espace' }, `⚔️ Lancer la manche ${G.wave + 1}`)
-      : el('span', { class: 'small muted' }, wave ? (V.targeting ? '🎯 Clique sur la carte pour viser (clic droit : annuler)' : 'Espace : pause · 1, 2, 3 : vitesse') : '');
+      : el('span', { class: 'small muted' }, wave ? (V.targeting ? '🎯 Vise sur la carte (clic droit : annuler)' : isPhone() ? '' : 'Espace : pause · 1, 2, 3 : vitesse') : '');
     bottom.replaceChildren(launch, G.phase === 'build' ? wavePreviewEl(G) : '', el('div', { class: 'bs-abils' }, ...abil), speeds);
   }
   // Prochaine vague : monstres (vignettes), types et gardien
@@ -934,7 +1041,7 @@
     const rows = [], locked = [];
     for (const [cat, Cat] of Object.entries(B.CATS)) {
       const list = types.filter(([t, T]) => T.cat === cat && BS.isUnlocked(G, t));
-      locked.push(...types.filter(([t, T]) => T.cat === cat && !BS.isUnlocked(G, t)).map(([, T]) => T.name));
+      locked.push(...types.filter(([t, T]) => T.cat === cat && !BS.isUnlocked(G, t)).map(([t, T]) => `${T.name} (${B.ZONES[T.zone].icon} ${B.ZONES[T.zone].name})`));
       if (!list.length) continue;
       rows.push(el('div', { class: 'bs-cat small' }, `${Cat.icon} ${Cat.name}`));
       for (const [t, T] of list) {
@@ -944,7 +1051,7 @@
       }
     }
     if (rows.length) out.push(el('div', { class: 'bs-opts' }, ...rows));
-    if (locked.length) out.push(el('p', { class: 'small muted' }, `🔒 À débloquer dans l’atelier (📜) : ${locked.join(', ')}.`));
+    if (locked.length) out.push(el('p', { class: 'small muted' }, `🔒 Plans à trouver : ${locked.join(', ')}.`));
     return out;
   }
 
@@ -974,7 +1081,7 @@
       el('p', {}, `Ton bastion a tenu ${o.wave} manche${o.wave > 1 ? 's' : ''}${o.reason === 'lost' ? ` (tombé à la manche ${o.lostAt}${o.won ? ', en mode infini' : ''})` : ''}.`),
       el('div', { class: 'reward-list' },
         line('✨', 'Expérience', `+${o.xp} XP`), o.levels ? line('⬆️', 'Niveaux gagnés', `+${o.levels}`) : '',
-        line('📜', 'Plans', `+${o.plans}`), o.eggs ? line('🥚', 'Œufs de familier', `+${o.eggs}`) : '',
+        line('📜', 'Plans trouvés', o.found && o.found.length ? o.found.map((k) => GD.bastionPlanName(k)).join(', ') : 'aucun'), o.eggs ? line('🥚', 'Œufs de familier', `+${o.eggs}`) : '',
         line('🌨️', 'Grêlons', o.refunded ? `${B.PRICE} remboursés` : 'non remboursés'),
         line('💀', 'Monstres vaincus', String(o.kills)), line('🔨', 'Bâtiments construits', String(o.built)), line('🔗', 'Synergies (au plus)', String(o.syn))),
       el('div', { class: 'mini-panel-btns' }, el('span', { class: 'spacer' }), el('button', { class: 'primary', onclick: () => { V = null; send('/api/bastion/act', { action: 'close' }); } }, 'Retour au Bastion'))
@@ -993,5 +1100,11 @@
     else if (e.key === 'z' || e.key === 'Z') { V.zones = !V.zones; renderBars(); }
   });
 
-  window.BastionGame = { open: load, debug: () => V };
+  // position à l'écran du centre d'une case (tests automatiques)
+  function cellToClient(c, r) {
+    const R = V.canvas.getBoundingClientRect(), rot = V.land && window.innerHeight > window.innerWidth;
+    const fx = (((c + 0.5) * CELL - V.cam.x) * V.cam.z) / MW, fy = (((r + 0.5) * CELL - V.cam.y) * V.cam.z) / MH;
+    return rot ? { x: R.right - fy * R.width, y: R.top + fx * R.height } : { x: R.left + fx * R.width, y: R.top + fy * R.height };
+  }
+  window.BastionGame = { open: load, debug: () => V, cellToClient };
 })();

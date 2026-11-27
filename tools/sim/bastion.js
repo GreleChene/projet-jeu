@@ -3,11 +3,12 @@
  * Bastion : un bot joue des parties complètes (moteur shared/bastion.js) et mesure la manche atteinte, les victoires,
  * la durée des vagues et les ressources restantes. Chaque vague est aussi rejouée comme le fait le serveur
  * (même état de départ) pour vérifier que le résultat est identique.
- *   node tools/sim/bastion.js [--zone=mine|foret|champ|tous] [--n=20] [--plans=aucun|tous|catapulte,archers/elite…] [--infini=40] [--detail]
+ *   node tools/sim/bastion.js [--zone=champ|foret|mine|tous] [--n=20] [--plans=aucun|zone|tous|catapulte,archers/elite…] [--infini=40] [--detail]
  * Le bot (joueur moyen) : scieries et carrières près des arbres et des rochers, marchés collés à la production,
  * tours sur les cases qui couvrent le plus de chemin, améliorations régulières, tour principale aux manches 4, 9, 15 et 22,
  * phare dès que les camouflés arrivent, quelques barricades, spécialisations dès que possible.
- * Repères : sans plan, la caverne se gagne souvent ; la forêt et la clairière demandent des plans (bâtiments débloqués).
+ * Repères : sans plan, la clairière (1re zone) ne se gagne pas ; avec les plans des zones déjà jouées (--plans=zone), chaque
+ * zone se gagne parfois, la suivante étant plus difficile que la précédente.
  */
 const GD = require('../../shared/constants');
 const BS = require('../../shared/bastion');
@@ -16,7 +17,9 @@ const A = args();
 const B = GD.BASTION;
 const ZONES = !A.zone || A.zone === 'tous' ? Object.keys(B.ZONES) : [A.zone];
 const N = Number(A.n || 20), UNTIL = Number(A.infini || 0);
-const UNLOCKED = A.plans === 'tous' ? GD.bastionPlanKeys() : A.plans && A.plans !== 'aucun' ? String(A.plans).split(',') : [];
+// plans : aucun · zone (ceux de la zone et des zones précédentes, une progression normale) · tous · liste (catapulte,archers/elite…)
+const ZORDER = Object.keys(B.ZONES);
+const unlockedFor = (zone) => (A.plans === 'tous' ? GD.bastionPlanKeys() : A.plans === 'zone' ? ZORDER.slice(0, ZORDER.indexOf(zone) + 1).flatMap((z) => GD.bastionPlanKeys(z)) : A.plans && A.plans !== 'aucun' ? String(A.plans).split(',') : []);
 
 const act = (G, op) => !BS.act(G, op);
 const cellsWhere = (G, fn) => { const out = []; for (let r = 0; r < B.ROWS; r++) for (let c = 0; c < B.COLS; c++) if (fn(c, r)) out.push([c, r]); return out; };
@@ -37,13 +40,14 @@ const ATK = ['archers', 'catapulte', 'mage'];
 function decide(G) {
   const w = G.wave, max = BS.castleMax(G);
   const towers = G.b.filter((b) => ATK.includes(b.t));
-  // catapultes : pas contre les volants (zone avec des volants : une tour sur quatre au plus)
+  // type de la prochaine tour : catapultes limitées (elles ne touchent pas les volants), mages dès qu'ils sont là
   const fliers = !!B.ZONES[G.zone].roster.volant;
-  const kinds = ATK.filter((t) => BS.isUnlocked(G, t)).flatMap((t) => (t === 'catapulte' && fliers ? [] : t === 'archers' && fliers ? ['archers', 'archers'] : [t]));
-  if (fliers && BS.isUnlocked(G, 'catapulte')) kinds.push('catapulte');
+  const nCat = towers.filter((b) => b.t === 'catapulte').length, nMage = towers.filter((b) => b.t === 'mage').length;
+  const nextKind = () => (BS.isUnlocked(G, 'mage') && nMage < towers.length / 3 ? 'mage' : BS.isUnlocked(G, 'catapulte') && nCat < towers.length / (fliers ? 5 : 3) ? 'catapulte' : 'archers');
+  const kinds = [nextKind()];
   const leaking = G.last ? G.last.leaked : 0;
   const tower = (extraScore) => {
-    const t = kinds[towers.length % kinds.length], range = B.BUILDINGS[t].lv[0].range;
+    const t = kinds[0], range = B.BUILDINGS[t].lv[0].range;
     return build(G, t, (c, r) => near(G, c, r, range) + (extraScore ? extraScore(t, c, r) : 0));
   };
   if (G.castle.hp < max * 0.5 && act(G, ['r'])) return true;
@@ -51,14 +55,20 @@ function decide(G) {
   const due = G.castle.lvl < 5 && w >= CASTLE_AT[G.castle.lvl];
   if (due && act(G, ['c'])) return true;
   if (towers.length < 2 && tower()) return true;
+  // des monstres sont passés : la défense d'abord (tours, puis améliorations), l'économie attendra
+  if (leaking >= 3) {
+    if (towers.length < 4 + w * 0.6 && tower()) return true;
+    const upA = G.b.filter((b) => ATK.includes(b.t) && !BS.upgradeError(G, b)).sort((a, b) => a.lvl - b.lvl);
+    if (upA.length && act(G, ['u', upA[0].id])) return true;
+  }
   // économie : scieries et carrières près des obstacles, marchés collés à la production
   const farFromPath = (c, r) => -near(G, c, r, 1.6) * 2;
   const wantSaw = (w >= 1) + (w >= 8) + (w >= 16), wantQuarry = (w >= 2) + (w >= 9) + (w >= 17), wantMarket = Math.min(3, (w >= 3) + (w >= 8) + (w >= 14));
   if (count(G, 'scierie') < wantSaw && build(G, 'scierie', (c, r) => adjObst(G, c, r, BS.ARBRE) * 3 + farFromPath(c, r))) return true;
   if (count(G, 'carriere') < wantQuarry && build(G, 'carriere', (c, r) => adjObst(G, c, r, BS.ROCHER) * 3 + farFromPath(c, r))) return true;
   if (count(G, 'marche') < wantMarket && build(G, 'marche', (c, r) => BS.preview(G, 'marche', c, r).stats.prod.or + farFromPath(c, r))) return true;
-  if (BS.isUnlocked(G, 'mine_or') && w >= 5 && count(G, 'mine_or') < 1 && build(G, 'mine_or', () => 0)) return true;
-  if (BS.isUnlocked(G, 'ferme') && count(G, 'ferme') < (w >= 8) + (w >= 16) && build(G, 'ferme', farFromPath)) return true;
+  if (BS.isUnlocked(G, 'mine_or') && w >= 10 && !leaking && count(G, 'mine_or') < 1 && build(G, 'mine_or', () => 0)) return true;
+  if (BS.isUnlocked(G, 'ferme') && count(G, 'ferme') < (w >= 12) + (w >= 20) && build(G, 'ferme', farFromPath)) return true;
   // économiser pour la tour principale pendant 2 manches au plus (sauf si la dernière vague a fait beaucoup de dégâts)
   if (due && leaking <= 3 && w <= CASTLE_AT[G.castle.lvl] + 2 && !BS.canPay(G.res, B.CASTLE.cost[G.castle.lvl])) return false;
   // phare quand les camouflés arrivent
@@ -96,7 +106,7 @@ function abilities(G, used) {
 }
 
 function play(zone, seed) {
-  const G = BS.newGame(zone, seed, UNLOCKED);
+  const G = BS.newGame(zone, seed, unlockedFor(zone));
   let simTime = 0, diverged = 0;
   const per = [];
   for (;;) {
@@ -124,7 +134,7 @@ for (const zone of ZONES) {
   const reached = res.map((r) => (r.G.phase === 'over' ? r.G.lostAt : r.G.wave + (r.G.phase === 'won' ? 0 : 1)));
   const wins = res.filter((r) => r.G.wave >= B.WIN_WAVE).length;
   const left = res.map((r) => r.G.res.or);
-  console.log(`\n${B.ZONES[zone].icon} ${B.ZONES[zone].name} (${N} parties, plans : ${A.plans === 'tous' ? 'tous' : UNLOCKED.length ? UNLOCKED.join(', ') : 'aucun'})`);
+  console.log(`\n${B.ZONES[zone].icon} ${B.ZONES[zone].name} (${N} parties, plans : ${A.plans === 'tous' ? 'tous' : A.plans === 'zone' ? `ceux des zones jusqu’ici (${unlockedFor(zone).length})` : unlockedFor(zone).length ? unlockedFor(zone).join(', ') : 'aucun'})`);
   console.log(`  manche atteinte : min ${Math.min(...reached)} · médiane ${med(reached)} · max ${Math.max(...reached)} · victoires ${wins}/${N}`);
   console.log(`  durée des vagues (×1) : ${(res.reduce((a, r) => a + r.simTime, 0) / N / 60).toFixed(1)} min en moyenne (×2 : ${(res.reduce((a, r) => a + r.simTime, 0) / N / 120).toFixed(1)} min)`);
   console.log(`  or restant à la fin : médiane ${med(left)} · bâtiments : médiane ${med(res.map((r) => r.G.b.length))} · tour principale niv. ${med(res.map((r) => r.G.castle.lvl))}`);

@@ -203,8 +203,10 @@
     catch (e) { toast(e.message); }
   }
   async function givePlans(u) {
-    const n = await askText(`Combien de plans 📜 (atelier du Bastion) donner à ${u.pseudo} ? (négatif pour retirer)`, '5', { title: '+ Plans du Bastion', type: 'number' });
-    if (n !== null && Number(n)) editUser(u, { addPlans: Number(n) });
+    const n = await askText(`Combien de plans 📜 du Bastion donner à ${u.pseudo} ? (tirés au hasard parmi ceux qu’il n’a pas, zone par zone ; « tous » pour tout débloquer)`, '3', { title: '+ Plans du Bastion' });
+    if (!n) return;
+    try { const r = await api('/api/admin/users/' + u.id, { body: { addPlans: n.trim() } }); toast('📜 ' + r.text); loadUsers(); }
+    catch (e) { toast(e.message); }
   }
   async function giveEnergy(u) {
     const n = await askText(`Combien d’énergie ⚡ (mini-jeux) donner à ${u.pseudo} ? (négatif pour retirer ; ${GD.MINI.ENERGY_MAX} max en temps normal, 99 pour les tests)`, '3', { title: '+ Énergie', type: 'number' });

@@ -349,7 +349,9 @@
   // fond de la carte : sol, chemin, petits détails (fleurs, cailloux), obstacles et tour principale non comprise
   function drawGround(ctx, G) {
     const Z = GROUND[G.zone] || GROUND.mine, COLS = GD.BASTION.COLS, ROWS = GD.BASTION.ROWS;
-    const isPath = (c, r) => c >= 0 && r >= 0 && c < COLS && r < ROWS && G.cells[r * COLS + c] === 1;
+    // l'entrée du chemin continue hors de la carte (pas de bordure de ce côté)
+    const [p0, p1] = G.path, entry = [p0[0] * 2 - p1[0], p0[1] * 2 - p1[1]];
+    const isPath = (c, r) => (c === entry[0] && r === entry[1]) || (c >= 0 && r >= 0 && c < COLS && r < ROWS && G.cells[r * COLS + c] === 1);
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
       const x = c * CELL, y = r * CELL;
       ctx.fillStyle = (c + r) % 2 ? Z.base : Z.alt; ctx.fillRect(x, y, CELL, CELL);
@@ -370,15 +372,12 @@
       if (!isPath(c, r)) continue;
       const x = c * CELL, y = r * CELL;
       ctx.fillStyle = Z.pathEdge; ctx.fillRect(x, y, CELL, CELL);
-      const l = isPath(c - 1, r) || c === 0, rr = isPath(c + 1, r), u = isPath(c, r - 1), d = isPath(c, r + 1);
+      const l = isPath(c - 1, r), rr = isPath(c + 1, r), u = isPath(c, r - 1), d = isPath(c, r + 1);
       const x0 = x + (l ? 0 : PX * 2), x1 = x + CELL - (rr ? 0 : PX * 2), y0 = y + (u ? 0 : PX * 2), y1 = y + CELL - (d ? 0 : PX * 2);
       ctx.fillStyle = Z.path; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
       ctx.fillStyle = Z.pathIn; ctx.fillRect(x0 + (l ? 0 : PX), y0 + (u ? 0 : PX), x1 - x0 - (l ? 0 : PX) - (rr ? 0 : PX), y1 - y0 - (u ? 0 : PX) - (d ? 0 : PX));
       for (let k = 0; k < 6; k++) { ctx.fillStyle = Z.pathDot; ctx.fillRect(x + 12 + Math.floor(hash2(c * 3 + k, r) * 13) * PX, y + 12 + Math.floor(hash2(c, r * 5 + k) * 13) * PX, PX * (k % 2 + 1), PX); }
     }
-    // entrée du chemin (bord gauche)
-    const [, r0] = G.path[0];
-    ctx.fillStyle = Z.pathIn; ctx.fillRect(0, r0 * CELL + PX * 3, PX * 2, CELL - PX * 6);
   }
   // obstacles (dessinés avec les objets, triés par ligne)
   function drawObstacle(ctx, cell, c, r, zone) {

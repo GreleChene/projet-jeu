@@ -247,7 +247,6 @@ function bastionReply(res, u, fn, light) {
 app.get('/api/bastion', auth, (req, res) => res.json({ bastion: bastion.publicState(req.user) }));
 app.get('/api/bastion/ladder', auth, (req, res) => res.json({ ladder: bastion.ladder(db.allUsers()) }));
 app.post('/api/bastion/start', auth, (req, res) => bastionReply(res, req.user, () => { bastion.start(req.user, String((req.body || {}).zone)); }));
-app.post('/api/bastion/unlock', auth, (req, res) => bastionReply(res, req.user, () => { bastion.unlock(req.user, String((req.body || {}).key)); }));
 app.post('/api/bastion/act', auth, (req, res) => {
   const u = req.user, b = req.body || {}, a = String(b.action || '');
   if (!AC.allow('bastion:' + u.id, 8, 30)) { AC.flag(u, 'debit', 'actions du Bastion'); return res.status(429).json({ error: 'Trop d’actions : ralentis un peu.' }); }
@@ -765,7 +764,12 @@ app.post('/api/admin/users/:id', admin, async (req, res) => {
     afterProfileChange(u);
     return res.json({ ok: true, text: `œuf ${GD.MINI.MODES[mode].name.toLowerCase()} ${wait ? `en incubation (${GD.PETS.INCUBATION_MIN} min)` : 'prêt à éclore'} : onglet Mini-jeux → Familiers` });
   }
-  if (b.addPlans !== undefined) { const S = bastion.ensure(u); const n = Math.max(-S.plans, Math.min(200, Math.floor(Number(b.addPlans) || 0))); S.plans += n; if (n > 0) S.plansTotal += n; }
+  // test : plans du Bastion au hasard (nombre), ou tous (« tous »)
+  if (b.addPlans !== undefined) {
+    const given = bastion.givePlans(u, String(b.addPlans).trim() === 'tous' ? 'tous' : Math.max(0, Math.min(60, Math.floor(Number(b.addPlans) || 0))));
+    afterProfileChange(u);
+    return res.json({ ok: true, text: given.length ? `${given.length} plan(s) : ${given.map((k) => GD.bastionPlanName(k)).join(', ')}` : 'aucun plan à donner (tous trouvés)' });
+  }
   if (b.addXp !== undefined) {
     const n = Math.floor(Number(b.addXp) || 0);
     if (n <= 0 || n > 10_000_000) return res.status(400).json({ error: 'Quantité d’XP invalide.' });

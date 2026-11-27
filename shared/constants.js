@@ -1189,7 +1189,8 @@
     PRICE: 50,              // Grêlons pour lancer une partie
     REFUND_WAVE: 30,        // atteindre la manche 30 (survivre aux 29 premières) rembourse les Grêlons
     WIN_WAVE: 30,           // survivre à la manche 30 : victoire (zone suivante débloquée), puis mode infini au choix
-    COLS: 16, ROWS: 9,      // carte : 16 × 9 cases ; la tour principale occupe 2 × 2 cases à droite
+    PATH: { grow: [26, 40], min: 34, max: 62 }, // longueur du chemin (en cases) : tracé sinueux, puis le plus court vers une porte de la tour
+    COLS: 24, ROWS: 14,     // carte : 24 × 14 cases ; la tour principale occupe les 2 × 2 cases du milieu
     TICK: 0.05,             // pas de simulation (20 par seconde)
     SPEEDS: [1, 2, 3],      // vitesses de jeu pendant les vagues
     START: { or: 200, bois: 40, pierre: 40 },
@@ -1201,15 +1202,16 @@
     CLEAR: { arbre: { name: 'Arbre', icon: '🌳', cost: 25, gain: { bois: 10 } }, rocher: { name: 'Rocher', icon: '🪨', cost: 35, gain: { pierre: 10 } } },
     WAVE_GOLD: [20, 3],     // or de fin de vague : 20 + 3 × manche
     // monstres : PV × (1 + LIN × (m − 1) + QUAD × (m − 1)²) × multiplicateur de la zone
-    SCALE: { hpLin: 0.13, hpQuad: 0.004, leak: 0.04, gold: 0.02, atk: 0.06 },
+    SCALE: { hpLin: 0.13, hpQuad: 0.006, leak: 0.04, gold: 0.02, atk: 0.06 },
     // nombre de monstres d'une vague : BASE + PER × m + QUAD × m² ; intervalle entre deux apparitions (s)
     WAVES: { base: 5, per: 1, quad: 0.012, gap: 1, gapMin: 0.35, gapPer: 0.012, groupGap: 1.2, bossShare: 0.6 },
     ENRAGE: 300,            // au bout de 5 min de vague, les monstres restants s'énervent (×2, plus rien ne les bloque)
     // Tour principale : 5 niveaux (PV, tir, territoire constructible, niveau max des bâtiments, capacités)
     CASTLE: {
       name: 'Tour principale', icon: '🏰',
-      hp: [100, 130, 170, 220, 280], dmg: [7, 11, 17, 26, 38], cd: 0.9, range: [2.8, 3.1, 3.4, 3.7, 4],
-      territory: [5, 7, 9, 12, 16], // rayon (en cases autour de la tour) où l'on peut construire et défricher
+      // grande zone d'attaque : presque tout le territoire de départ (cercle autour du centre de la tour)
+      hp: [100, 130, 170, 220, 280], dmg: [6, 10, 15, 22, 32], cd: 1, range: [4.6, 5, 5.4, 5.8, 6.2],
+      territory: [4, 6, 8, 10, 12], // rayon (en cases autour de la tour) où l'on peut construire et défricher ; 12 = toute la carte
       bldgMax: [2, 3, 4, 4, 4],     // niveau max des bâtiments (4 = spécialisation)
       cost: [null, { or: 220, bois: 40, pierre: 40 }, { or: 450, bois: 70, pierre: 70 }, { or: 800, bois: 110, pierre: 110 }, { or: 1300, bois: 160, pierre: 160 }],
       repair: { cost: { pierre: 15 }, hp: 15 }
@@ -1226,14 +1228,15 @@
       production: { name: 'Production', icon: '🪓' }, richesse: { name: 'Richesse', icon: '💰' }
     },
     /* Bâtiments : 3 niveaux (cost[niveau − 1]), puis une spécialisation au choix parmi 2 (niveau 4).
-     * plan : nombre de plans pour le débloquer dans l'atelier (0 = disponible dès le départ) ; chaque spécialisation coûte 1 plan.
+     * plan : il faut trouver son plan (0 = disponible dès le départ) ; chaque spécialisation a aussi son plan.
+     * zone : zone dont les gardiens lâchent ses plans (le bâtiment s'il en faut un, et ses deux spécialisations).
      * lv : statistiques par niveau. Attaque : dmg, cd (s), range (zone d'attaque, en cases), splash (rayon de l'explosion).
      * fx des spécialisations : dmgMul, cdMul, range, crit + critMul, pierce (ignore l'armure), splash, burn (part des dégâts sur burnDur s),
      *   stun (s), chain + chainMul, mark (+% de dégâts subis pendant markDur s), hpMul, armor, soldiers, slow, dps, freezeEvery + freeze,
      *   reveal, vuln, castleRegen, healMul, thorns, prodMul, prodAdd, perAdj, capMul, rate, bounty, synMul (effets de voisinage multipliés). */
     BUILDINGS: {
       archers: {
-        cat: 'attaque', name: 'Tour d’archers', icon: '🏹', plan: 0, desc: 'Tire vite sur un monstre, au sol ou dans les airs.',
+        cat: 'attaque', name: 'Tour d’archers', icon: '🏹', plan: 0, zone: 'champ', desc: 'Tire vite sur un monstre, au sol ou dans les airs.',
         cost: [{ or: 60, bois: 8 }, { or: 75, bois: 10, pierre: 5 }, { or: 110, bois: 15, pierre: 10 }],
         lv: [{ dmg: 6, cd: 0.7, range: 2.6 }, { dmg: 10, cd: 0.65, range: 2.8 }, { dmg: 15, cd: 0.6, range: 3 }],
         atk: { air: true, ground: true, proj: 'arrow', speed: 10 },
@@ -1244,7 +1247,7 @@
         }
       },
       catapulte: {
-        cat: 'attaque', name: 'Catapulte', icon: '☄️', plan: 1, desc: 'Lance des pierres qui frappent tout autour du point d’impact. Ne touche pas les monstres volants.',
+        cat: 'attaque', name: 'Catapulte', icon: '☄️', plan: 1, zone: 'champ', desc: 'Lance des pierres qui frappent tout autour du point d’impact. Ne touche pas les monstres volants.',
         cost: [{ or: 85, pierre: 15 }, { or: 100, pierre: 20, bois: 5 }, { or: 150, pierre: 30, bois: 10 }],
         lv: [{ dmg: 16, cd: 2.6, range: 3.4, splash: 0.85 }, { dmg: 28, cd: 2.5, range: 3.6, splash: 0.9 }, { dmg: 42, cd: 2.4, range: 3.8, splash: 1 }],
         atk: { air: false, ground: true, proj: 'rock', speed: 5.5 },
@@ -1255,7 +1258,7 @@
         }
       },
       mage: {
-        cat: 'attaque', name: 'Tour de mage', icon: '🔮', plan: 2, desc: 'Sort magique : ignore l’armure, touche le sol et les airs.',
+        cat: 'attaque', name: 'Tour de mage', icon: '🔮', plan: 2, zone: 'foret', desc: 'Sort magique : ignore l’armure, touche le sol et les airs.',
         cost: [{ or: 100, bois: 8, pierre: 8 }, { or: 115, bois: 12, pierre: 12 }, { or: 165, bois: 18, pierre: 18 }],
         lv: [{ dmg: 12, cd: 1.3, range: 2.8 }, { dmg: 20, cd: 1.25, range: 3 }, { dmg: 31, cd: 1.2, range: 3.2 }],
         atk: { air: true, ground: true, magic: true, proj: 'orb', speed: 8 },
@@ -1266,7 +1269,7 @@
         }
       },
       caserne: {
-        cat: 'attaque', name: 'Caserne', icon: '🛡️', plan: 2, desc: 'Ses soldats se postent sur le chemin le plus proche (dans sa zone) et bloquent les monstres au sol.',
+        cat: 'attaque', name: 'Caserne', icon: '🛡️', plan: 2, zone: 'foret', desc: 'Ses soldats se postent sur le chemin le plus proche (dans sa zone) et bloquent les monstres au sol.',
         cost: [{ or: 80, bois: 25 }, { or: 90, bois: 30, pierre: 10 }, { or: 130, bois: 40, pierre: 25 }],
         lv: [{ soldiers: 2, hp: 45, dmg: 5, range: 1.6 }, { soldiers: 2, hp: 80, dmg: 8, range: 1.8 }, { soldiers: 3, hp: 120, dmg: 12, range: 2 }],
         atk: { soldiers: true, cd: 1, respawn: 8 },
@@ -1277,7 +1280,7 @@
         }
       },
       givre: {
-        cat: 'support', name: 'Totem de givre', icon: '❄️', plan: 1, desc: 'Ralentit les monstres dans sa zone.',
+        cat: 'support', name: 'Totem de givre', icon: '❄️', plan: 1, zone: 'champ', desc: 'Ralentit les monstres dans sa zone.',
         cost: [{ or: 70, pierre: 20 }, { or: 80, pierre: 30 }, { or: 120, pierre: 45, bois: 15 }],
         lv: [{ slow: 0.3, range: 1.6 }, { slow: 0.4, range: 1.8 }, { slow: 0.5, range: 2 }],
         specCost: { or: 200, pierre: 70, bois: 30 },
@@ -1287,7 +1290,7 @@
         }
       },
       banniere: {
-        cat: 'support', name: 'Bannière', icon: '🚩', plan: 2, desc: 'Les bâtiments d’attaque qui la touchent (côté commun) font plus de dégâts.',
+        cat: 'support', name: 'Bannière', icon: '🚩', plan: 2, zone: 'foret', desc: 'Les bâtiments d’attaque qui la touchent (côté commun) font plus de dégâts.',
         cost: [{ or: 60, bois: 25 }, { or: 80, bois: 35 }, { or: 120, bois: 50 }],
         lv: [{}, {}, {}],
         specCost: { or: 200, bois: 80 },
@@ -1297,7 +1300,7 @@
         }
       },
       phare: {
-        cat: 'support', name: 'Phare', icon: '🗼', plan: 0, desc: 'Révèle les monstres camouflés dans sa zone ; les bâtiments d’attaque qui le touchent portent plus loin.',
+        cat: 'support', name: 'Phare', icon: '🗼', plan: 0, zone: 'mine', desc: 'Révèle les monstres camouflés dans sa zone ; les bâtiments d’attaque qui le touchent portent plus loin.',
         cost: [{ or: 50, pierre: 20 }, { or: 60, pierre: 30 }, { or: 90, pierre: 45 }],
         lv: [{ reveal: 2.6 }, { reveal: 3 }, { reveal: 3.4 }],
         specCost: { or: 180, pierre: 70 },
@@ -1307,7 +1310,7 @@
         }
       },
       sanctuaire: {
-        cat: 'support', name: 'Sanctuaire', icon: '⛪', plan: 2, desc: 'Répare les barricades et soigne les soldats de sa zone ; soigne la tour principale après chaque vague.',
+        cat: 'support', name: 'Sanctuaire', icon: '⛪', plan: 2, zone: 'mine', desc: 'Répare les barricades et soigne les soldats de sa zone ; soigne la tour principale après chaque vague.',
         cost: [{ or: 90, pierre: 30 }, { or: 100, pierre: 40 }, { or: 150, pierre: 55, bois: 20 }],
         lv: [{ heal: 4, range: 2, castleHeal: 8 }, { heal: 7, range: 2.2, castleHeal: 12 }, { heal: 11, range: 2.4, castleHeal: 18 }],
         specCost: { or: 220, pierre: 80 },
@@ -1317,7 +1320,7 @@
         }
       },
       barricade: {
-        cat: 'support', name: 'Barricade', icon: '🧱', plan: 0, path: true, desc: 'Se construit sur le chemin : les monstres au sol s’y arrêtent et l’attaquent jusqu’à la détruire. Réparée de 30 % après chaque vague.',
+        cat: 'support', name: 'Barricade', icon: '🧱', plan: 0, zone: 'mine', path: true, desc: 'Se construit sur le chemin : les monstres au sol s’y arrêtent et l’attaquent jusqu’à la détruire. Réparée de 30 % après chaque vague.',
         cost: [{ or: 20, pierre: 30 }, { or: 25, pierre: 45 }, { or: 35, pierre: 65 }],
         lv: [{ hp: 150 }, { hp: 280 }, { hp: 450 }],
         specCost: { or: 160, pierre: 100 },
@@ -1327,7 +1330,7 @@
         }
       },
       scierie: {
-        cat: 'production', name: 'Scierie', icon: '🪚', plan: 0, desc: 'Produit du bois après chaque vague, plus pour chaque arbre qui la touche.',
+        cat: 'production', name: 'Scierie', icon: '🪚', plan: 0, zone: 'champ', desc: 'Produit du bois après chaque vague, plus pour chaque arbre qui la touche.',
         cost: [{ or: 50 }, { or: 60, bois: 10 }, { or: 90, bois: 20, pierre: 10 }],
         lv: [{ prod: { bois: 14 }, perObstacle: 4 }, { prod: { bois: 22 }, perObstacle: 5 }, { prod: { bois: 32 }, perObstacle: 6 }],
         obstacle: 'arbre',
@@ -1338,7 +1341,7 @@
         }
       },
       carriere: {
-        cat: 'production', name: 'Carrière', icon: '⛏️', plan: 0, desc: 'Produit de la pierre après chaque vague, plus pour chaque rocher qui la touche.',
+        cat: 'production', name: 'Carrière', icon: '⛏️', plan: 0, zone: 'mine', desc: 'Produit de la pierre après chaque vague, plus pour chaque rocher qui la touche.',
         cost: [{ or: 60 }, { or: 70, bois: 10 }, { or: 100, bois: 20, pierre: 10 }],
         lv: [{ prod: { pierre: 12 }, perObstacle: 4 }, { prod: { pierre: 19 }, perObstacle: 5 }, { prod: { pierre: 28 }, perObstacle: 6 }],
         obstacle: 'rocher',
@@ -1349,7 +1352,7 @@
         }
       },
       ferme: {
-        cat: 'production', name: 'Ferme', icon: '🌾', plan: 1, desc: 'Nourrit la garnison : soigne la tour principale après chaque vague.',
+        cat: 'production', name: 'Ferme', icon: '🌾', plan: 1, zone: 'champ', desc: 'Nourrit la garnison : soigne la tour principale après chaque vague.',
         cost: [{ or: 40, bois: 15 }, { or: 50, bois: 25 }, { or: 80, bois: 35 }],
         lv: [{ castleHeal: 6 }, { castleHeal: 10 }, { castleHeal: 15 }],
         specCost: { or: 160, bois: 60 },
@@ -1359,7 +1362,7 @@
         }
       },
       marche: {
-        cat: 'richesse', name: 'Marché', icon: '🏪', plan: 0, desc: 'Rapporte de l’or après chaque vague.',
+        cat: 'richesse', name: 'Marché', icon: '🏪', plan: 0, zone: 'foret', desc: 'Rapporte de l’or après chaque vague.',
         cost: [{ or: 70, bois: 15 }, { or: 80, bois: 25 }, { or: 120, bois: 35, pierre: 15 }],
         lv: [{ prod: { or: 20 } }, { prod: { or: 34 } }, { prod: { or: 52 } }],
         specCost: { or: 200, bois: 50, pierre: 30 },
@@ -1369,7 +1372,7 @@
         }
       },
       banque: {
-        cat: 'richesse', name: 'Banque', icon: '🏦', plan: 2, desc: 'Après chaque vague, des intérêts sur l’or que tu gardes (plafonnés).',
+        cat: 'richesse', name: 'Banque', icon: '🏦', plan: 2, zone: 'mine', desc: 'Après chaque vague, des intérêts sur l’or que tu gardes (plafonnés).',
         cost: [{ or: 120, pierre: 30 }, { or: 130, pierre: 40 }, { or: 180, pierre: 60, bois: 20 }],
         lv: [{ rate: 0.05, cap: 30 }, { rate: 0.07, cap: 50 }, { rate: 0.09, cap: 80 }],
         specCost: { or: 240, pierre: 80 },
@@ -1379,7 +1382,7 @@
         }
       },
       taverne: {
-        cat: 'richesse', name: 'Taverne', icon: '🍺', plan: 1, desc: 'Prime : chaque monstre vaincu dans sa zone rapporte de l’or en plus.',
+        cat: 'richesse', name: 'Taverne', icon: '🍺', plan: 1, zone: 'foret', desc: 'Prime : chaque monstre vaincu dans sa zone rapporte de l’or en plus.',
         cost: [{ or: 70, bois: 20 }, { or: 80, bois: 30 }, { or: 120, bois: 40, pierre: 15 }],
         lv: [{ bounty: 1, range: 2.2 }, { bounty: 2, range: 2.4 }, { bounty: 3, range: 2.6 }],
         specCost: { or: 200, bois: 60, pierre: 20 },
@@ -1389,7 +1392,7 @@
         }
       },
       mine_or: {
-        cat: 'richesse', name: 'Mine d’or', icon: '💎', plan: 2, filon: true, desc: 'Se construit seulement sur un filon d’or : beaucoup d’or après chaque vague.',
+        cat: 'richesse', name: 'Mine d’or', icon: '💎', plan: 2, zone: 'mine', filon: true, desc: 'Se construit seulement sur un filon d’or : beaucoup d’or après chaque vague.',
         cost: [{ or: 120, bois: 30 }, { or: 140, bois: 40, pierre: 20 }, { or: 200, bois: 60, pierre: 40 }],
         lv: [{ prod: { or: 40 } }, { prod: { or: 65 } }, { prod: { or: 95 } }],
         specCost: { or: 260, bois: 60, pierre: 60 },
@@ -1428,13 +1431,13 @@
     ],
     // Types de monstres (statistiques à la manche 1, avant le multiplicateur de la zone)
     ROLES: {
-      normal: { name: 'Normal', icon: '👾', from: 1, hp: 30, spd: 1.1, armor: 0, leak: 2, gold: 4, atk: 4, desc: 'Suit le chemin.' },
-      rapide: { name: 'Rapide', icon: '💨', from: 3, hp: 18, spd: 1.9, armor: 0, leak: 2, gold: 3, atk: 3, desc: 'Très rapide, peu de PV.' },
-      blinde: { name: 'Blindé', icon: '🛡️', from: 5, hp: 70, spd: 0.75, armor: 0.45, leak: 4, gold: 7, atk: 7, desc: 'Armure : −45 % des dégâts physiques (la magie et les tirs perforants l’ignorent).' },
-      volant: { name: 'Volant', icon: '🪽', from: 6, hp: 22, spd: 1.25, armor: 0, fly: true, leak: 2, gold: 5, atk: 0, desc: 'Vole droit vers la tour, au-dessus du chemin, des barricades et des soldats. Les catapultes ne le touchent pas.' },
-      separateur: { name: 'Séparateur', icon: '🫧', from: 8, hp: 42, spd: 0.95, armor: 0, split: 2, leak: 2, gold: 5, atk: 4, desc: 'Se divise en 2 petits monstres à sa mort.' },
-      soigneur: { name: 'Soigneur', icon: '💚', from: 11, hp: 36, spd: 0.95, armor: 0, heal: 0.08, leak: 2, gold: 7, atk: 3, desc: 'Soigne les monstres proches (8 % de leurs PV toutes les 2 s).' },
-      camoufle: { name: 'Camouflé', icon: '👻', from: 13, hp: 28, spd: 1.3, armor: 0, stealth: true, leak: 3, gold: 6, atk: 4, desc: 'Invisible : seuls un phare (dans sa zone) ou la tour principale le révèlent.' }
+      normal: { name: 'Normal', icon: '👾', from: 1, hp: 30, spd: 1.25, armor: 0, leak: 2, gold: 4, atk: 4, desc: 'Suit le chemin.' },
+      rapide: { name: 'Rapide', icon: '💨', from: 3, hp: 18, spd: 2.1, armor: 0, leak: 2, gold: 3, atk: 3, desc: 'Très rapide, peu de PV.' },
+      blinde: { name: 'Blindé', icon: '🛡️', from: 5, hp: 70, spd: 0.85, armor: 0.45, leak: 4, gold: 7, atk: 7, desc: 'Armure : −45 % des dégâts physiques (la magie et les tirs perforants l’ignorent).' },
+      volant: { name: 'Volant', icon: '🪽', from: 6, hp: 22, spd: 1.35, armor: 0, fly: true, leak: 2, gold: 5, atk: 0, desc: 'Vole droit vers la tour, au-dessus du chemin, des barricades et des soldats. Les catapultes ne le touchent pas.' },
+      separateur: { name: 'Séparateur', icon: '🫧', from: 8, hp: 42, spd: 1.05, armor: 0, split: 2, leak: 2, gold: 5, atk: 4, desc: 'Se divise en 2 petits monstres à sa mort.' },
+      soigneur: { name: 'Soigneur', icon: '💚', from: 11, hp: 36, spd: 1.05, armor: 0, heal: 0.08, leak: 2, gold: 7, atk: 3, desc: 'Soigne les monstres proches (8 % de leurs PV toutes les 2 s).' },
+      camoufle: { name: 'Camouflé', icon: '👻', from: 13, hp: 28, spd: 1.45, armor: 0, stealth: true, leak: 3, gold: 6, atk: 4, desc: 'Invisible : seuls un phare (dans sa zone) ou la tour principale le révèlent.' }
     },
     // petits monstres nés d'un séparateur : part des PV max du parent, vitesse ×1,25
     SPLIT: { hp: 0.3, spd: 1.25, gold: 1, leak: 1 },
@@ -1453,31 +1456,33 @@
     },
     // Zones (cartes) : obstacles, monstres par type (variantes selon la manche : 1-10, 11-20, 21+), gardiens des manches 10, 20, 30
     ZONES: {
-      mine: {
-        name: 'Caverne', icon: '⛏️', hp: 1, unlock: null, xp: 1,
-        desc: 'Galeries de pierre claire et de cristal : monstres blindés, gelées qui se divisent et esprits volants.',
-        obst: { arbre: 0.05, rocher: 0.1, filons: 3 },
-        roster: { normal: ['gobelin', 'gobelin', 'elementaire'], rapide: ['araignee', 'chien_infernal'], blinde: ['golem_glace', 'sentinelle_obsidienne'], volant: ['esprit_givre'], separateur: ['gelee_caverne'], camoufle: ['araignee_cristal'] },
-        bosses: ['araignee_reine', 'golem_ancien', 'golem_obsidienne']
+      champ: {
+        name: 'Clairière', icon: '🫐', hp: 1, unlock: null, xp: 1,
+        desc: 'Prés ensoleillés à perte de vue : nuées volantes, rongeurs pressés et crapauds guérisseurs. La première zone.',
+        obst: { arbre: 0.04, rocher: 0.04, filons: 2 },
+        roster: { normal: ['gobelin_archer', 'gobelin_archer', 'diablotin'], rapide: ['mulot', 'lievre'], blinde: ['salamandre'], volant: ['corbeau', 'feu_follet'], soigneur: ['crapaud'], separateur: ['rampant'] },
+        bosses: ['crapaud_roi', 'salamandre_ancienne', 'phenix_noir']
       },
       foret: {
-        name: 'Forêt', icon: '🌲', hp: 1.2, unlock: 'mine', xp: 1.2,
+        name: 'Forêt', icon: '🌲', hp: 1.2, unlock: 'champ', xp: 1.25,
         desc: 'Bois touffus : meutes rapides, arbres guérisseurs et renards camouflés. Pas de monstre volant.',
-        obst: { arbre: 0.2, rocher: 0.04, filons: 2 },
+        obst: { arbre: 0.18, rocher: 0.04, filons: 2 },
         roster: { normal: ['sanglier', 'sanglier', 'mutant'], rapide: ['loup', 'loup_neige'], blinde: ['ours_noir'], soigneur: ['treant'], separateur: ['champignon'], camoufle: ['renard', 'squelette_maudit'] },
         bosses: ['loup_alpha', 'treant_colossal', 'abomination']
       },
-      champ: {
-        name: 'Clairière', icon: '🫐', hp: 1.4, unlock: 'foret', xp: 1.4,
-        desc: 'Prés ensoleillés à perte de vue : nuées volantes, rongeurs pressés et crapauds guérisseurs.',
-        obst: { arbre: 0.07, rocher: 0.05, filons: 2 },
-        roster: { normal: ['gobelin_archer', 'gobelin_archer', 'diablotin'], rapide: ['mulot', 'lievre'], blinde: ['salamandre'], volant: ['corbeau', 'feu_follet'], soigneur: ['crapaud'], separateur: ['rampant'] },
-        bosses: ['crapaud_roi', 'salamandre_ancienne', 'phenix_noir']
+      mine: {
+        name: 'Caverne', icon: '⛏️', hp: 1.4, unlock: 'foret', xp: 1.5,
+        desc: 'Galeries de pierre claire et de cristal : monstres blindés, gelées qui se divisent, esprits volants et araignées camouflées. La zone la plus dure.',
+        obst: { arbre: 0.05, rocher: 0.1, filons: 3 },
+        roster: { normal: ['gobelin', 'gobelin', 'elementaire'], rapide: ['araignee', 'chien_infernal'], blinde: ['golem_glace', 'sentinelle_obsidienne'], volant: ['esprit_givre'], separateur: ['gelee_caverne'], camoufle: ['araignee_cristal'] },
+        bosses: ['araignee_reine', 'golem_ancien', 'golem_obsidienne']
       }
     },
-    // Récompenses : XP par manche gagnée (× la zone), plans aux manches de gardien, œuf (15 %) aux manches de gardien
+    // Récompenses : XP par manche gagnée (× la zone), plans de la zone et œuf (15 %) à chaque gardien vaincu
     XP: { base: 15, per: 6 },
-    PLANS: { boss: { mine: 1, foret: 1, champ: 2 }, firstWin: 3 },
+    // plans lâchés par les gardiens, tirés au hasard parmi ceux de la zone qui ne sont pas encore trouvés (jamais de doublon) :
+    // 1 par gardien, 2 pour celui de la manche 30, +1 à la première victoire dans la zone
+    PLANS: { boss: 1, final: 2, firstWin: 1 },
     EGG_CHANCE: 0.15
   };
   // Coût d'un bâtiment au niveau lvl (1 à 3), ou de sa spécialisation (lvl 4)
@@ -1485,15 +1490,15 @@
   const bastionCostText = (cost) => Object.entries(cost || {}).filter(([, n]) => n > 0).map(([k, n]) => `${BASTION.RES[k].icon} ${n}`).join(' ');
   // XP d'une manche gagnée
   const bastionXp = (zone, w) => Math.round((BASTION.XP.base + BASTION.XP.per * w) * ((BASTION.ZONES[zone] || {}).xp || 1));
-  // Plans de l'atelier : bâtiments (« archers ») et spécialisations (« archers/elite ») ; prix en plans
-  function bastionPlanCost(key) {
+  // Plans : bâtiments (« catapulte ») et spécialisations (« archers/elite ») ; chacun se trouve dans une seule zone
+  const bastionPlanZone = (key) => { const T = BASTION.BUILDINGS[String(key).split('/')[0]]; return T ? T.zone : null; };
+  function bastionPlanName(key) {
     const [t, s] = String(key).split('/');
     const T = BASTION.BUILDINGS[t];
-    if (!T) return null;
-    if (s) return T.specs[s] ? 1 : null;
-    return T.plan || null;
+    if (!T) return key;
+    return s && T.specs[s] ? `${T.name} — ${T.specs[s].name}` : T.name;
   }
-  const bastionPlanKeys = () => Object.entries(BASTION.BUILDINGS).flatMap(([t, T]) => [...(T.plan ? [t] : []), ...Object.keys(T.specs).map((s) => `${t}/${s}`)]);
+  const bastionPlanKeys = (zone) => Object.entries(BASTION.BUILDINGS).filter(([, T]) => !zone || T.zone === zone).flatMap(([t, T]) => [...(T.plan ? [t] : []), ...Object.keys(T.specs).map((s) => `${t}/${s}`)]);
 
   /* ------------------------------------------------------------------ */
   /* Succès (onglet « Succès ») : chaque succès débloque un titre que le joueur peut équiper :      */
@@ -1583,5 +1588,5 @@
   achSeries('divers', 'twitch', '📺', () => 'Lie ton compte Twitch', [[1, 'Connecté', 'Viewer fidèle']]);
   achSeries('divers', 'achCount', '🏅', (n) => `Débloque ${n} succès`, [[10, 'Chasseur de succès', 'Chasseur de succès'], [50, 'Complétionniste', 'Complétionniste']]);
 
-  return { BASTION, bastionCost, bastionCostText, bastionXp, bastionPlanCost, bastionPlanKeys, ACH_CATS, ACHIEVEMENTS, miniCostText, isTrophyCost, PETS, petPower, petMaxHp, petStage, petName, petSprite, petFxText, MINI, miniStats, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
+  return { BASTION, bastionCost, bastionCostText, bastionXp, bastionPlanZone, bastionPlanName, bastionPlanKeys, ACH_CATS, ACHIEVEMENTS, miniCostText, isTrophyCost, PETS, petPower, petMaxHp, petStage, petName, petSprite, petFxText, MINI, miniStats, miniUpgradeCost, miniUpgradeIds, miniJackpotMul, miniDecor, RESOURCES, RES_IDS, TOWER_RES, HARVEST, upgradeResCost, canPay, costText, TOWER_SPECS, WALLS, passiveLines, summonEffects, SUMMON_EVERY, SUMMON_RESPAWN, SUMMON_SECOND_RANK, POST_ULT, SUMMONS, SUMMON_CAP, SUMMON_CAP_MAX, SUMMON_RANK_POWER, requiredRank, summonRanks, summonText, ultUnlocked, SKILL_MODS, bonusText, isConsumable, setSize, BUILDING_VARIANTS, MODES, DIFFICULTIES, equivalentWave, eraFor, HOUSE_RESPEC_REFUND, houseSpent, HOUSE_UPGRADES, HOUSE_SPECIALS, houseCost, houseOf, houseHp, houseHeal, houseSpecial, placeBuilding, SKILLS, SKILL_TREE, INITIATION, startedBranch, SKILL_MAX_RANK, skillsOfFamily, skillPoints, skillBonus, BUILDINGS, buildingPos, BALANCE, NET, WORLD, PALETTE, CLASSES, BASE_CLASSES, CLASS_IDS, specsOf, PROGRESSION, ATTRIBUTES, ATTR_IDS, emptyAttrs, computeStats, familyOf, SLOTS, SLOT_NAMES, RARITIES, rollRarity, GLACONS, recycleValue, SETS, TEMPLATES, STAT_NAMES, canUse, itemStats, itemName, gearFor, setBonuses, itemLook, WEAPON_METAL, AI_OPTIONS, DEFAULT_AI, LOOK_OPTIONS, DEFAULT_LOOK, randomLook, sanitizeLook, MOBS, MOB_IDS, BOSS_WAVES, UPGRADES, ERAS, eraOfWave };
 });

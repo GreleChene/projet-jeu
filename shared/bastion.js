@@ -46,45 +46,85 @@
     return Math.max(dx, dy);
   }
 
-  /* Carte aléatoire : un chemin sinueux de l'entrée (bord gauche) à la tour principale (2 × 2 cases à droite), qui ne se
-   * touche jamais lui-même ; arbres et rochers (en bosquets) selon la zone ; filons d'or (un près de la tour). */
+  /* Carte aléatoire : la tour principale (2 × 2 cases) au milieu ; un chemin part d'un bord tiré au hasard, serpente
+   * (tronçons droits de 2 à 6 cases, virages au hasard) sans jamais se toucher lui-même (pas même en diagonale, sauf aux
+   * virages), puis rejoint par le plus court l'une des 8 portes de la tour ; arbres et rochers (en bosquets) selon la zone ;
+   * filons d'or (un dans le territoire de départ). */
+  const LEFT = ([x, y]) => [y, -x], RIGHT = ([x, y]) => [-y, x];
   function genMap(zone, seed) {
-    const Z = B.ZONES[zone] || B.ZONES.mine;
+    const Z = B.ZONES[zone] || B.ZONES.mine, PT = B.PATH;
     const R = { rng: (hash('carte:' + zone) ^ (seed >>> 0)) >>> 0 };
     const rnd = () => rand(R), ri = (a, b) => a + Math.floor(rnd() * (b - a + 1));
+    const castle = { c: Math.floor(COLS / 2) - 1, r: Math.floor(ROWS / 2) - 1 };
+    const doors = [[castle.c - 1, castle.r], [castle.c - 1, castle.r + 1], [castle.c + 2, castle.r], [castle.c + 2, castle.r + 1],
+      [castle.c, castle.r - 1], [castle.c + 1, castle.r - 1], [castle.c, castle.r + 2], [castle.c + 1, castle.r + 2]];
+    const isDoor = (c, r) => doors.some(([dc, dr]) => dc === c && dr === r);
     let best = null;
-    for (let attempt = 0; attempt < 120; attempt++) {
-      const cells = new Array(COLS * ROWS).fill(HERBE);
-      const castle = { c: COLS - 2, r: ri(1, ROWS - 3) };
-      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) cells[idx(castle.c + dx, castle.r + dy)] = TOUR;
-      const doorC = COLS - 3, doorR = castle.r + ri(0, 1);
-      // colonnes des virages, à 2 colonnes d'écart au moins : le chemin ne se touche jamais lui-même
-      const turns = [];
-      for (let x = ri(1, 3); x <= doorC - 2; x += ri(2, 4)) turns.push(x);
-      let c = 0, r = ri(1, ROWS - 2);
-      const path = [[0, r]];
-      const go = (tc, tr) => { while (c !== tc || r !== tr) { if (c !== tc) c += c < tc ? 1 : -1; else r += r < tr ? 1 : -1; path.push([c, r]); } };
-      for (const x of turns) {
-        go(x, r);
-        let tr = r;
-        for (let k = 0; k < 30 && Math.abs(tr - r) < 2; k++) tr = ri(0, ROWS - 1);
-        if (Math.abs(tr - r) < 2) tr = r < ROWS / 2 ? r + 2 : r - 2;
-        go(x, tr);
+    for (let attempt = 0; attempt < 400; attempt++) {
+      // entrée sur un bord (jamais dans un coin)
+      const side = ri(0, 3);
+      const start = side === 0 ? [0, ri(2, ROWS - 3)] : side === 1 ? [COLS - 1, ri(2, ROWS - 3)] : side === 2 ? [ri(2, COLS - 3), 0] : [ri(2, COLS - 3), ROWS - 1];
+      let dir = side === 0 ? [1, 0] : side === 1 ? [-1, 0] : side === 2 ? [0, 1] : [0, -1];
+      const path = [start], taken = new Set([idx(start[0], start[1])]);
+      // une case peut prolonger le chemin si elle est dans la carte (hors du bord), loin de la tour, libre,
+      // et ne touche aucune case du chemin (même en diagonale) sauf les deux dernières
+      const fits = (c, r) => {
+        if (c < 1 || r < 1 || c > COLS - 2 || r > ROWS - 2 || taken.has(idx(c, r)) || castleDist(castle, c, r) < 2) return false;
+        for (let i = 0; i < path.length - 2; i++) if (Math.abs(path[i][0] - c) <= 1 && Math.abs(path[i][1] - r) <= 1) return false;
+        return true;
+      };
+      const push = (c, r) => { path.push([c, r]); taken.add(idx(c, r)); };
+      const run = (d, len) => { let n = 0; while (n < len) { const [hc, hr] = path[path.length - 1]; if (!fits(hc + d[0], hr + d[1])) break; push(hc + d[0], hr + d[1]); n++; } return n; };
+      const target = ri(PT.grow[0], PT.grow[1]);
+      let dead = !run(dir, ri(2, 4));
+      for (let guard = 0; !dead && path.length < target && guard < 80; guard++) {
+        const len = ri(2, 6), turns = rnd() < 0.5 ? [LEFT(dir), RIGHT(dir)] : [RIGHT(dir), LEFT(dir)];
+        let moved = 0;
+        for (const t of turns) { moved = run(t, len); if (moved) { dir = t; break; } }
+        if (!moved) moved = run(dir, len);
+        if (!moved) dead = true;
       }
-      go(doorC, r); go(doorC, doorR);
-      if (path.length < 26 || path.length > 46) continue;
+      if (dead) continue;
+      // jusqu'à une porte de la tour : le plus court chemin qui ne touche pas le reste
+      const block = new Set();
+      for (let i = 0; i < path.length - 2; i++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) block.add(idx(path[i][0] + dx, path[i][1] + dy));
+      // l'avant-dernière case non plus (sauf les cases voisines de la tête, premier pas possible)
+      { const [pc, pr] = path[path.length - 2], [hc, hr] = path[path.length - 1];
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const c = pc + dx, r = pr + dy; if (Math.abs(c - hc) + Math.abs(r - hr) !== 1) block.add(idx(c, r)); } }
+      const free = (c, r) => inside(c, r) && !taken.has(idx(c, r)) && !block.has(idx(c, r)) && (isDoor(c, r) || (castleDist(castle, c, r) >= 2 && c >= 1 && r >= 1 && c <= COLS - 2 && r <= ROWS - 2));
+      const head = path[path.length - 1], from = new Map([[idx(head[0], head[1]), -1]]), queue = [head];
+      let goal = null;
+      while (queue.length && !goal) {
+        const [qc, qr] = queue.shift();
+        const dirs = DIRS.slice();
+        for (let i = dirs.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [dirs[i], dirs[j]] = [dirs[j], dirs[i]]; }
+        for (const [dx, dy] of dirs) {
+          const nc = qc + dx, nr = qr + dy, k = idx(nc, nr);
+          if (from.has(k) || !free(nc, nr)) continue;
+          from.set(k, idx(qc, qr));
+          if (isDoor(nc, nr)) { goal = [nc, nr]; break; }
+          if (castleDist(castle, nc, nr) >= 2) queue.push([nc, nr]);
+        }
+      }
+      if (!goal) continue;
+      const tail = [];
+      for (let k = idx(goal[0], goal[1]); k !== idx(head[0], head[1]); k = from.get(k)) tail.push([k % COLS, Math.floor(k / COLS)]);
+      tail.reverse().forEach(([c, r]) => push(c, r));
+      if (path.length < PT.min || path.length > PT.max) continue;
+      const cells = new Array(COLS * ROWS).fill(HERBE);
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) cells[idx(castle.c + dx, castle.r + dy)] = TOUR;
       for (const [pc, pr] of path) cells[idx(pc, pr)] = CHEMIN;
       // obstacles (jamais juste autour de la tour, pour pouvoir construire dès le début)
-      const free = (cc, rr) => cells[idx(cc, rr)] === HERBE && castleDist(castle, cc, rr) > 1;
+      const open = (cc, rr) => cells[idx(cc, rr)] === HERBE && castleDist(castle, cc, rr) > 1;
       for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) {
-        if (!free(cc, rr)) continue;
+        if (!open(cc, rr)) continue;
         const p = rnd();
         if (p < Z.obst.arbre) cells[idx(cc, rr)] = ARBRE;
         else if (p < Z.obst.arbre + Z.obst.rocher) cells[idx(cc, rr)] = ROCHER;
       }
       // bosquets et amas de rochers
       for (let pass = 0; pass < 2; pass++) for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) {
-        if (!free(cc, rr)) continue;
+        if (!open(cc, rr)) continue;
         let tr = 0, ro = 0;
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
           if (!inside(cc + dx, rr + dy)) continue;
@@ -94,24 +134,23 @@
         if (tr + ro >= 2 && rnd() < 0.3) cells[idx(cc, rr)] = tr >= ro ? ARBRE : ROCHER;
       }
       // filons d'or : le premier dans le territoire de départ, les autres plus loin
-      const spots = (lo, hi) => { const out = []; for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) { const d = castleDist(castle, cc, rr); if (free(cc, rr) && d >= lo && d <= hi) out.push([cc, rr]); } return out; };
+      const spots = (lo, hi) => { const out = []; for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) { const d = castleDist(castle, cc, rr); if (open(cc, rr) && d >= lo && d <= hi) out.push([cc, rr]); } return out; };
       for (let f = 0; f < Z.obst.filons; f++) {
-        const list = f === 0 ? spots(2, B.CASTLE.territory[0]) : spots(B.CASTLE.territory[0] - 1, 99);
+        const list = f === 0 ? spots(2, B.CASTLE.territory[0]) : spots(B.CASTLE.territory[0], 99);
         if (!list.length) break;
         const [fc, fr] = list[Math.floor(rnd() * list.length)];
         cells[idx(fc, fr)] = FILON;
       }
       // il faut de la place pour construire près du chemin dans le territoire de départ
       let room = 0;
-      const onPath = (cc, rr) => cells[idx(cc, rr)] === CHEMIN;
       for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) {
         if (cells[idx(cc, rr)] !== HERBE || castleDist(castle, cc, rr) > B.CASTLE.territory[0]) continue;
         let near = false;
-        for (let dy = -2; dy <= 2 && !near; dy++) for (let dx = -2; dx <= 2 && !near; dx++) if (inside(cc + dx, rr + dy) && onPath(cc + dx, rr + dy)) near = true;
+        for (let dy = -2; dy <= 2 && !near; dy++) for (let dx = -2; dx <= 2 && !near; dx++) if (inside(cc + dx, rr + dy) && cells[idx(cc + dx, rr + dy)] === CHEMIN) near = true;
         if (near) room++;
       }
       const map = { cells, path, castle };
-      if (room >= 10) return map;
+      if (room >= 12) return map;
       if (!best || room > best.room) best = { ...map, room };
     }
     return { cells: best.cells, path: best.path, castle: best.castle };
@@ -122,14 +161,19 @@
   function geo(G) {
     let g = GEO.get(G.path);
     if (g) return g;
-    const pts = [[-0.6, G.path[0][1] + 0.5], ...G.path.map(([c, r]) => [c + 0.5, r + 0.5])];
-    const last = G.path[G.path.length - 1];
-    pts.push([G.castle.c, last[1] + 0.5]); // bord de la tour principale
+    const P0 = G.path[0], P1 = G.path[1], din = [P1[0] - P0[0], P1[1] - P0[1]];
+    const spawn = [P0[0] + 0.5 - din[0] * 1.1, P0[1] + 0.5 - din[1] * 1.1];
+    const pts = [spawn, ...G.path.map(([c, r]) => [c + 0.5, r + 0.5])];
+    // dernière case : une porte de la tour ; les monstres vont jusqu'au bord de la tour
+    const [lc, lr] = G.path[G.path.length - 1], C = G.castle;
+    const toward = lc < C.c ? [1, 0] : lc > C.c + 1 ? [-1, 0] : lr < C.r ? [0, 1] : [0, -1];
+    pts.push([lc + 0.5 + toward[0] * 0.5, lr + 0.5 + toward[1] * 0.5]);
     const L = [0];
     for (let i = 1; i < pts.length; i++) { const dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1]; L.push(L[i - 1] + Math.sqrt(dx * dx + dy * dy)); }
-    const fx0 = pts[0][0], fy0 = pts[0][1], fx1 = G.castle.c, fy1 = G.castle.r + 1;
-    const fdx = fx1 - fx0, fdy = fy1 - fy0;
-    g = { pts, L, total: L[L.length - 1], fly: { x0: fx0, y0: fy0, x1: fx1, y1: fy1, len: Math.sqrt(fdx * fdx + fdy * fdy) } };
+    // vol direct : de l'entrée vers le centre de la tour, jusqu'à son bord
+    const cx = C.c + 1, cy = C.r + 1, vx = cx - spawn[0], vy = cy - spawn[1], vl = Math.sqrt(vx * vx + vy * vy) || 1;
+    const fx1 = cx - (vx / vl) * 1.05, fy1 = cy - (vy / vl) * 1.05, fdx = fx1 - spawn[0], fdy = fy1 - spawn[1];
+    g = { pts, L, total: L[L.length - 1], spawn, entry: [P0[0] - din[0], P0[1] - din[1]], fly: { x0: spawn[0], y0: spawn[1], x1: fx1, y1: fy1, len: Math.sqrt(fdx * fdx + fdy * fdy) } };
     GEO.set(G.path, g);
     return g;
   }
@@ -305,7 +349,7 @@
   function canBuild(G, t, c, r) {
     const T = B.BUILDINGS[t];
     if (!T) return 'Bâtiment inconnu';
-    if (!isUnlocked(G, t)) return 'Ce bâtiment n’est pas encore débloqué (atelier des plans)';
+    if (!isUnlocked(G, t)) return `Plan à trouver sur les gardiens de la zone « ${(B.ZONES[T.zone] || {}).name} »`;
     if (!Number.isInteger(c) || !Number.isInteger(r) || !inside(c, r)) return 'Case hors de la carte';
     if (bAt(G, c, r)) return 'Case déjà occupée';
     const cell = cellAt(G, c, r);
@@ -336,7 +380,7 @@
     if (b.spec) return 'Déjà spécialisé';
     if (b.lvl < 3) return 'Il faut d’abord le niveau 3';
     if (bldgMax(G) < 4) return 'La tour principale doit être au niveau 3';
-    if (!isUnlocked(G, `${b.t}/${s}`)) return 'Spécialisation à débloquer dans l’atelier des plans';
+    if (!isUnlocked(G, `${b.t}/${s}`)) return `Plan à trouver sur les gardiens de la zone « ${(B.ZONES[T.zone] || {}).name} »`;
     if (!canPay(G.res, GD.bastionCost(b.t, 4))) return 'Pas assez de ressources';
     return null;
   }
