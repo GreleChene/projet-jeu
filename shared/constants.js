@@ -889,13 +889,14 @@
     BAG: { base: 5, per: 5, pocket: 5 },     // sac : 5 cases (+5 par niveau) ; au niveau max, poche sécurisée de 5 cases
     CART: { base: 10, per: 10, away: 2 },    // seau / charrette : 10 cases (+10 par niveau) ; renvoyé(e), revient 2 salles plus tard
     DEATH_KEEP: 0.25,       // mort : on ne garde que 25 % des ressources du sac (rien du reste non renvoyé)
-    REINFORCE: { after: 45, every: 10, count: 2 }, // 45 s après l'ouverture de la sortie, des renforts arrivent toutes les 10 s
+    REINFORCE: { after: 25, every: 5, count: 2 }, // 25 s après l'ouverture de la sortie, des renforts arrivent toutes les 5 s (ils peuvent lâcher des butins)
+    FOUNTAIN: { hps: 10, time: 3 },  // fontaine des salles de repos : 10 PV/s pendant 3 s au total
     ROOMS: {
-      normal: { name: 'Salle', icon: '🗡️', exit: 10, nodes: [4, 6], mobs: true },
-      riche: { name: 'Salle riche', icon: '🌟', exit: 20, nodes: [10, 13], mobs: true, chance: 0.12 },
-      repos: { name: 'Salle de repos', icon: '⛲', exit: 10, nodes: [2, 2], mobs: false, chance: 0.06 },
-      elite: { name: 'Salle d’élite', icon: '⚔️', exit: 0, nodes: [3, 3], mobs: true },
-      gardien: { name: 'Gardien de zone', icon: '👑', exit: 0, nodes: [2, 2], mobs: true }
+      normal: { name: 'Salle', icon: '🗡️', exit: 10, nodes: [3, 4], mobs: true },
+      riche: { name: 'Salle riche', icon: '🌟', exit: 20, nodes: [7, 9], mobs: true, chance: 0.12 },
+      repos: { name: 'Salle de repos', icon: '⛲', exit: 10, nodes: [1, 2], mobs: false, chance: 0.06 },
+      elite: { name: 'Salle d’élite', icon: '⚔️', exit: 0, nodes: [2, 2], mobs: true },
+      gardien: { name: 'Gardien de zone', icon: '👑', exit: 0, nodes: [1, 2], mobs: true }
     },
     // Butins des monstres (1 case du sac chacun) : servent à améliorer le sac et le seau / la charrette
     TROPHIES: {

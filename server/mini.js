@@ -98,12 +98,16 @@ function start(u, mode, gear, opts = {}) {
  *   k : index des monstres tués dans la salle (liste complète)
  *   ops : opérations dans l'ordre — ['h', point, n] récolte · ['p', butin, n] ramassage · ['pot'] potion
  *   hp : PV du héros · pets : PV des familiers */
-function applyReport(u, run, rep, rnd = Math.random) {
+function applyReport(u, run, rep, rnd = Math.random, now = Date.now()) {
   if (!rep || run.state === 'over') return;
   const R = roomOf(run), cur = run.cur, cap = bagCapOf(u, run), res = MINI.MODES[run.mode].res;
-  for (const i of Array.isArray(rep.k) ? rep.k : []) {
-    const mob = R.mobs[i];
-    if (!mob || cur.killed.includes(i)) continue;
+  // renforts : numérotés à partir de X.REINF0 ; leur nombre est borné par le temps passé dans la salle
+  const maxReinf = Math.ceil(Math.max(0, now - run.roomAt) / 1000 * 0.8) + 4;
+  for (const v of Array.isArray(rep.k) ? rep.k : []) {
+    const i = Number.isInteger(v) ? v : -1;
+    if (i < 0 || cur.killed.includes(i)) continue;
+    if (i >= X.REINF0 ? i - X.REINF0 >= maxReinf : !R.mobs[i]) continue;
+    const mob = X.mobAt(R, i);
     cur.killed.push(i); run.kills++; run.xp += mob.xp;
   }
   for (const op of Array.isArray(rep.ops) ? rep.ops.slice(0, 2000) : []) {
@@ -118,7 +122,7 @@ function applyReport(u, run, rep, rnd = Math.random) {
       const id = String(op[1]);
       const mm = /^m(\d+)_(\d+)$/.exec(id);
       if (mm) {
-        const mob = R.mobs[mm[1] | 0], t = mob && mob.drops[mm[2] | 0];
+        const mi = mm[1] | 0, mob = cur.killed.includes(mi) ? X.mobAt(R, mi) : null, t = mob && mob.drops[mm[2] | 0];
         if (!t || !cur.killed.includes(mob.i) || cur.picked[id]) continue;
         if (X.addTrophy(run.bag, cap, t)) cur.picked[id] = 1;
       } else {
@@ -171,7 +175,7 @@ function act(u, body, opts = {}) {
   const a = body.action;
   if (a === 'close') { if (run.state !== 'over') fail('L’expédition n’est pas terminée'); m.run = null; return null; }
   if (run.state === 'over') fail('L’expédition est terminée');
-  applyReport(u, run, body.report, opts.rnd);
+  applyReport(u, run, body.report, opts.rnd, now);
   if (a === 'sync') return run;
   if (a === 'die') { run.hp = 0; finish(u, m, run, true, opts.grantXp); return run; }
   if (a === 'reward') {

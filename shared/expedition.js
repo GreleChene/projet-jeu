@@ -57,10 +57,10 @@
     const hp = Math.round(30 * (1 + 0.16 * (room - 1)) * hpW * (boss ? 9 : elite ? 2.5 : 1));
     return {
       type, name: d.name + (elite ? ' d’élite' : ''), hp, max: hp, elite, boss,
-      dmg: Math.round(7 * (1 + 0.09 * (room - 1)) * dmgW * (boss ? 1.4 : elite ? 1.3 : 1)),
-      speed: Math.round(clamp(d.speed || 60, 40, 125) * (boss ? 0.8 : 1)),
+      dmg: Math.round(9 * (1 + 0.09 * (room - 1)) * dmgW * (boss ? 1.4 : elite ? 1.3 : 1)),
+      speed: Math.round(clamp(d.speed || 60, 50, 130) * 1.15 * (boss ? 0.85 : 1)),
       ranged: boss ? null : d.ranged || null,
-      cd: Math.max(0.8, (d.cd || 1) * 1.15),
+      cd: Math.max(0.75, d.cd || 1),
       r: boss ? 30 : Math.round(clamp(d.size || 12, 9, 22) * (elite ? 1.35 : 1.05)),
       dot: d.onHit && (d.onHit.poison || d.onHit.burn) ? (d.onHit.burn ? 'burn' : 'poison') : null,
       xp: Math.round((boss ? 150 : d.xp || 5) * (1 + 0.12 * room) * (elite ? 5 : 1))
@@ -101,7 +101,7 @@
     for (let i = 0; i < nN; i++) {
       const p = free(26, 90);
       const gold = R() < 0.04 * (gen.jackpot || 0) ? 1.5 + 0.5 * (gen.fortune || 0) : 0;
-      nodes.push({ i, x: Math.round(p.x), y: Math.round(p.y), k: resKind(mode), r: 24, gold, amt: Math.round((6 + 0.6 * (room - 1)) * (1 + 0.15 * (gen.bounty || 0)) * (gold || 1)) });
+      nodes.push({ i, x: Math.round(p.x), y: Math.round(p.y), k: resKind(mode), r: 24, gold, amt: Math.max(2, Math.round((3.2 + 0.32 * (room - 1)) * (1 + 0.15 * (gen.bounty || 0)) * (gold || 1))) });
     }
     // monstres déjà présents dans la salle (avec leurs butins tirés d'avance)
     const T3 = M.trophies, pickC = () => T3.common[Math.floor(R() * T3.common.length)];
@@ -122,6 +122,18 @@
     return { mode, room, type, decor, sub, tier, seed, entry, exit, fountain, nodes, mobs,
       exitDelay: RT.exit, boss: type === 'gardien' || type === 'elite' ? 0 : -1 };
   }
+
+  // Renforts (et invocations des gardiens) : déterministes, numérotés à partir de REINF0 ; ils peuvent lâcher un butin
+  const REINF0 = 100;
+  function reinfSpec(mode, seed, room, tier, idx) {
+    const R = rngFor(seed, room, 1000 + idx), M = MINI.MODES[mode], pool = M.mobs[tier], T3 = M.trophies;
+    const type = pool[Math.floor(R() * pool.length)];
+    const p = sidePoint(SIDES[Math.floor(R() * 4)], (R() - 0.5) * 300, A.WALL + 30);
+    const drops = R() < MINI.DROPS.normal ? [T3.common[Math.floor(R() * T3.common.length)]] : [];
+    return { i: REINF0 + idx, ...mobStats(type, room, ''), xp: 0, drops, reinf: true, x: Math.round(p.x), y: Math.round(p.y), abil: null };
+  }
+  // monstre d'une salle par son numéro (renforts compris)
+  const mobAt = (R, i) => (i >= REINF0 ? reinfSpec(R.mode, R.seed, R.room, R.tier, i - REINF0) : R.mobs[i]);
 
   /* ============================== Sac et seau / charrette ============================== */
   const SLOT = MINI.HARVEST.slot;
@@ -191,16 +203,22 @@
       hero: { x: R.entry.x, y: R.entry.y, r: H.radius, hp: o.hp, max: o.max, dmg: o.dmg, crit: o.crit, armor: o.armor, buff: o.buff || { dmg: 0, crit: 0 },
         shieldMax: o.shield, shield: o.shield, shieldUp: false, shieldAt: -9, broken: 0, idle: 9, atkCd: 0.3, skillCd: 0, face: 0, aimX: R.entry.x + 1, aimY: R.entry.y,
         iframes: 0, swing: 0, hurt: 0, moving: false, dead: false, guardUsed: false, lootFrac: 0 },
-      mobs: R.mobs.map((m) => ({ ...m, home: { x: m.x, y: m.y }, aggro: false, cdT: 0.5 + Math.random(), wind: 0, target: -1, retarget: 0, frozen: 0, stun: 0,
+      mobs: R.mobs.map((m) => ({ ...m, home: { x: m.x, y: m.y }, aggro: false, wake: 0.6 + m.i * 0.25, cdT: 0.5 + Math.random() * 0.6, wind: 0, target: -1, retarget: 0, frozen: 0, stun: 0,
         mark: 0, markT: 0, weak: 0, weakT: 0, pdot: null, dead: killed.has(m.i), hit: 0, wander: Math.random() * 6, abilT: {}, act: null })),
       nodes: R.nodes.map((n) => ({ ...n, left: Math.max(0, n.amt - (harv[n.i] || 0)), shake: 0 })),
       drops: [], pets: [], projs: [], events: [], ops: [],
-      exitOpen: false, exitAt: R.boss >= 0 ? (o.rewardDone ? 0 : Infinity) : R.exitDelay, exitOpenedAt: 0, reinfT: 0,
+      exitOpen: false, exitAt: R.boss >= 0 ? (o.rewardDone ? 0 : Infinity) : R.exitDelay, exitOpenedAt: 0, reinfT: 0, reinfN: 0,
+      fountainLeft: R.fountain ? MINI.FOUNTAIN.time : 0,
       bag: o.bag, bagCap: o.bagCap, cart: o.cart, potions: o.potions || 0, killed,
       needReward: false, dead: false, exitReached: false
     };
     // butins des monstres déjà tués (pas encore ramassés) et tas de ressources des récompenses
     for (const m of R.mobs) if (killed.has(m.i)) m.drops.forEach((t, j) => { const id = `m${m.i}_${j}`; if (!picked[id]) s.drops.push({ id, t, x: m.x + (j - 1) * 18, y: m.y + 10 }); });
+    for (const i of killed) if (i >= REINF0) {
+      const m = mobAt(R, i);
+      s.reinfN = Math.max(s.reinfN, i - REINF0 + 1);
+      m.drops.forEach((t, j) => { const id = `m${i}_${j}`; if (!picked[id]) s.drops.push({ id, t, x: m.x, y: m.y + 10 }); });
+    }
     for (const x of o.extra || []) { const left = x.n - (picked[x.id] || 0); if (left > 0) s.drops.push({ id: x.id, r: x.res, n: left, x: x.x, y: x.y }); }
     // familiers
     (o.pets || []).forEach((p, i) => {
@@ -229,7 +247,6 @@
   function killMob(s, m) {
     m.dead = true; m.hp = 0;
     ev(s, 'kill', { x: m.x, y: m.y, boss: m.boss || m.elite });
-    if (m.reinf) return;
     s.killed.add(m.i);
     m.drops.forEach((t, j) => s.drops.push({ id: `m${m.i}_${j}`, t, x: m.x + (j - (m.drops.length - 1) / 2) * 20, y: m.y + 8 }));
     if ((m.boss || m.elite) && s.room.boss >= 0) s.needReward = true;
@@ -301,11 +318,9 @@
     s.projs.push({ owner, x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: o.range / sp, dmg: o.dmg, kind: o.kind, crit: o.crit, src: o.src, pet: o.pet, r: o.r || 8, scale: o.scale || 1 });
   }
   function spawnReinf(s, n) {
-    const pool = MINI.MODES[s.mode].mobs[s.room.tier];
     for (let k = 0; k < n; k++) {
-      const side = SIDES[Math.floor(Math.random() * 4)], p = sidePoint(side, (Math.random() - 0.5) * 300, A.WALL + 30);
-      const st = mobStats(pool[Math.floor(Math.random() * pool.length)], s.room.room, '');
-      s.mobs.push({ i: -1, ...st, xp: 0, drops: [], reinf: true, x: p.x, y: p.y, home: { x: p.x, y: p.y }, aggro: true, cdT: 1, wind: 0, target: -1, retarget: 0,
+      const m = reinfSpec(s.mode, s.room.seed, s.room.room, s.room.tier, s.reinfN++);
+      s.mobs.push({ ...m, home: { x: m.x, y: m.y }, aggro: true, cdT: 1, wind: 0, target: -1, retarget: 0,
         frozen: 0, stun: 0, mark: 0, markT: 0, weak: 0, weakT: 0, pdot: null, dead: false, hit: 0, wander: 0, abilT: {}, act: null });
     }
     ev(s, 'reinforce');
@@ -357,7 +372,11 @@
     }
     // fontaine (salle de repos)
     const F = s.room.fountain;
-    if (F && dist(h, F) < F.r + 40 && h.hp < h.max) { h.hp = Math.min(h.max, h.hp + h.max * 0.12 * dt); if (Math.random() < dt * 4) ev(s, 'heal', { x: h.x, y: h.y }); }
+    if (F && s.fountainLeft > 0 && dist(h, F) < F.r + 40 && h.hp < h.max) {
+      const k = Math.min(dt, s.fountainLeft);
+      s.fountainLeft -= k; h.hp = Math.min(h.max, h.hp + MINI.FOUNTAIN.hps * k);
+      if (Math.random() < dt * 4) ev(s, 'heal', { x: h.x, y: h.y });
+    }
     // ramassage des butins et des tas de ressources
     for (let i = s.drops.length - 1; i >= 0; i--) {
       const d = s.drops[i];
@@ -469,7 +488,7 @@
     if (m.stun > 0) { m.stun -= dt; m.wind = 0; return; }
     const h = s.hero;
     if (!m.aggro) {
-      if (dist(m, h) < 280 || m.hit > 0) { m.aggro = true; m.target = chooseTarget(s, m); ev(s, 'aggro', { x: m.x, y: m.y }); }
+      if (dist(m, h) < 280 || m.hit > 0 || s.t >= m.wake) { m.aggro = true; m.target = chooseTarget(s, m); ev(s, 'aggro', { x: m.x, y: m.y }); }
       else { m.wander += dt; moveToward(m, m.home.x + Math.cos(m.wander * 0.7) * 40, m.home.y + Math.sin(m.wander * 0.9) * 30, m.speed * 0.25, dt); keepIn(s, m, m.r); return; }
     }
     if ((m.retarget -= dt) <= 0) { m.retarget = 3; m.target = chooseTarget(s, m); }
@@ -606,5 +625,5 @@
   const nearCart = (s) => !!(s.cart && s.cart.here && s.cart.x !== undefined && dist(s.hero, s.cart) < 80);
 
   return { roomType, sidesFor, genRoom, mobStats, bagCap, cartCap, hasPocket, carrySlots, addRes, resRoom, addTrophy, moveSlot, moveAll, totals, deathSplit,
-    heroStyle, createSim, stepSim, nearCart, openExit, SLOT };
+    heroStyle, createSim, stepSim, nearCart, openExit, SLOT, REINF0, reinfSpec, mobAt };
 });

@@ -228,7 +228,7 @@
       if (op[0] === 'h') X.addRes(bag, cap, res, op[2]);
       else if (op[0] === 'p') {
         const mm = /^m(\d+)_(\d+)$/.exec(op[1]);
-        if (mm) { const mob = room.mobs[+mm[1]]; if (mob && mob.drops[+mm[2]]) X.addTrophy(bag, cap, mob.drops[+mm[2]]); }
+        if (mm) { const mob = X.mobAt(room, +mm[1]); if (mob && mob.drops[+mm[2]]) X.addTrophy(bag, cap, mob.drops[+mm[2]]); }
         else { const pile = (run.cur.extra || []).find((x) => x.id === op[1]); if (pile) X.addRes(bag, cap, pile.res, op[2]); }
       }
     }
@@ -516,7 +516,7 @@
     // salle reprise (page rechargée) : la sortie tient compte du temps déjà passé
     if (room.boss < 0) { sim.exitAt = Math.max(0, room.exitDelay - (run.roomAge || 0) / 1000); if (sim.exitAt <= 0) X.openExit(sim); }
     sim.events.length = 0;
-    Object.assign(G, { room, sim, roomNo: run.room, bg: D.drawRoomBg(room, G.k), roomT: 0, fade: 1, fadeOut: 0, exitCalled: false, deadAt: 0, dieCalled: false,
+    Object.assign(G, { room, sim, roomNo: run.room, bg: D.drawRoomBg(room, G.k), amb: makeAmbient(run.mode, room.decor), vig: makeVignette(run.mode, room.decor), roomT: 0, fade: 1, fadeOut: 0, exitCalled: false, deadAt: 0, dieCalled: false,
       fx: [], parts: [], floats: [], leaving: null, sentKills: sim.killed.size, lastSync: G.t, retryAt: 0 });
     const RT = M.ROOMS[room.type], dec = M.MODES[run.mode].decors[room.decor];
     banner(`Salle ${run.room}`, `${RT.icon} ${RT.name} · ${dec.name} — ${dec.subs[room.sub]}`, 2.4);
@@ -934,6 +934,64 @@
     }
   }
 
+  /* ============================== Ambiance : lumière et particules ============================== */
+  // obscurité aux bords (caverne : la torche du héros éclaire autour de lui) ; [opacité, couleur] par décor
+  const LIGHT = {
+    mine: [[0.45, '10,6,4'], [0.5, '10,6,26'], [0.42, '34,6,2']],
+    foret: [[0.16, '10,26,8'], [0.28, '6,20,12'], [0.45, '22,6,34']],
+    champ: [[0.1, '70,46,0'], [0.14, '30,44,10'], [0.32, '56,16,56']]
+  };
+  // vignette fixe des décors en plein air (dessinée une fois par salle)
+  function makeVignette(mode, decor) {
+    if (mode === 'mine') return null;
+    const [a, col] = LIGHT[mode][Math.min(2, decor)], c = document.createElement('canvas');
+    c.width = AW / 2; c.height = AH / 2;
+    const x = c.getContext('2d'), g = x.createRadialGradient(AW / 4, AH / 4, AH * 0.16, AW / 4, AH / 4, AW * 0.3);
+    g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${a})`);
+    x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);
+    return c;
+  }
+  function drawLight(ctx, t) {
+    const h = G.sim.hero;
+    if (G.vig) { ctx.drawImage(G.vig, 0, 0, AW, AH); return; }
+    const [a, col] = LIGHT.mine[Math.min(2, G.room.decor)], fl = 1 + Math.sin(t * 9) * 0.025 + Math.sin(t * 23) * 0.015;
+    const g = ctx.createRadialGradient(h.x, h.y - 20, 80 * fl, h.x, h.y - 20, 380 * fl);
+    g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${a})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, AW, AH);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.07 * fl; glowAt(ctx, h.x, h.y - 24, '#ffb84a', 110); ctx.restore();
+  }
+  // particules : poussière, éclats de cristal, braises (caverne) ; feuilles, lucioles (forêt) ; pollen, papillons, lucioles (clairière)
+  const AMB = { mine: ['dust', 'sparkle', 'ember'], foret: ['leaf', 'leaf', 'firefly'], champ: ['pollen', 'butterfly', 'firefly'] };
+  function makeAmbient(mode, decor) {
+    const kind = AMB[mode][Math.min(2, decor)], n = kind === 'butterfly' ? 8 : kind === 'leaf' ? 22 : 34;
+    const cols = { leaf: ['#5cb84a', '#e8a04a', '#c97b3a', '#8fd06a'], butterfly: ['#ffd23a', '#ff9fd0', '#ffffff', '#9fd8ff'], sparkle: ['#c9e6ff', '#e0c8ff'] }[kind] || ['#ffffff'];
+    return Array.from({ length: n }, (_, i) => ({ kind, x: Math.random() * AW, y: Math.random() * AH, ph: Math.random() * 10, v: 0.5 + Math.random(), c: cols[i % cols.length] }));
+  }
+  function drawAmbient(ctx, t, dt) {
+    for (const p of G.amb || []) {
+      const w = Math.sin(t * 1.3 + p.ph);
+      ctx.save();
+      switch (p.kind) {
+        case 'dust': p.x += w * 6 * dt; p.y -= 5 * p.v * dt; ctx.globalAlpha = 0.25 + 0.2 * w; ctx.fillStyle = '#fff4d8'; ctx.fillRect(p.x, p.y, 2, 2); break;
+        case 'sparkle': { const k = Math.max(0, Math.sin(t * 2 * p.v + p.ph)); ctx.globalAlpha = k; ctx.fillStyle = p.c; ctx.fillRect(p.x - 1, p.y - 4, 2, 8); ctx.fillRect(p.x - 4, p.y - 1, 8, 2); break; }
+        case 'ember': p.y -= 24 * p.v * dt; p.x += w * 12 * dt; ctx.globalAlpha = 0.5 + 0.4 * w; glowAt(ctx, p.x, p.y, '#ff8a2a', 5); ctx.fillStyle = '#ffd23a'; ctx.fillRect(p.x - 1, p.y - 1, 3, 3); break;
+        case 'leaf': p.y += 22 * p.v * dt; p.x += (14 + w * 20) * dt; ctx.translate(p.x, p.y); ctx.rotate(t * 2 * p.v + p.ph); ctx.globalAlpha = 0.9; ctx.fillStyle = p.c; ctx.fillRect(-3, -2, 6, 4); ctx.fillStyle = 'rgba(18,12,10,.35)'; ctx.fillRect(-3, 1, 6, 1); break;
+        case 'firefly': p.x += Math.cos(t * 0.7 + p.ph) * 16 * dt; p.y += Math.sin(t * 0.9 + p.ph * 1.3) * 14 * dt; ctx.globalAlpha = 0.35 + 0.45 * Math.max(0, Math.sin(t * 3 + p.ph)); glowAt(ctx, p.x, p.y, G.mode === 'foret' ? '#9fffd6' : '#eaff7a', 9); break;
+        case 'pollen': p.y -= 7 * p.v * dt; p.x += w * 10 * dt; ctx.globalAlpha = 0.55; ctx.fillStyle = '#fffbe0'; ctx.fillRect(p.x, p.y, 2, 2); break;
+        case 'butterfly': {
+          p.x += (Math.cos(t * 0.5 + p.ph) * 40) * dt + 10 * dt; p.y += Math.sin(t * 1.7 + p.ph) * 30 * dt;
+          const f = Math.abs(Math.sin(t * 14 + p.ph)) * 5 + 1;
+          ctx.fillStyle = p.c; ctx.fillRect(p.x - f, p.y - 3, f, 5); ctx.fillRect(p.x + 1, p.y - 3, f, 5);
+          ctx.fillStyle = OL; ctx.fillRect(p.x, p.y - 3, 1, 6); break;
+        }
+        default: break;
+      }
+      ctx.restore();
+      if (p.y < -12) p.y = AH + 10; else if (p.y > AH + 12) p.y = -10;
+      if (p.x < -12) p.x = AW + 10; else if (p.x > AW + 12) p.x = -10;
+    }
+  }
+
   /* ============================== Dessin ============================== */
   function txt(ctx, s, x, y, size, col, align, lw) {
     ctx.font = `800 ${size}px ${FONT}`; ctx.textAlign = align || 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
@@ -959,7 +1017,9 @@
     if (G.shake > 0.3) ctx.translate((Math.random() - 0.5) * G.shake, (Math.random() - 0.5) * G.shake);
     drawWorld(ctx, t);
     drawEffects(ctx, t, dt);
+    drawAmbient(ctx, t, dt);
     ctx.restore();
+    drawLight(ctx, t);
     // flash rouge quand le héros est touché
     if (G.flash > 0) { const g = ctx.createRadialGradient(AW / 2, AH / 2, AH * 0.3, AW / 2, AH / 2, AW * 0.62); g.addColorStop(0, 'rgba(255,40,30,0)'); g.addColorStop(1, `rgba(255,40,30,${G.flash * 0.55})`); ctx.fillStyle = g; ctx.fillRect(0, 0, AW, AH); }
     drawHud(ctx, t);
@@ -980,7 +1040,7 @@
   function drawWorld(ctx, t) {
     const s = G.sim, room = G.room, h = s.hero;
     ctx.drawImage(G.bg, 0, 0, AW, AH);
-    if (room.fountain) D.drawFountain(ctx, room.fountain, t);
+    if (room.fountain) D.drawFountain(ctx, room.fountain, t, s.fountainLeft / M.FOUNTAIN.time);
     if (s.exitOpen) D.drawExit(ctx, room, t);
     else if (room.exit.kind === 'hole' && isFinite(s.exitAt) && s.exitAt - s.t < 2.5) { // le sol se fissure avant l'ouverture
       const k = 1 - Math.max(0, s.exitAt - s.t) / 2.5, e = room.exit;

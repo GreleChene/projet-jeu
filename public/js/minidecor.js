@@ -130,21 +130,71 @@
   }
 
   // Fond d'une salle (mis en cache par la page) : room = résultat de Expedition.genRoom ; scale = finesse (écrans haute densité)
+  // Sol en pixel art : grandes plaques (bruit lissé) découpées en pixels de 8 px, avec un tramage aux bordures
+  function floor(c, P, R) {
+    const S = 8, Gd = 72, gw = Math.ceil(W / Gd) + 2, gh = Math.ceil(H / Gd) + 2, g = [];
+    for (let i = 0; i < gw * gh; i++) g.push(R());
+    const sm = (t) => t * t * (3 - 2 * t);
+    const at = (x, y) => {
+      const gx = x / Gd, gy = y / Gd, x0 = Math.floor(gx), y0 = Math.floor(gy), u = sm(gx - x0), v = sm(gy - y0);
+      const a = g[y0 * gw + x0], b = g[y0 * gw + x0 + 1], d = g[(y0 + 1) * gw + x0], e = g[(y0 + 1) * gw + x0 + 1];
+      return a + (b - a) * u + (d - a) * v + (a - b - d + e) * u * v;
+    };
+    const shades = [A.shade(P.floor[0], 0.06), P.floor[0], P.floor[1], A.shade(P.floor[1], -0.07)];
+    for (let y = 0; y < H; y += S) for (let x = 0; x < W; x += S) {
+      const v = at(x + S / 2, y + S / 2) * 4.6 - 0.3 + (((x / S + y / S) & 1) ? 0.16 : -0.16);
+      c.fillStyle = shades[Math.max(0, Math.min(3, Math.floor(v)))]; c.fillRect(x, y, S, S);
+    }
+  }
+  // Détails du sol, pixel par pixel (3 px) : cailloux et fissures, touffes d'herbe, fleurs, feuilles mortes
+  function floorDetails(c, P, R) {
+    const px = (x, y, col) => { c.fillStyle = col; c.fillRect(Math.round(x / 3) * 3, Math.round(y / 3) * 3, 3, 3); };
+    const dark = A.shade(P.floor[1], -0.25), light = A.shade(P.floor[0], 0.22);
+    if (P.kind === 'rock') {
+      for (let i = 0; i < 90; i++) { const p = anywhere(R), w = R() < 0.3 ? 2 : 1; for (let a = 0; a <= w; a++) px(p.x + a * 3, p.y, P.speck); px(p.x, p.y - 3, light); px(p.x + w * 3 + 3, p.y + 3, dark); }
+      for (let i = 0; i < 12; i++) { let p = anywhere(R); for (let k = 0; k < 9; k++) { px(p.x, p.y, dark); p = { x: p.x + (R() < 0.5 ? 3 : -3) * (R() < 0.7 ? 1 : 0) + 3, y: p.y + (R() < 0.5 ? 3 : 0) }; } }
+      return;
+    }
+    const grassD = A.shade(P.floor[1], -0.18), grassL = A.shade(P.floor[0], 0.18);
+    for (let i = 0; i < 170; i++) { // touffes d'herbe
+      const p = anywhere(R);
+      px(p.x - 3, p.y, grassD); px(p.x, p.y, grassD); px(p.x + 3, p.y, grassD);
+      px(p.x - 3, p.y - 3, grassD); px(p.x, p.y - 6, grassL); px(p.x + 3, p.y - 3, grassD);
+    }
+    if (P.kind === 'dead') { for (let i = 0; i < 60; i++) { const p = anywhere(R); px(p.x, p.y, '#5a4a40'); px(p.x + 3, p.y, '#3a2e28'); } return; }
+    const flowers = P.kind === 'hedge' ? ['#ffffff', '#ffd23a', '#ff9fd0', '#c9a0ff', '#e2504c'] : ['#ffffff', '#ffd23a', '#d9b07a'];
+    for (let i = 0; i < (P.kind === 'hedge' ? 90 : 45); i++) { // petites fleurs (croix de 4 pixels autour d'un cœur jaune)
+      const p = anywhere(R), col = flowers[Math.floor(R() * flowers.length)];
+      px(p.x - 3, p.y, col); px(p.x + 3, p.y, col); px(p.x, p.y - 3, col); px(p.x, p.y + 3, col); px(p.x, p.y, '#ffb02e');
+    }
+    if (P.kind === 'trees') for (let i = 0; i < 50; i++) { const p = anywhere(R), col = ['#c97b3a', '#e8a04a', '#8a5e38'][i % 3]; px(p.x, p.y, col); px(p.x + 3, p.y + 3, A.shade(col, -0.2)); }
+  }
+  // Profondeur des murs : face intérieure du mur du haut et ombres portées sur les quatre côtés
+  function wallDepth(c, P) {
+    const face = A.shade(P.wall, -0.15);
+    c.fillStyle = face; c.fillRect(WL - 6, WL - 2, W - 2 * WL + 12, 14);
+    c.fillStyle = A.shade(P.wall, 0.12); for (let x = WL; x < W - WL; x += 12) c.fillRect(x, WL - 2, 6, 3);
+    c.fillStyle = 'rgba(0,0,0,.18)'; for (let x = WL + 6; x < W - WL; x += 24) c.fillRect(x, WL + 2, 3, 10);
+    const side = (x0, y0, x1, y1, w) => { const g = c.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, 'rgba(0,0,0,.32)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; return g; };
+    side(0, WL + 12, 0, WL + 46); c.fillRect(WL, WL + 12, W - 2 * WL, 34);
+    side(WL, 0, WL + 22, 0); c.fillRect(WL, WL, 22, H - 2 * WL);
+    side(W - WL, 0, W - WL - 22, 0); c.fillRect(W - WL - 22, WL, 22, H - 2 * WL);
+    side(0, H - WL, 0, H - WL - 14); c.fillRect(WL, H - WL - 14, W - 2 * WL, 14);
+  }
+
+  // Fond d'une salle (mis en cache par la page) : room = résultat de Expedition.genRoom ; scale = finesse (écrans haute densité)
   function drawRoomBg(room, scale) {
     const k = scale || 1, cv = document.createElement('canvas'); cv.width = Math.round(W * k); cv.height = Math.round(H * k);
     const c = cv.getContext('2d'), P = pal(room.mode, room.decor);
     c.scale(k, k);
     const R = window.Terrain.mulberry32(((room.seed | 0) ^ Math.imul(room.room + 1, 7919)) | 0);
-    c.fillStyle = P.floor[0]; c.fillRect(0, 0, W, H);
-    for (let i = 0; i < 26; i++) { const p = anywhere(R); blob(c, p.x, p.y, 40 + R() * 70, 26 + R() * 40, P.floor[1], 0.8); }
-    for (let i = 0; i < 260; i++) { c.fillStyle = A.rgba(P.speck, 0.7); c.fillRect(R() * W, R() * H, 3, 2); }
+    floor(c, P, R);
+    floorDetails(c, P, R);
     const f = PROPS[room.mode][Math.min(2, room.decor)][room.sub];
     if (f) f(c, R, P);
+    wallDepth(c, P);
     walls(c, P, R);
     if (P.tint) { c.fillStyle = P.tint; c.fillRect(0, 0, W, H); }
-    // ombre intérieure le long des murs
-    const g = c.createLinearGradient(0, WL, 0, WL + 30); g.addColorStop(0, 'rgba(0,0,0,.3)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    c.fillStyle = g; c.fillRect(WL, WL, W - 2 * WL, 30);
     return cv;
   }
 
@@ -180,11 +230,15 @@
   }
 
   // Fontaine des salles de repos
-  function drawFountain(c, f, t) {
+  // left : part du soin qui reste (1 = pleine, 0 = tarie)
+  function drawFountain(c, f, t, left) {
+    const k0 = left === undefined ? 1 : Math.max(0, Math.min(1, left));
+    A.shadow(c, f.x + 4, f.y + 8, f.r + 4, f.r * 0.5);
     A.circle(c, f.x, f.y, f.r, '#a6aab2', 3);
-    A.circle(c, f.x, f.y, f.r - 8, '#6fc6ef', 2);
-    for (let i = 0; i < 3; i++) { const k = (t * 1.4 + i / 3) % 1; c.strokeStyle = `rgba(220,245,255,${1 - k})`; c.lineWidth = 2; c.beginPath(); c.arc(f.x, f.y, 4 + k * (f.r - 10), 0, Math.PI * 2); c.stroke(); }
-    glowAt(c, f.x, f.y, '#9fffd6', 30 + Math.sin(t * 2) * 4);
+    A.circle(c, f.x, f.y, f.r - 8, k0 > 0 ? '#6fc6ef' : '#7a7470', 2);
+    if (k0 <= 0) return;
+    for (let i = 0; i < 3; i++) { const k = (t * 1.4 + i / 3) % 1; c.strokeStyle = `rgba(220,245,255,${(1 - k) * k0})`; c.lineWidth = 2; c.beginPath(); c.arc(f.x, f.y, 4 + k * (f.r - 10), 0, Math.PI * 2); c.stroke(); }
+    c.save(); c.globalAlpha = k0; glowAt(c, f.x, f.y, '#9fffd6', 30 + Math.sin(t * 2) * 4); c.restore();
   }
 
   window.MiniDecor = { drawRoomBg, drawExit, drawFountain, palette: pal };

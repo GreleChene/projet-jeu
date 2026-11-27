@@ -313,3 +313,39 @@ test('mini-jeux (simulation) : récolte avec la touche d’attaque, sac plein, s
   for (let i = 0; i < 60 && !f.exitReached; i++) X.stepSim(f, 0.05, { mx: dir[0], my: dir[1] });
   assert.ok(f.exitReached, 'sortie par le côté ' + R.exit.side);
 });
+
+test('mini-jeux (simulation) : fontaine 10 PV/s pendant 3 s ; monstres qui foncent sur le héros ; renforts toutes les 5 s', () => {
+  // fontaine : 30 PV au plus par salle de repos
+  let s = arena([], { fountain: { x: 520, y: 300, r: 34 } });
+  s.hero.hp = 10;
+  for (let i = 0; i < 200; i++) X.stepSim(s, 0.05, {});
+  assert.strictEqual(Math.round(s.hero.hp), 10 + M.FOUNTAIN.hps * M.FOUNTAIN.time);
+  assert.ok(s.fountainLeft <= 0);
+  // un monstre loin du héros se réveille et vient vers lui
+  s = arena([{ type: 'sanglier', x: 880, y: 520 }]);
+  const d0 = Math.hypot(s.mobs[0].x - 480, s.mobs[0].y - 300);
+  for (let i = 0; i < 40; i++) X.stepSim(s, 0.05, {});
+  assert.ok(s.mobs[0].aggro && Math.hypot(s.mobs[0].x - 480, s.mobs[0].y - 300) < d0 - 60, 'il fonce vers le héros');
+  // renforts : 25 s après l'ouverture de la sortie, puis toutes les 5 s
+  s = arena([]);
+  s.hero.hp = s.hero.max = 1e7;
+  for (let i = 0; i < 20 * (10 + M.REINFORCE.after + M.REINFORCE.every) + 4; i++) X.stepSim(s, 0.05, {});
+  assert.strictEqual(s.mobs.filter((m) => m.reinf).length, 2 * M.REINFORCE.count);
+  assert.ok(s.mobs.every((m) => m.i >= X.REINF0), 'renforts numérotés');
+  assert.deepStrictEqual(X.reinfSpec('mine', 1, 1, 0, 3), X.reinfSpec('mine', 1, 1, 0, 3), 'déterministes');
+});
+
+test('mini-jeux : les renforts tués comptent et leurs butins se ramassent (dans la limite du temps passé)', () => {
+  const u = user();
+  const run = mini.start(u, 'foret', {}, { now: T0, rnd: fixed(0.3) });
+  const R = X.genRoom('foret', run.seed, 1, run.gen);
+  let idx = 0;
+  while (!X.reinfSpec('foret', run.seed, 1, 0, idx).drops.length) idx++;
+  const id = X.REINF0 + idx, spec = X.mobAt(R, id);
+  // trop tôt : impossible d'avoir déjà vu autant de renforts
+  mini.act(u, { action: 'sync', report: { k: [X.REINF0 + 500], ops: [] } }, { now: T0 + 2000 });
+  assert.strictEqual(run.kills, 0);
+  mini.act(u, { action: 'sync', report: { k: [id], ops: [['p', `m${id}_0`, 1]] } }, { now: T0 + 60000 + idx * 3000 });
+  assert.strictEqual(run.kills, 1);
+  assert.deepStrictEqual(run.bag, [{ t: spec.drops[0] }]);
+});
